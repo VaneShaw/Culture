@@ -1,0 +1,16 @@
+/* 
+  Localizable.strings
+  YiTongProject
+
+  Created by ios01 on 2025/8/29.
+  
+
+"Hi" = "안녕";
+"Learning starts now" = "공부는 지금부터 시작이다";
+"Pick a Topic to Practice" = "한 가지 주제를 선택하여 연습하세요";
+"Favorites" = "파비콘";
+"Orders" = "주문서";
+"Clear Cache" = "캐시 지우기";
+
+
+ */

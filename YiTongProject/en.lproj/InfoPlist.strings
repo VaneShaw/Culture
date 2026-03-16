@@ -1,0 +1,18 @@
+/* 
+  InfoPlist.strings
+  YiTongProject
+
+  Created by ios01 on 2025/9/15.
+  
+*/
+
+//"CFBundleDisplayName" = "YTong";
+//"NSMicrophoneUsageDescription" = "我们需要使用您的麦克风才能实现录音功能";
+//"NSUserTrackingUsageDescription" = "此标识符将用于统计分析和个性化内容推荐，帮助我们改进服务体验。";
+
+"NSMicrophoneUsageDescription" = "We need to access your microphone in order to provide the recording function.";
+"NSUserTrackingUsageDescription" = "We use your data to determine the source and effectiveness of ads.";
+
+//"We need to access your microphone in order to provide the recording function." = "我们需要使用您的麦克风才能实现录音功能。"
+//"We use your data to determine the source and effectiveness of ads." = "此标识符将用于统计分析和个性化内容推荐，帮助我们改进服务体验。"
+"NSPhotoLibraryUsageDescription" = "We need access to your photo library to select and upload avatar images";

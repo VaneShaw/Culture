@@ -1,0 +1,20 @@
+//
+//  UIViewController+BackButton.h
+//  YiTongProject
+//
+//  Created by Vincent on 2025/8/12.
+//
+
+#import <UIKit/UIKit.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface UIViewController (BackButton)
+// 添加返回按钮方法
+- (void)addGlobalBackButton;
+- (void)addGlobalBackButtonColor:(UIColor *)color headerTitleDic:(NSDictionary *)dic;
+// 全局返回方法
+- (void)globalBackAction;
+@end
+
+NS_ASSUME_NONNULL_END

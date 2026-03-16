@@ -1,0 +1,12 @@
+/* 
+  InfoPlist.strings
+  YiTongProject
+
+  Created by ios01 on 2025/9/15.
+  
+*/
+//"CFBundleDisplayName" = "实亿易通";
+
+"NSMicrophoneUsageDescription" = "我们需要使用您的麦克风才能实现录音功能";
+"NSUserTrackingUsageDescription" = "此标识符将用于统计分析和个性化内容推荐，帮助我们改进服务体验。";
+"NSPhotoLibraryUsageDescription" = "需要访问您的相册，用于选择和上传头像图片";

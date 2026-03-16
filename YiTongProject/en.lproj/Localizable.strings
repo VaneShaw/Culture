@@ -1,0 +1,34 @@
+/* 
+  Localizable.strings
+  YiTongProject
+
+  Created by ios01 on 2025/8/29.
+
+"Hi" = "";
+"Learning starts now" = "";
+"Pick a Topic to Practice" = "";
+"Favorites" = "";
+"Orders" = "";
+"Clear Cache" = "";
+"We recommend learning initials and finals before syllables." = "";
+"By logging in, you agree to our [Terms of Service] And [Privacy Policy]" = "";
+"[Terms of Service]" = "";
+"[Privacy Policy]" = "";
+*/
+
+/*
+Listen
+Speak
+Write
+Keep Practicing
+Tap to start recording and say this sound out loud
+*/
+
+"Pick a Topic to Practice"="Pick a\nTopic to Practice";
+"Membership_me" = "Membership";
+"Premium activated Unlimited access" = "Premium activated \nUnlimited access";
+"Unlock all stories and lessons when you start now." = "Unlock all stories and lessons \nwhen you start now.";
+"Reactivate your subscription to keep all stories and features." = "Reactivate your subscription \nto keep all stories and features.";
+"Delete Account1"="Delete Account";
+"Email11" = "Email";
+"Continue11" = "Continue";

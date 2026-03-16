@@ -1,0 +1,350 @@
+/* 
+  Localizable.strings
+  YiTongProject
+
+  Created by ios01 on 2025/8/29.
+ */
+
+"Hi" = "你好";
+
+"By logging in, you agree to our [Terms of Service] And [Privacy Policy]" = "我已阅读并同意《用户协议》和《隐私政策》";
+ "[Terms of Service]" = "《用户协议》";
+ "[Privacy Policy]" = "《隐私政策》";
+"Home" = "首页";
+"Quiz" = "问答";
+"Profile" = "个人资料";
+"Keep Practicing" = "继续挑战";
+
+"Hi"="你好";
+"Home"="首页";
+"Learning starts now"="开始你的学习之旅";
+"Learning Progress"="学习进度";
+
+"Say it Right!"="拼音启蒙";
+"Build a strong foundation Perfect your pronunciation"="掌握拼音体系，练就标准发音与规范书写";
+"5 core modules / Step-by-step"="5大核心模块/循序渐进学习";
+"Myths and Legends"="神话传说 点击查看神话故事列表";
+"Discover ancient stories, feel civilization origin"="聆听古老传说，感受文明源头";
+"Hanzi Journey"="走进汉字";
+"From basics to advanced,learn 500+ common characters"="从基础到进阶，认识500+常用汉字";
+"High-frequency mastery / Decode culture"="常用高频掌握/解码千年文化";
+"Idiom Stories"="成语典故";
+"Understand idioms through classic stories"="透过经典故事，深解成语智慧";
+"Pick a Topic to Practice"="选择练习模式";
+"Basics Review"="知识回顾";
+"Pinyin Practice"="拼音基训练";
+"Let’s see how well you’ve learned!"="巩固拼音基础，提升发音准确度";
+"Start Quiz"="开始练习";
+"Level Up"="声调巩固";
+"Tone Practice"="声调挑战赛";
+"Can you master all four tones?"="系统训练四声，轻松掌握每个声调";
+"Start Quiz"="开始练习";
+"Quit now?"="现在退出吗？";
+"Your progress won’t be saved.You’re almost done — don’t give up now!"="当前进度将不会保存。你已经快完成啦，坚持一下吧！";
+"Exit Anyway"="仍要退出";
+"Keep Going"="继续答题";
+"Welcome back!"="欢迎回来！";
+"Continue from where you stopped?"="要从上次进度继续吗？";
+"No, start over"="重新开始";
+"Yes, resume"="继续学习";
+"Tap the audio button to hear the pronunciation first"="先点击音频按钮听发音";
+
+"Tap any audio button to hear a pronunciation"="可点击任意音频按钮收听发音";
+"Now choose the answer that matches the sound"="根据听到的发音选择正确答案";
+"Tap the audio button to hear the pronunciation first" = "先点击音频按钮听发音";
+"Now choose the answer that matches the sound" = "根据听到的发音选择正确答案";
+
+"After listening, tap the answer that matches the sound"="选择与发音相符的答案";
+"Keep Practicing"="继续挑战";
+"Quiz"="练习";
+"Settings"="设置";
+"Favorites"="收藏";
+"Orders"="订单";
+"Clear Cache"="清缓存";
+"Profile"="我的";
+"You haven’t collected anything yet.Start exploring and add your favorites here!"="这里还没有内容哦～";
+"No orders found. Purchases will appear here once completed."="这里还没有订单哦～";
+"Clearing cache frees up space without deleting your data."="清理缓存可以释放空间 你的个人数据不会受影响";
+"Cache cleared successfully."="缓存清理成功，已释放";
+"freed."="";
+"Clear Now"="立即清理";
+"Log out"="退出登录";
+
+"Deleted accounts cannot be restored"="账号一经注销将无法恢复，请谨慎操作";
+"nan"="学习进度已自动保存， 您可随时再次登录继续学习。";
+"Delete Account1"="注销账号";
+"Delete Account Notice"="注销账号提示";
+
+"Next step"="下一步";
+"Verify Your Email"="安全验证";
+"Please confirm your email to continue"="我们将向您的手机号发送验证码";
+"Enter The Verification Code"="请输入6位验证码";
+"Send Code"="获取验证码";
+"Confirm and Continue"="立即验证";
+"Account Deletion"="注销提醒";
+"Delete your YTong account? This action is permanent and cannot be undone."="确定要注销账号吗？ 此操作不可恢复，所有数据将被清空。";
+"Cancel"="取消";
+"Delete Account"="确认注销";
+"Ready to log out?"="确认退出登录？";
+
+"Your learning progress will be saved. You can continue anytime."="学习进度已自动保存， 您可随时再次登录继续学习。";
+"Log out"="退出登录";
+"By logging in, you agree to our [Terms of Service] And [Privacy Policy]"="我已阅读并同意《用户协议》和《隐私政策》";
+
+"[Terms of Service]"="《用户协议》";
+"[Privacy Policy]"="《隐私政策》";
+"Start with Pinyin" = "拼音";
+"Learning Progress" = "学习进度";
+"Pronunciation" = "拼音发音";
+"Alphabetical" = "字母对照";
+"Start Learning" = "开始学习";
+"Listen" = "听音";
+"Speak" = "跟读";
+"Write" = "书写";
+"Tap to start recording and say this sound out loud" = "点击录音按钮，读出这个音";
+"Recording...Tap to stop" = "录音中… 点击结束";
+"Standard" = "参考发音";
+"My Voice" = "我的发音";
+"Scoring..." = "评分中...";
+
+
+"Go to Settings" = "去设置";
+"Refresh" = "刷新";
+"Video" = "视频";
+"Resend" = "重新发送";
+"Arranged to help you learn sounds faster." = "先认识字母，再进入系统学习";
+"Sign in to start your learning journey" = "登录解锁你的学习旅程";
+"Sign In Now" = "立即登录";
+"View Meaning & Usage" = "查看释义与词组";
+"Back to Character" = "返回字卡";
+"Interpretation" = "字义";
+"Form Words" = "组词";
+"Go to playback position" = "定位到播放位置";
+
+//"The network is not enabled. Please check your Wi-Fi or cellular data settings." = "网络未开启，请检查Wi-Fi或蜂窝数据设置";
+"Network is unavailable. Please check your Wi-Fi or cellular data settings." = "网络未开启，请检查 Wi-Fi 或蜂窝数据设置";
+
+"Microphone permission was denied" = "麦克风权限被拒绝";
+"Enable microphone permissions in Settings to use the recording feature" = "在“设置”中启用麦克风权限以使用录音功能";
+
+
+//----------------------------------------------
+"Membership" = "会员中心";
+"Unlock Premium" = "解锁会员权益";
+"Unlimited access to all learning content" = "畅享全部学习内容与高效体验";
+
+//会员未试用
+"7-day free trial → Auto-renew after trial" = "7 天免费试用，试用结束后自动续费";
+"Plans from $6.99/month" = "会员最低仅 8元/月";  //第二行
+"Plans from " = "会员最低仅 ";
+//"Cancel anytime before Day 7" = "试用期内可随时取消";
+"Cancel anytime during the trial." = "试用期内可随时取消";
+
+
+"Start Free Trial" = "立即开启免费试用";
+"Subscribe Now" = "立即解锁会员";
+"Restore Subscription" = "恢复订阅";
+
+"Free Trial" = "免费试用";
+//会员已试用
+//"Plans from $6.99/month" = "8 元/月起，享受完整学习路径与全部资源";//第一行
+"plan_price_format_one" = "%.2f元/月起，享受完整学习路径与全部资源";
+
+"Auto-renew every billing period" = "不限次数练习、不限阅读内容、解锁全部功能";
+"Cancel anytime" = "开通后可随时取消，放心无负担";
+
+
+"Unlock the complete Stories collection" = "解锁完整故事合集";
+"Unlock the complete Pinyin course" = "解锁完整拼音课程";
+"Unlock the complete Characters course"="解锁完整汉字课程";
+
+"Unlock Now" = "立即解锁";
+"Full Access" = "全量解锁";
+
+"Membership Service Terms" = "《会员服务协议》";
+"[Privacy Policy]" = "《隐私政策》";
+
+"Membership Terms" = "《会员服务协议》";
+"Privacy Policy" = "《隐私政策》";
+"Read and agree to the Membership Service Terms" = "请阅读并同意《会员服务协议》";
+"By checking this box, you agree to the Membership Terms and Privacy Policy."  = "点击即表示你已阅读并同意《会员服务协议》 《隐私政策》";
+//"Plans starting from $6.99/month" = "会员最低 8元/月";
+//"plan_price_format" = "会员最低 %.2f元/月";
+
+"Exclusive Content" = "会员专属完整内容";
+"Guided Skill Practice" = "系统化学习练习";
+"Progress Tracking" = "可视化学习进度";
+"Premium Access" = "进阶内容持续解锁";
+
+"Pinyin, characters, and stories in one place" = "拼音、汉字、故事内容全面覆盖，系统整合为会员专属学习内容库";
+"Practice across listening, speaking, reading & writing." = "听、说、读、写系统化练习，围绕学习顺序设计，循序进阶";
+"See completed lessons and current progress" = "自动记录会员学习进度课程完成情况与学习阶段清晰可见";
+"Full stories and advanced tests, updated regularly" = "解锁完整故事库与进阶测验内容，会员期间持续开放更多学习模块";
+
+"Premium Benefits" = "会员专属特权";
+"Service & Help" = "常见问题与帮助";
+
+"Manage via Apple ID" = "管理订阅服务";//??
+"Subscriptions are managed through your Apple ID." = "通过您的Apple ID 管理订阅";
+"Customer Support" = "客服支持";
+"Questions? Contact us via form or email"  = "有问题？请通过表单或邮件联系我们";
+"Payments and renewals are handled by Apple" = "付款及续费由 Apple 处理";
+
+//----------------------------------------------------------------------
+"Submission Failed" = "提交失败";
+"Something went wrong. Please try again in a moment." = "提交未成功，请稍后再试。";
+"Retry" = "重试";
+"Submitted" = "提交成功";
+
+"Your request has been received. Our support team will get back to you as soon as possible." = "您的信息已提交，我们会尽快处理 并与您取得联系。";
+"ok" = "知道了";
+
+//"Having trouble? Tell us what’s going on — we’re here to help." = "遇到问题？填写信息或邮件联系我们，让我们帮您解决问题";
+"Having trouble? Tell us what's going on — we're here to help." = "遇到问题？填写信息或邮件联系我们，让我们帮您解决问题";
+
+"Email Used for Purchase (for locating your order)" = "订单邮箱";
+"Enter your purchase email." = "输入购买时填写的邮箱";
+"Purchase Phone Number" = "会员购买手机号（用于查询订单）";
+
+"Enter your purchase number" = "请输入您用于购买会员时填写的手机号";
+"Email Support (Backup Channel)" = "客服邮箱";
+"Contact us via email" = "通过邮件联系我们";
+"Issue Description" = "问题描述";
+"Describe the issue (up to 500 characters)." = "请详细描述您遇到的问题（最多500字）";
+"Submit" = "提交";
+"Manage via Apple ID" = "通过 Apple ID 管理";
+"month" = "月";
+//---------------------------------------------
+
+"Access All Courses" = "解锁全部会员内容";
+"7-Day Free Trial" = "7天免费试用，随时取消";
+"Unlock All Premium Courses" = "解锁全部会员内容";
+"Your membership has expired." = "您的会员已到期，续费即可继续使用";
+"Membership Center" = "会员中心";
+"Free trial" = "免费试用";
+"Subscribe" = "立即续费";
+"Membership_me" = "管理订阅";
+"Renew Now" = "立即续费";
+
+"Auto-renews on December 27" = "已开通 · 将于5月12日自动续费";
+"Subscription expires Dec 27" = "会员权益将于5月12日到期";
+"Unlock the full Pinyin course" = "解锁完整拼音课程";
+
+
+"Your Premium Trial Is Ready" = "7 天会员特权已为你保留";
+"Unlock all stories and lessons when you start now." = "现在开启即可解锁\n全部故事与课程内容";
+"Leave Anyway" = "忍痛离开";
+"Continue" = "继续开通";
+"Continue11" = "立即试用";
+"Renew to keep all stories and features." = "续费即可继续畅享全部故事和功能";
+"Renew Now" = "立即续费";
+"Unlocked!" = "解锁成功!";
+"Your 7-day free trial is now active." = "7 天免费试用已激活";
+"Start Now" = "开始体验";
+"Premium activated Unlimited access" = "会员特权已开启\n全部内容无限畅享";
+
+"Access Expires in 1 Days" = "您的权益将在 1 天后到期";
+"Reactivate your subscription to keep all stories and features." = "恢复您的订阅\n继续畅享全部故事与功能";
+"Access Expires in 7 Days" = "您的权益将在 7 天后到期";
+"Manage Subscription" = "管理订阅";
+"Unlocked!" = "解锁成功!";
+"Your 7-day free trial is now active." = "7 天免费试用已激活";
+"Start Now" = "开始体验";
+"Premium activated Unlimited access" = "会员特权已开启\n全部内容无限畅享";
+"Start Now" = "开始体验";
+
+"Restore Subscription" = "恢复订阅";
+"You’re already subscribed." = "您已是会员，无需重复开通";
+"Please accept the Membership Agreement and Privacy Policy" = "请先同意会员服务协议与隐私政策";
+"Log in to continue reading" = "登录以继续阅读";
+"Log In" = "登录";
+
+"Copy successful" = "复制成功";
+"*Manage Subscription on the App Store" = "*点击跳转 App Store 订阅管理";
+
+"Membership Transfer" = "会员服务迁移";
+//"You’re signed in with a different account. Transfer your subscription to keep your membership active on this device:" = "我们发现您已切换登录账号。为保证会员服务正常使用，您可以将此设备上的会员订阅迁移到当前账号：";
+//"·No extra charges \n·You may continue using the original member account \n·If it doesn’t update right away, use  “Restore Subscription” on the Membership page" = "·迁移不产生任何费用\n·也可继续使用原会员账号\n·若未立即生效，可在「会员主页」使用“恢复订阅”同步";
+
+"You're signed in with a different account.Transfer your subscription to keep yourmembership active on this device:" = "我们发现您已切换登录账号。为保证会员服务正常使用，您可以将此设备上的会员订阅迁移到当前账号：";
+"·No extra charges\n·You may continue using the originalmember account\n·If it doesn't update right away, use\"Restore Subscription\" on theMembership page" = "·迁移不产生任何费用\n·也可继续使用原会员账号\n·若未立即生效，可在「会员主页」使用“恢复订阅”同步";
+
+
+"Not Now" = "暂不迁移";
+"Transfer" = "确认迁移";
+"Restore VIP" = "找回VIP";
+"Current logged-in account:" = "当前登录的账号：";
+"If you previously purchased a membership with this account via App Store or Google Play, please click the “Restore Purchase” button below to recover your VIP benefits." = "若您之前使用该账号购买过会员，请点击下方“恢复购买”按钮，找回您的 VIP 权益。";
+"Restore Purchase" = "恢复购买";
+
+"[Cancel via WeChat]:Open WeChat → Me → Services → Wallet → Payment Settings → Auto-Deduct to cancel." = "［微信购买退订流程］：打开最新版本微信客户端，前往：我—服务一钱包一支付设置-自动续费进行取消。";
+"[Cancel via Alipay]:Open Alipay → Me → Settings → Payment Settings → Auto-Debit to cancel." = "［支付宝购买退订流程］：打开最新版本支付宝客户端，前往：我的一右上角设置-支付设置一免密支付/自动扣款中进行取消。";
+"[Cancel via Apple]:Go to Settings → Apple ID → Subscriptions and cancel YTong Membership." = "［苹果支付购买退订流程］：打开苹果手机，前往设置一个人中心（Apple ID）一订阅，找到订阅中的实亿易通会员进行取消即可。";
+
+"iOS / App Store: Open Settings on your iPhone → Tap your Apple ID  at the top → Subscriptions → Find [YTong] → Tap  Cancel Subscription." = "iOS / App Store：
+打开 iPhone 设置 → 点击顶部的 Apple ID → 订阅 → 找到 [实亿易通] → 点击 取消订阅。";
+
+
+
+
+
+"Google Play: Open the Google Play Store → Tap your profile icon  at the top right → Payments & subscriptions →  Subscriptions→ Find [YTong] → Tap Cancel Subscription." = "Google Play：
+打开 Google Play 商店 → 点击右上角 个人头像 → 付款和订阅 → 订阅 → 找到 [实亿易通] → 点击 取消订阅。";
+
+
+"Unsubscribe Guide" = "退订流程说明";
+"Restoring your membership..." = "正在恢复会员身份...";
+"Please wait and do not leave this page." = "请耐心等待，不要离开当前页面";
+
+"Creating your order..." = "正在创建订单，请稍候...";
+"Please complete your payment within 5 minutes." = "请在5分钟内完成支付。";
+"Payment expired. Please create a new order." = "支付超时，请重新下单。";
+"Payment failed. Please try again later." = "支付失败，请稍后重试。";
+"Insufficient funds. Please recharge or change your method." = "余额不足，请更换支付方式。";
+"Payment completed on another device." = "已在其他设备完成支付。";
+"Payment verified. Membership activated." = "支付状态已验证，会员已激活。";
+"Login expired" = "登录过期";
+"Processing order..." = "订单处理中，请稍候...";
+
+"Network is unavailable. Please check your Wi-Fi or cellular data settings." = "网络不可用。请检查您的 Wi-Fi 或移动数据设置。";
+"Purchases not allowed on this device." = "设备不允许购买，请检查 Apple ID 或限制设置";
+"Payment processing. Membership will restore shortly." = "支付仍在处理中，如已扣款请稍后恢复会员权益";
+"Parental approval required." = "购买需要家长批准，批准后将自动完成";
+//"Waiting for payment or parental approval." = "支付仍在处理中或等待家长批准";
+"Payment processing. Please wait." = "支付处理中，请稍后";
+"Payment unavailable." = "无法进行支付";
+"Product unavailable." = "商品不存在或未配置";
+"Payment failed or canceled." = "支付失败或已取消";
+"Waiting for parental approval." = "等待家长批准";
+"Network error. Try again later." = "网络异常，请稍后恢复会员";
+"Payment successful. Activating membership." = "支付成功，会员权益正在处理中，请稍后自动恢复";
+"Purchase successful." = "购买成功";
+"Verification failed. Try restoring later." = "支付验证失败，请稍后恢复会员";
+"User cancellation" = "用户取消";
+"Payment failed" = "支付失败";
+"Change Nickname" = "修改昵称";
+"Letters, numbers, and symbols only." = "昵称支持字母、数字及常用符号。";
+"3-24 characters. Letters and numbers only." = "2-15 个字符，支持中英文、数字，不含特殊字符";
+
+
+"Done" = "完成";
+"Edit Profile" = "编辑资料";
+"Nickname" = "昵称";
+"User ID" = "用户ID";
+"Email11" = "手机号";
+"App Language" = "界面语音";
+"This name is already taken" = "该昵称已被占用";
+"Please enter a nickname" = "请输入昵称";
+"At least 3 characters required" = "昵称最少需要 2 个字符";
+"Processing..." = "处理中...";
+"Manage Subscriptions" = "订阅管理";
+
+"Start reading" = "开始阅读";
+"NEXT CHAPTER COMING UP" = "即将进入下一回";
+"More chapters coming soon" = "更多章节持续更新中";
+"The battle for the Gods continues..." = "封神未完，精彩续写中...";
+"Talk" = "情景对话";
+"" = "";
+"" = "";
+"" = "";
+ 
