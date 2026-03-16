@@ -207,10 +207,35 @@ isPhoneX = [[UIApplication sharedApplication] delegate].window.safeAreaInsets.bo
 #define IS_Member 1 //0 把锁去掉      1 根据接口返回   //暂时无用 用于苹果支付功能，  如果后端开启支付功能 0的话 相当于开放所有功能
 #define is_Engin 0  //1英文版          0中文版      //海外版 1（全英文）     国内版0（中文为主）
 
-//#define HOST @"https://api.shiyi-yitong.com"             //上架必备   海外      上架必须要这个
-//#define HOST @"https://apicn.shiyi-yitong.com"           //上架必备   大陆
+// Host配置 - 根据构建配置和版本自动选择
+// 测试环境
+#define HOST_TEST @"https://testapi.shiyi-yitong.com"
+// 正式环境 - 海外版
+#define HOST_PRODUCTION_OVERSEAS @"https://api.shiyi-yitong.com"
+// 正式环境 - 国内版
+#define HOST_PRODUCTION_DOMESTIC @"https://apicn.shiyi-yitong.com"
 
-#define HOST @"https://testapi.shiyi-yitong.com"         //测试版
+// 获取当前host的辅助函数（运行时根据配置自动选择）
+// Debug模式：使用测试环境
+// Release模式：根据国内版/国外版选择对应的正式环境host
+static inline NSString * _Nonnull GetCurrentHost(void) {
+#ifdef DEBUG
+    // Debug模式：使用测试环境
+    return HOST_TEST;
+#else
+    // Release模式：根据国内版/国外版选择对应的正式环境host
+    if (IS_OVERSEAS_VERSION) {
+        // 海外版
+        return HOST_PRODUCTION_OVERSEAS;
+    } else {
+        // 国内版
+        return HOST_PRODUCTION_DOMESTIC;
+    }
+#endif
+}
+
+// HOST宏定义 - 为了保持向后兼容，使用函数来动态获取
+#define HOST GetCurrentHost()
 #endif
 
 

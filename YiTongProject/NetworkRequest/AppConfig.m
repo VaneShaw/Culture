@@ -22,9 +22,8 @@
 
 - (instancetype)init {
     if (self = [super init]) {
-        // 默认语言
-        //[self setLanguage:[NSLocale preferredLanguages].firstObject];
-        self.main_host = HOST;
+        // 根据构建配置和版本自动选择host
+        [self updateHost];
         [self setLanguage:@[@"cn",@"en"][IS_OVERSEAS_VERSION]];
         //NSLog(@"--------[%@]------first",[NSLocale preferredLanguages].firstObject);
     }
@@ -32,14 +31,27 @@
 }
 
 - (void)setLanguage:(NSString *)language {
-    self.main_host = HOST;
+    // 语言变化时，重新更新host（Release模式下会根据版本选择）
+    [self updateHost];
     
     NSLog(@"self.host-------------[%@]",self.main_host);
-//    if ([language hasPrefix:@"cn"]) {
-//        self.host = HOST_CN;
-//    } else {
-//        self.host = HOST_EN;
-//    }
+}
+
+// 根据构建配置和版本自动更新host
+- (void)updateHost {
+#ifdef DEBUG
+    // Debug模式：使用测试环境
+    self.main_host = HOST_TEST;
+#else
+    // Release模式：根据国内版/国外版选择对应的正式环境host
+    if (IS_OVERSEAS_VERSION) {
+        // 海外版
+        self.main_host = HOST_PRODUCTION_OVERSEAS;
+    } else {
+        // 国内版
+        self.main_host = HOST_PRODUCTION_DOMESTIC;
+    }
+#endif
 }
 
 @end
