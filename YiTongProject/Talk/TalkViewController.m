@@ -6,230 +6,229 @@
 //
 
 #import "TalkViewController.h"
-#import "ProgressContainerView.h"
-#import "EllipseGradientView.h"
 #import "TalkCardView.h"
-#import "TalkTableViewCell.h"
+#import "TalkSegmentListViewController.h"
+#import "TalkTopicHomeViewController.h"
+#import <JXPagingView/JXPagerView.h>
+#import <JXPagingView/JXPagerListRefreshView.h>
 
-@interface TalkViewController () <UIScrollViewDelegate,UITableViewDelegate,UITableViewDataSource>
-@property (nonatomic, strong) UIScrollView *mainScrollView;
-@property (nonatomic, strong) UIScrollView *exploreScrollView;
+@interface TalkViewController () <JXPagerViewDelegate, JXPagerMainTableViewGestureDelegate>
+@property (nonatomic, strong) JXPagerListRefreshView *pagerView;
+@property (nonatomic, strong) NSArray<NSString *> *segmentTitles;
+@property (nonatomic, strong) NSArray<NSString *> *segmentTypes;
 @property (nonatomic, strong) UIView *segmentBar;
 @property (nonatomic, strong) UIView *indicatorView;
-@property (nonatomic, strong) UIScrollView *pagingScrollView;
-@property (nonatomic, strong) NSMutableArray <UITableView *> *tables;
-@property (nonatomic, strong) NSMutableArray <UIButton *> *segButtons;
-@property (nonatomic, assign) CGFloat tableContentMaxH; // ⭐关键
-@property (nonatomic, strong) UIImageView *borderImageView;
-
+@property (nonatomic, strong) NSMutableArray<UIButton *> *segButtons;
+@property (nonatomic, assign) BOOL isObservingContentOffset;
 @end
-
-@implementation TalkViewController
-
-#pragma mark - 生命周期
-- (void)viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-    [self.navigationController setNavigationBarHidden:YES animated:animated];
-}
-- (void)viewWillDisappear:(BOOL)animated {
-    [super viewWillDisappear:animated];
-    [self.navigationController setNavigationBarHidden:NO animated:animated];
-}
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.view.backgroundColor = UIColor.whiteColor;
-    self.tables = NSMutableArray.new;
-    self.segButtons = NSMutableArray.new;
-    [self buildUI];
-    
-    //ProgressContainerView *progressView = [[ProgressContainerView alloc] initWithFrame:CGRectMake(120, 200, 144, 38)];
-    //progressView.leftLabel.text = @"任务进度";
-    //progressView.gradientColors = @[[UIColor greenColor], [UIColor blueColor]];
-    //progressView.progress = 0.5;
-    //[self.view addSubview:progressView];
-    //动态更新进度
-    //[progressView setProgress:0.75 animated:YES];
-}
-
-- (void)viewDidLayoutSubviews {
-    [super viewDidLayoutSubviews];
-    // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
-    // 关键：读取table真实高度
-    // ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
-    CGFloat maxH = 0;
-    for (UITableView *table in self.tables) {
-        [table layoutIfNeeded];
-        maxH = MAX(maxH, table.contentSize.height);
+ 
+ @implementation TalkViewController
+ 
+ #pragma mark - 生命周期
+ 
+ - (void)viewWillAppear:(BOOL)animated {
+     [super viewWillAppear:animated];
+     [self.navigationController setNavigationBarHidden:YES animated:animated];
+ }
+ 
+ - (void)viewWillDisappear:(BOOL)animated {
+     [super viewWillDisappear:animated];
+     [self.navigationController setNavigationBarHidden:NO animated:animated];
+ }
+ 
+ - (void)viewDidLoad {
+     [super viewDidLoad];
+     self.view.backgroundColor = [UIColor whiteColor];
+     
+    // segment 文案暂时前端写死，后续可从接口动态赋值
+    self.segmentTitles = @[@"All Scenes", @"Trending", @"New"];
+    self.segmentTypes  = @[@"all", @"hot", @"new"];
+     self.segButtons = [NSMutableArray array];
+     
+     CGFloat statusBarH = [PublicTool getStatusBarHeight];
+     CGFloat tabBarHeight = self.tabBarController.tabBar.bounds.size.height;
+     CGFloat screenH = UIScreen.mainScreen.bounds.size.height;
+     
+    self.pagerView = [[JXPagerListRefreshView alloc] initWithDelegate:self];
+    self.pagerView.frame = CGRectMake(0, statusBarH, SCREEN_WIDTH, screenH - statusBarH - tabBarHeight);
+    self.pagerView.mainTableView.gestureDelegate = self;
+    if (@available(iOS 11.0, *)) {
+        self.pagerView.mainTableView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     }
-    if (maxH == 0) return;
-    if (fabs(maxH - self.tableContentMaxH) < 1) return;
-    self.tableContentMaxH = maxH;
-    [self updateLayoutWithTableHeight:maxH];
+    [self.view addSubview:self.pagerView];
+    
+    [self startObserveListContainerContentOffsetIfNeeded];
+ }
+
+- (void)dealloc {
+    [self stopObserveListContainerContentOffsetIfNeeded];
+}
+ 
+#pragma mark - JXPagerViewDelegate
+ 
+- (UIView *)tableHeaderViewInPagerView:(JXPagerView *)pagerView {
+     CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
+     
+     UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenW, 73 + 208)];
+     header.backgroundColor = [UIColor whiteColor];
+     
+     UILabel *lblTitle = [[UILabel alloc] initWithFrame:CGRectMake(18, 0, screenW - 36, 73)];
+     lblTitle.text = @"Explore Scenes";
+     lblTitle.textColor = BLACK_COLOR;
+     lblTitle.font = [UIFont fontWithName:FONT_NAME_Semibold size:26];
+     [header addSubview:lblTitle];
+     
+     UIScrollView *exploreScrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 73, screenW, 208)];
+     exploreScrollView.showsHorizontalScrollIndicator = NO;
+     [header addSubview:exploreScrollView];
+     
+     CGFloat cardW = 260;
+     CGFloat gap = 16;
+     for (int i = 0; i < 10; i++) {
+         TalkCardView *card = [[TalkCardView alloc] initWithFrame:CGRectMake((cardW + gap) * i + 16, 0, cardW, 208)];
+         card.backgroundColor = [UIColor colorWithRed:216.4f/255.0f green:235.1f/255.0f blue:255.0f/255.0f alpha:1.0f];
+         card.layer.cornerRadius = 12;
+         card.tag = i;
+         card.userInteractionEnabled = YES;
+         UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(cardTap:)];
+         [card addGestureRecognizer:tap];
+         [exploreScrollView addSubview:card];
+     }
+     exploreScrollView.contentSize = CGSizeMake((cardW + gap) * 10 + 16, 208);
+     
+    return header;
 }
 
-#pragma mark - UI
+- (NSUInteger)tableHeaderViewHeightInPagerView:(JXPagerView *)pagerView {
+    return 73 + 208;
+}
 
-- (void)buildUI {
+- (NSUInteger)heightForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
+     return 58;
+}
+
+- (UIView *)viewForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
+     CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
+     UIView *segment = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenW, 58)];
+     self.segmentBar = segment;
+     
+     NSInteger count = self.segmentTitles.count;
+     if (count == 0) {
+         return segment;
+     }
+     CGFloat btnW = screenW / count;
+     
+     [self.segButtons removeAllObjects];
+     for (NSInteger i = 0; i < count; i++) {
+         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+         btn.frame = CGRectMake(btnW * i, 0, btnW, 66);
+         [btn setTitle:self.segmentTitles[i] forState:UIControlStateNormal];
+         [btn setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+         btn.tag = i;
+         [btn addTarget:self action:@selector(segTap:) forControlEvents:UIControlEventTouchUpInside];
+         [segment addSubview:btn];
+         [self.segButtons addObject:btn];
+     }
+     
+     self.indicatorView = [[UIView alloc] initWithFrame:CGRectMake((btnW - 22)/2, 66, 22, 2)];
+     self.indicatorView.backgroundColor = [UIColor blackColor];
+     [segment addSubview:self.indicatorView];
+     
+    return segment;
+}
+
+- (NSInteger)numberOfListsInPagerView:(JXPagerView *)pagerView {
+    return self.segmentTitles.count;
+}
+
+- (id)pagerView:(JXPagerView *)pagerView initListAtIndex:(NSInteger)index {
+    if (index < 0 || index >= self.segmentTypes.count) {
+        return nil;
+    }
+    NSString *type = self.segmentTypes[index];
+    TalkSegmentListViewController *vc = [[TalkSegmentListViewController alloc] initWithType:type];
+    return vc;
+ }
+ 
+ #pragma mark - 交互
+ 
+ - (void)cardTap:(UITapGestureRecognizer *)tap {
+    TalkTopicHomeViewController *vc = [[TalkTopicHomeViewController alloc] init];
+     vc.hidesBottomBarWhenPushed = YES;
+    [self.navigationController pushViewController:vc animated:YES];
+ }
+ 
+ - (void)segTap:(UIButton *)btn {
+     NSInteger index = btn.tag;
+    UIScrollView *contentScrollView = [self.pagerView.listContainerView contentScrollView];
+     CGPoint offset = CGPointMake(index * contentScrollView.bounds.size.width, 0);
+     [contentScrollView setContentOffset:offset animated:YES];
+    [self.pagerView.listContainerView didClickSelectedItemAtIndex:index];
+     [self updateIndicatorForIndex:index];
+ }
+ 
+ - (void)updateIndicatorForIndex:(NSInteger)index {
+     if (self.segmentTitles.count == 0) return;
+     CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
+     CGFloat btnW = screenW / self.segmentTitles.count;
+     CGRect frame = self.indicatorView.frame;
+     frame.origin.x = index * btnW + (btnW - 22) / 2.0;
+     self.indicatorView.frame = frame;
+ }
+
+#pragma mark - underline 跟随分页滑动
+
+- (void)startObserveListContainerContentOffsetIfNeeded {
+    if (self.isObservingContentOffset) return;
+    if (!self.pagerView.listContainerView) return;
+    UIScrollView *contentScrollView = [self.pagerView.listContainerView contentScrollView];
+    if (!contentScrollView) return;
+    self.isObservingContentOffset = YES;
+    [contentScrollView addObserver:self
+                        forKeyPath:NSStringFromSelector(@selector(contentOffset))
+                           options:NSKeyValueObservingOptionNew
+                           context:NULL];
+}
+
+- (void)stopObserveListContainerContentOffsetIfNeeded {
+    if (!self.isObservingContentOffset) return;
+    UIScrollView *contentScrollView = [self.pagerView.listContainerView contentScrollView];
+    @try {
+        [contentScrollView removeObserver:self forKeyPath:NSStringFromSelector(@selector(contentOffset))];
+    } @catch (__unused NSException *e) {
+    }
+    self.isObservingContentOffset = NO;
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey,id> *)change
+                       context:(void *)context {
+    if (![keyPath isEqualToString:NSStringFromSelector(@selector(contentOffset))]) {
+        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+        return;
+    }
+    if (self.segmentTitles.count == 0) return;
+    if (!self.indicatorView) return;
     
-    //CGFloat statusBarH = UIApplication.sharedApplication.statusBarFrame.size.height;
-    CGFloat statusBarH = [PublicTool getStatusBarHeight];
+    UIScrollView *scrollView = (UIScrollView *)object;
+    CGFloat pageW = scrollView.bounds.size.width;
+    if (pageW <= 0) return;
+    
+    CGFloat progress = scrollView.contentOffset.x / pageW; // 0~(count-1) 连续值
     CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
-    CGFloat tabBarHeight = self.tabBarController.tabBar.bounds.size.height;
-    CGFloat screenH = UIScreen.mainScreen.bounds.size.height - tabBarHeight ;
-    // ================= 主滚动 =================
+    CGFloat btnW = screenW / self.segmentTitles.count;
     
-    self.mainScrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(0, statusBarH, screenW, screenH - statusBarH)];
-    self.mainScrollView.showsVerticalScrollIndicator = NO;
-    [self.view addSubview:self.mainScrollView];
-    CGFloat y = 0;
-    // ================= header =================
-    
-    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, y, screenW, 73)];
-    header.backgroundColor = UIColor.whiteColor;
-    [self.mainScrollView addSubview:header];
-    UILabel *lblTitle = [[UILabel alloc]initWithFrame:CGRectMake(18, 0, SCREEN_WIDTH, header.frame.size.height)];
-    lblTitle.text = @"Explore Scenes";
-    lblTitle.textColor = BLACK_COLOR;
-    lblTitle.font = [UIFont fontWithName:FONT_NAME_Semibold size:26];
-    [header addSubview:lblTitle];
-    y += 73;
-    // ================= 横卡 =================
-    
-    self.exploreScrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(0, y, screenW, 208)];
-    self.exploreScrollView.showsHorizontalScrollIndicator = NO;
-    [self.mainScrollView addSubview:self.exploreScrollView];
-    
-    CGFloat cardW = 260;
-    CGFloat gap = 16;
-    for (int i = 0; i < 10; i++) {
-        TalkCardView *card = [[TalkCardView alloc] initWithFrame:CGRectMake((cardW + gap) * i + 16, 0, cardW, 208)];
-        card.backgroundColor = [UIColor colorWithRed:216.4f/255.0f green:235.1f/255.0f blue:255.0f/255.0f alpha:1.0f];
-        card.layer.cornerRadius = 12;
-        card.tag = i;
-        card.userInteractionEnabled = YES;
-        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(cardTap:)];
-        [card addGestureRecognizer:tap];
-        [self.exploreScrollView addSubview:card];
-    }
-    self.exploreScrollView.contentSize = CGSizeMake((cardW + gap) * 10 + 16, 208);
-    y += 208;
-    // ================= segment =================
-    
-    self.segmentBar = [[UIView alloc] initWithFrame:CGRectMake(0, y, screenW, 68)];
-    [self.mainScrollView addSubview:self.segmentBar];
-    y += 68;
-    
-    NSArray *titles = @[@"All Scenes", @"Trending", @"New"];
-    CGFloat btnW = screenW / titles.count;
-    
-    for (int i = 0; i < titles.count; i++) {
-        
-        UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-        btn.frame = CGRectMake(btnW * i, 0, btnW, 66);
-        [btn setTitle:titles[i] forState:UIControlStateNormal];
-        [btn setTitleColor:UIColor.blackColor forState:UIControlStateNormal];
-        btn.tag = i;
-        [btn addTarget:self action:@selector(segTap:) forControlEvents:UIControlEventTouchUpInside];
-        
-        [self.segmentBar addSubview:btn];
-        [self.segButtons addObject:btn];
-    }
-    
-    self.indicatorView = [[UIView alloc] initWithFrame:CGRectMake((btnW - 22)/2, 66, 22, 2)];
-    self.indicatorView.backgroundColor = UIColor.blackColor;
-    [self.segmentBar addSubview:self.indicatorView];
-    // ================= 横向分页 =================
-    
-    self.pagingScrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(0, y, screenW, screenH)];
-    self.pagingScrollView.pagingEnabled = YES;
-    self.pagingScrollView.delegate = self;
-    self.pagingScrollView.scrollEnabled = YES;
-    self.pagingScrollView.showsHorizontalScrollIndicator = NO;
-    [self.mainScrollView addSubview:self.pagingScrollView];
-    
-    for (int i = 0; i < 3; i++) {
-        UITableView *table = [[UITableView alloc] initWithFrame:CGRectMake(screenW * i, 0, screenW, 0) style:UITableViewStylePlain];
-        table.delegate = self;
-        table.dataSource = self;
-        table.scrollEnabled = NO; // ⭐仍然禁止
-        table.tag = i;
-        table.backgroundColor = [UIColor whiteColor];
-        table.separatorStyle = UITableViewCellSeparatorStyleNone;
-        table.estimatedRowHeight = 0;
-        table.estimatedSectionHeaderHeight = 0;
-        table.estimatedSectionFooterHeight = 0;
-        [self.pagingScrollView addSubview:table];
-        [self.tables addObject:table];
-    }
-    
-    self.pagingScrollView.contentSize = CGSizeMake(screenW * 3, 0);
+    CGRect frame = self.indicatorView.frame;
+    frame.origin.x = progress * btnW + (btnW - frame.size.width) / 2.0;
+    self.indicatorView.frame = frame;
 }
 
-#pragma mark - ⭐根据table高度重排（核心）
+#pragma mark - JXPagerMainTableViewGestureDelegate
 
-- (void)updateLayoutWithTableHeight:(CGFloat)tableH {
-    
-    CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
-    
-    // 更新 paging 高度
-    CGRect pageFrame = self.pagingScrollView.frame;
-    pageFrame.size.height = tableH;
-    self.pagingScrollView.frame = pageFrame;
-    
-    self.pagingScrollView.contentSize = CGSizeMake(screenW * 3, tableH);
-    
-    // 更新每个 table 高度
-    for (int i = 0; i < self.tables.count; i++) {
-        UITableView *table = self.tables[i];
-        table.frame = CGRectMake(screenW * i, 0, screenW, tableH);
-    }
-    
-    // ⭐⭐⭐⭐ 最关键：更新主滚动
-    CGFloat bottom = CGRectGetMaxY(self.pagingScrollView.frame);
-    self.mainScrollView.contentSize = CGSizeMake(screenW, bottom + 1);
+- (BOOL)mainTableViewGestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    return YES;
 }
-
-#pragma mark - 交互
-
-- (void)cardTap:(UITapGestureRecognizer *)tap {
-    NSLog(@"点击卡片 %ld", (long)tap.view.tag);
-}
-
-- (void)segTap:(UIButton *)btn {
-    CGFloat w = UIScreen.mainScreen.bounds.size.width;
-    [self.pagingScrollView setContentOffset:CGPointMake(w * btn.tag, 0) animated:YES];
-}
-
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    
-    if (scrollView == self.pagingScrollView) {
-        CGFloat progress = scrollView.contentOffset.x / scrollView.bounds.size.width;
-        CGFloat btnW = self.segmentBar.bounds.size.width / 3.0;
-        CGRect f = self.indicatorView.frame;
-        f.origin.x = progress * btnW + (btnW - 22)/2;
-        self.indicatorView.frame = f;
-    }
-    
-}
-#pragma mark - table
-
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return 5;
-}
-- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return 196;
-}
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    TalkTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cell"];
-    if (!cell) {
-        cell = [[TalkTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"cell"];
-    }
-    //cell.textLabel.text = [NSString stringWithFormat:@"第%ld行 - 页%ld",
-      //                     (long)indexPath.row,
-        //                   (long)tableView.tag];
-    return cell;
-}
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [tableView deselectRowAtIndexPath:indexPath animated:NO];
-}
-@end
+ 
+ @end

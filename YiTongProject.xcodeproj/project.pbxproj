@@ -38,6 +38,8 @@
 		3D437D372EE80D0900EFBEE1 /* MembershipTransferView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D437D362EE80D0900EFBEE1 /* MembershipTransferView.m */; };
 		3D437D3A2EE8144400EFBEE1 /* SubscriptionSetViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D437D392EE8144400EFBEE1 /* SubscriptionSetViewController.m */; };
 		3D46C9052F512F800090B431 /* TalkViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D46C9012F512F800090B431 /* TalkViewController.m */; };
+		3DCE4D4B2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D4A2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m */; };
+		3DCE4D512F7B22A100A1B2C3 /* TalkTopicHomeViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D502F7B22A100A1B2C3 /* TalkTopicHomeViewController.m */; };
 		3D47D59B2EE65953003DC597 /* ReceiptSyncManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D47D59A2EE65953003DC597 /* ReceiptSyncManager.m */; };
 		3D47D59E2EE6CB72003DC597 /* DateHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D47D59D2EE6CB72003DC597 /* DateHelper.m */; };
 		3D4830A52E7BE27A00E6BFAD /* NoNetworkView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D4830A42E7BE27A00E6BFAD /* NoNetworkView.m */; };
@@ -257,6 +259,10 @@
 		3D437D392EE8144400EFBEE1 /* SubscriptionSetViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SubscriptionSetViewController.m; sourceTree = "<group>"; };
 		3D46C9002F512F800090B431 /* TalkViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkViewController.h; sourceTree = "<group>"; };
 		3D46C9012F512F800090B431 /* TalkViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkViewController.m; sourceTree = "<group>"; };
+		3DCE4D492F7A2D0B00A1B2C3 /* TalkSegmentListViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkSegmentListViewController.h; sourceTree = "<group>"; };
+		3DCE4D4A2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkSegmentListViewController.m; sourceTree = "<group>"; };
+		3DCE4D4F2F7B22A100A1B2C3 /* TalkTopicHomeViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkTopicHomeViewController.h; sourceTree = "<group>"; };
+		3DCE4D502F7B22A100A1B2C3 /* TalkTopicHomeViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkTopicHomeViewController.m; sourceTree = "<group>"; };
 		3D47D5992EE65953003DC597 /* ReceiptSyncManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ReceiptSyncManager.h; sourceTree = "<group>"; };
 		3D47D59A2EE65953003DC597 /* ReceiptSyncManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ReceiptSyncManager.m; sourceTree = "<group>"; };
 		3D47D59C2EE6CB72003DC597 /* DateHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DateHelper.h; sourceTree = "<group>"; };
@@ -720,6 +726,10 @@
 				3DD8F82F2F52BEA2009E70CE /* View */,
 				3D46C9002F512F800090B431 /* TalkViewController.h */,
 				3D46C9012F512F800090B431 /* TalkViewController.m */,
+				3DCE4D492F7A2D0B00A1B2C3 /* TalkSegmentListViewController.h */,
+				3DCE4D4A2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m */,
+				3DCE4D4F2F7B22A100A1B2C3 /* TalkTopicHomeViewController.h */,
+				3DCE4D502F7B22A100A1B2C3 /* TalkTopicHomeViewController.m */,
 			);
 			path = Talk;
 			sourceTree = "<group>";
@@ -1421,6 +1431,8 @@
 				3D24A7602E7A424F0031E5F1 /* HanziCardViewController.m in Sources */,
 				3D8D20D02F02530300BA85AB /* CardElementViewController.m in Sources */,
 				3D46C9052F512F800090B431 /* TalkViewController.m in Sources */,
+				3DCE4D4B2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m in Sources */,
+				3DCE4D512F7B22A100A1B2C3 /* TalkTopicHomeViewController.m in Sources */,
 				3D0FDD232F31843700929D28 /* EventTypes.m in Sources */,
 				42AFBE3C2E2DE108008EECD4 /* AudioManager.m in Sources */,
 				3D152B012EE129220015CDCD /* SubscriptionAlertHelper.m in Sources */,

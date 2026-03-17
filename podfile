@@ -14,6 +14,8 @@ use_modular_headers!
  pod 'FLAnimatedImage'
  pod 'JGProgressHUD'
  
+ pod 'JXPagingView'
+
 
  pod 'FBSDKCoreKit', '~> 18'
  pod 'Firebase/Analytics', '~> 11.15.0'
