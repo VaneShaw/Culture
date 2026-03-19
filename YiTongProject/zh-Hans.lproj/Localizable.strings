@@ -237,6 +237,9 @@
 "Continue" = "继续开通";
 "Continue11" = "立即试用";
 "Renew to keep all stories and features." = "续费即可继续畅享全部故事和功能";
+
+/* Talk - LearningFlow */
+"Talk_Continue" = "继续";
 "Renew Now" = "立即续费";
 "Unlocked!" = "解锁成功!";
 "Your 7-day free trial is now active." = "7 天免费试用已激活";
@@ -344,6 +347,56 @@
 "More chapters coming soon" = "更多章节持续更新中";
 "The battle for the Gods continues..." = "封神未完，精彩续写中...";
 "Talk" = "情景对话";
+"Detected last learning at %@, continue?" = "检测到你上次学习到「%@」，是否继续？";
+"Continue last learning" = "继续上次学习";
+"Start from beginning" = "从头开始";
+"Error" = "错误";
+"OK" = "知道了";
+
+"Level completed" = "完成";
+"You have completed this level (MVP placeholder)" = "本等级学习完成（MVP占位）";
+
+"Correct Answer!" = "正确答案！";
+"The correct answer is :" = "正确答案是：";
+"Wrong Answer" = "错误答案";
+"Got it" = "明白了";
+
+"Progress" = "进度";
+"Vocabulary" = "词汇";
+"Congratulations, you've unlocked the next level!" = "恭喜你解锁下一个等级！";
+"Beginner" = "入门";
+"Intermediate" = "进阶";
+"Advanced" = "困难";
+"Step %ld" = "第%ld步";
+
+"Start recording" = "开始录音";
+"Recording… (tap to stop)" = "录音中…（点击停止）";
+"Go to Settings to enable microphone" = "去设置开启麦克风";
+"Scoring…" = "评分中…";
+"Correct" = "正确";
+"Try again" = "再试一次";
+
+"Playback complete (standard pronunciation)" = "已播放标准发音（完成）";
+"Microphone permission denied, please enable it in system settings before recording." = "麦克风权限被拒绝，请到系统设置开启后再录音";
+"Recording failed; you can complete by playing the standard pronunciation." = "录音失败，可通过播放标准音完成";
+"Scoring failed; please try again later." = "评分失败，可稍后再试";
+"Score %ld (completed)" = "得分 %ld（完成）";
+"Score %ld (retry)" = "得分 %ld（可再试）";
+"Please choose an option" = "请选择一个选项";
+"Please complete the sentence" = "请完成句子";
+
+"Choose the matching image" = "选择正确图片";
+"Choose the correct response" = "选择正确回应";
+"Choose the matching word" = "选择正确单词";
+"Choose the correct word" = "选择正确单词";
+"Build the sentence" = "拼出句子";
+"Complete the dialogue" = "完成对话";
+"Usage:" = "用法：";
+
+"Grammar Rule" = "语法规则";
+"Used at the end of a sentence to ask a yes/no question." = "用于句末询问是/否问题。";
+"Statement +  吗?  = Question" = "陈述句 + 吗?  = 疑问句";
+"EXAMPLE" = "示例";
 "" = "";
 "" = "";
 "" = "";

@@ -9,6 +9,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/// 全局返回按钮容器的 tag，用于与进度条等控件 Y 轴中心对齐
+extern NSInteger const kGlobalBackButtonContainerTag;
+
 @interface UIViewController (BackButton)
 // 添加返回按钮方法
 - (void)addGlobalBackButton;

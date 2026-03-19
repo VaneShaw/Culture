@@ -7,13 +7,17 @@
 
 #import "UIViewController+BackButton.h"
 
+NSInteger const kGlobalBackButtonContainerTag = 8888;
+
 @implementation UIViewController (BackButton)
 //@{@"title":@"Membership",@"color":@"#FFFFFF"}
 - (void)addGlobalBackButtonColor:(UIColor *)color headerTitleDic:(NSDictionary *)dic {
     
     CGFloat statusBarH = [PublicTool getStatusBarHeight];
-    UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(Distance＿M, statusBarH, 55, 45)];
+    // 顶部导航高度基础上整体下移 17
+    UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(Distance＿M, statusBarH + 17.0, 55, 45)];
     buttonContainer.backgroundColor = [UIColor clearColor];
+    buttonContainer.tag = kGlobalBackButtonContainerTag;
 
     // 创建返回按钮
     UIButton *backButton = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -63,6 +67,7 @@
     CGFloat statusBarH = [PublicTool getStatusBarHeight];
     UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(Distance＿M, statusBarH, 55, 45)];
     buttonContainer.backgroundColor = [UIColor clearColor];
+    buttonContainer.tag = kGlobalBackButtonContainerTag;
     //buttonContainer.backgroundColor = [UIColor orangeColor];
     // 创建返回按钮
     UIButton *backButton = [UIButton buttonWithType:UIButtonTypeCustom];

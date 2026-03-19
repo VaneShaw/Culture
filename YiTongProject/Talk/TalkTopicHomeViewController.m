@@ -8,7 +8,21 @@
 #import "TalkTopicHomeViewController.h"
 #import "HeaderConfig.h"
 #import "UIViewController+BackButton.h"
+#import "TalkLearningFlowViewController.h"
+#import "YTMockUnitFactory.h"
 
+/**
+ 话题主页（静态 UI + 难度入口）
+ 
+ 作用：
+ - 承接 Talk 首页/列表的点击进入
+ - 展示三档难度卡片（Beginner/Intermediate/Advanced）
+ - 点击卡片直接进入学习流容器 `TalkLearningFlowViewController`
+ 
+ 约束：
+ - 该页为 UI 静态稿优先，无接口；后续可接“锁定状态/进度/权益”接口
+ - 统一使用工程内返回按钮（`UIViewController+BackButton`），并隐藏系统导航栏保证视觉一致
+ */
 @interface TalkTopicHomeViewController ()
 
 @property (nonatomic, strong) UIImageView *backgroundImageView;
@@ -28,6 +42,8 @@
 @property (nonatomic, strong) UILabel *beginnerProgressLabel;
 @property (nonatomic, assign) BOOL didSetupProgressLayers;
 
+@property (nonatomic, assign) BOOL isRequestingUnits;
+
 @end
 
 @implementation TalkTopicHomeViewController
@@ -36,11 +52,13 @@
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    // 使用工程统一的全局返回按钮（同首页 push 后页面一致），因此隐藏系统导航栏避免重叠
     [self.navigationController setNavigationBarHidden:YES animated:animated];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
+    // 离开后恢复，避免影响其它页面
     [self.navigationController setNavigationBarHidden:NO animated:animated];
 }
 
@@ -50,11 +68,13 @@
     self.view.backgroundColor = [theAppDelegate.window colorWithHexString:@"#F6F8FF" alpha:1];
 
     [self setupUI];
+    // 返回按钮统一走工程封装（图标/点击区域等）
     [self addGlobalBackButtonColor:[UIColor colorWithWhite:1.0 alpha:0.85] headerTitleDic:@{}];
 }
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
+    // 圆形进度条用 CAShapeLayer，依赖最终 frame；因此放在 layout 后做一次性初始化
     [self setupProgressLayersIfNeeded];
 }
 
@@ -66,9 +86,11 @@
         make.top.left.right.equalTo(self.view);
         UIImage *img = self.backgroundImageView.image;
         if (img && img.size.width > 0 && img.size.height > 0) {
+            // 顶部背景图：宽度100%，高度按原图比例自适应
             CGFloat ratio = img.size.height / img.size.width;
             make.height.equalTo(self.view.mas_width).multipliedBy(ratio);
         } else {
+            // 无图时兜底高度，避免布局崩
             make.height.mas_equalTo(260);
         }
     }];
@@ -336,6 +358,9 @@
         _beginnerCard = [self buildCardWithTitle:NSLocalizedString(@"Beginner", @"")
                                         subtitle:NSLocalizedString(@"Key Vocabulary", @"")
                                   trailingWidget:progress];
+        _beginnerCard.userInteractionEnabled = YES;
+        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onTapBeginner)];
+        [_beginnerCard addGestureRecognizer:tap];
     }
     return _beginnerCard;
 }
@@ -346,6 +371,9 @@
         _intermediateCard = [self buildCardWithTitle:NSLocalizedString(@"Intermediate", @"")
                                             subtitle:NSLocalizedString(@"Basic Dialogue & Grammar", @"")
                                       trailingWidget:arrow];
+        _intermediateCard.userInteractionEnabled = YES;
+        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onTapIntermediate)];
+        [_intermediateCard addGestureRecognizer:tap];
     }
     return _intermediateCard;
 }
@@ -356,8 +384,44 @@
         _advancedCard = [self buildCardWithTitle:NSLocalizedString(@"Advanced", @"")
                                         subtitle:NSLocalizedString(@"Politeness, Nuance & Real-life Logic", @"")
                                   trailingWidget:arrow];
+        _advancedCard.userInteractionEnabled = YES;
+        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onTapAdvanced)];
+        [_advancedCard addGestureRecognizer:tap];
     }
     return _advancedCard;
+}
+
+#pragma mark - 交互
+
+- (void)onTapBeginner {
+    [self pushLearningFlowWithLevel:YTLevelIdBeginner];
+}
+
+- (void)onTapIntermediate {
+    [self pushLearningFlowWithLevel:YTLevelIdIntermediate];
+}
+
+- (void)onTapAdvanced {
+    [self pushLearningFlowWithLevel:YTLevelIdAdvanced];
+}
+
+- (void)pushLearningFlowWithLevel:(YTLevelId)levelId {
+    if (self.isRequestingUnits) return;
+    self.isRequestingUnits = YES;
+
+    [[GlobalHUDManager shared] showOrUpdateMessage:NSLocalizedString(@"Processing...", @"")];
+
+    __weak typeof(self) weakSelf = self;
+    [YTMockUnitFactory fetchUnitsForSceneId:@"scene_school" levelId:levelId completion:^(NSArray<YTUnit *> * _Nonnull units) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        self.isRequestingUnits = NO;
+        [[GlobalHUDManager shared] hide];
+
+        TalkLearningFlowViewController *vc = [[TalkLearningFlowViewController alloc] initWithSceneId:@"scene_school" levelId:levelId preloadedUnits:units];
+        vc.hidesBottomBarWhenPushed = YES;
+        [self.navigationController pushViewController:vc animated:YES];
+    }];
 }
 
 @end

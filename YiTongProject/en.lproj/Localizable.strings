@@ -32,3 +32,61 @@ Tap to start recording and say this sound out loud
 "Delete Account1"="Delete Account";
 "Email11" = "Email";
 "Continue11" = "Continue";
+
+/* Talk - LearningFlow */
+"Talk_Continue" = "Continue";
+
+"Detected last learning at %@, continue?" = "Detected last learning at %@, continue?";
+"Continue last learning" = "Continue last learning";
+"Start from beginning" = "Start from beginning";
+"Cancel" = "Cancel";
+"Error" = "Error";
+"OK" = "OK";
+
+"Level completed" = "Level completed";
+"You have completed this level (MVP placeholder)" = "You have completed this level (MVP placeholder)";
+
+"Correct Answer!" = "Correct Answer!";
+"The correct answer is :" = "The correct answer is :";
+"Wrong Answer" = "Wrong Answer";
+"Got it" = "Got it";
+
+"Progress" = "Progress";
+"Vocabulary" = "Vocabulary";
+"Congratulations, you've unlocked the next level!" = "Congratulations, you've unlocked the next level!";
+"Beginner" = "Beginner";
+"Intermediate" = "Intermediate";
+"Advanced" = "Advanced";
+"Step %ld" = "Step %ld";
+
+"Start recording" = "Start recording";
+"Recording… (tap to stop)" = "Recording… (tap to stop)";
+"Go to Settings to enable microphone" = "Go to Settings to enable microphone";
+"Scoring…" = "Scoring…";
+"Correct" = "Correct";
+"Try again" = "Try again";
+"Submit" = "Submit";
+
+"Playback complete (standard pronunciation)" = "Playback complete (standard pronunciation)";
+"Microphone permission denied, please enable it in system settings before recording." = "Microphone permission denied, please enable it in system settings before recording.";
+"Recording failed; you can complete by playing the standard pronunciation." = "Recording failed; you can complete by playing the standard pronunciation.";
+"Scoring failed; please try again later." = "Scoring failed; please try again later.";
+"Score %ld (completed)" = "Score %ld (completed)";
+"Score %ld (retry)" = "Score %ld (retry)";
+"Please choose an option" = "Please choose an option";
+"Please complete the sentence" = "Please complete the sentence";
+
+"Choose the matching image" = "Choose the matching image";
+"Choose the correct response" = "Choose the correct response";
+"Choose the matching word" = "Choose the matching word";
+"Choose the correct word" = "Choose the correct word";
+"Build the sentence" = "Build the sentence";
+"Complete the dialogue" = "Complete the dialogue";
+"Usage:" = "Usage:";
+
+"Grammar Rule" = "Grammar Rule";
+"Used at the end of a sentence to ask a yes/no question." = "Used at the end of a sentence to ask a yes/no question.";
+"Statement +  吗?  = Question" = "Statement +  吗?  = Question";
+"EXAMPLE" = "EXAMPLE";
+
+"Processing..." = "Processing...";
