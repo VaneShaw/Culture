@@ -5,6 +5,7 @@
 
 #import "YTUnitViewFactory.h"
 #import "HeaderConfig.h"
+#import <AVFoundation/AVFoundation.h>
 
 @implementation YTUnitPrimaryState
 @end
@@ -58,7 +59,6 @@
                 recording:(YTRecordingService *)recording
                   scoring:(YTScoringService *)scoring
 {
-    // 统一注入：避免 Presenter 自己去拿单例，便于未来替换实现/做测试
     self.unit = unit;
     self.theme = theme;
     self.audio = audio;
@@ -99,8 +99,21 @@
  - 评分失败/无音频时做兜底提示，不阻断用户继续流程
  */
 @interface YTPronounceUnitView : YTBaseUnitView
-<UITextViewDelegate>
-@property (nonatomic, strong) UIImageView *imageView;
+<UITextViewDelegate, UIScrollViewDelegate>
+@property (nonatomic, strong) UIView *mediaContainerView;
+@property (nonatomic, strong) UIScrollView *mediaScrollView;
+@property (nonatomic, strong) UIView *mediaIndicatorContainerView;
+@property (nonatomic, strong) NSMutableArray<UIView *> *mediaIndicatorViews;
+@property (nonatomic, assign) NSInteger currentMediaPage;
+@property (nonatomic, strong) NSMutableArray<UIView *> *mediaPageViews;
+@property (nonatomic, strong) NSArray<NSDictionary *> *currentMediaItems;
+@property (nonatomic, strong, nullable) AVPlayer *activePlayer;
+@property (nonatomic, strong, nullable) AVPlayerLayer *activePlayerLayer;
+@property (nonatomic, strong) UIButton *mediaPlayPauseButton;
+@property (nonatomic, assign) NSInteger activeVideoIndex;
+@property (nonatomic, copy, nullable) NSString *activeVideoURLString;
+@property (nonatomic, strong, nullable) id videoEndObserver;
+@property (nonatomic, strong) UIView *dashedLineView;
 @property (nonatomic, strong) UITextView *cnTextView;
 @property (nonatomic, strong) UILabel *pinyinLabel;
 @property (nonatomic, strong) UILabel *enLabel;
@@ -117,9 +130,16 @@
 
 @implementation YTPronounceUnitView
 
+static NSInteger const kMediaVideoPosterTag = 9101;
+static NSInteger const kMediaVideoHostTag = 9102;
+
 - (instancetype)init {
     self = [super init];
     if (self) {
+        _mediaPageViews = [NSMutableArray array];
+        _mediaIndicatorViews = [NSMutableArray array];
+        _activeVideoIndex = NSNotFound;
+
         _cardView = [[UIView alloc] init];
         _cardView.backgroundColor = [UIColor whiteColor];
         _cardView.layer.cornerRadius = 18;
@@ -136,9 +156,23 @@
             make.edges.equalTo(self.cardView);
         }];
 
-        _imageView = [[UIImageView alloc] init];
-        _imageView.contentMode = UIViewContentModeScaleAspectFit;
-        [self.frontContentView addSubview:_imageView];
+        _mediaContainerView = [[UIView alloc] init];
+        _mediaContainerView.backgroundColor = [UIColor clearColor];
+        _mediaContainerView.clipsToBounds = YES;
+        [self.frontContentView addSubview:_mediaContainerView];
+
+        _mediaScrollView = [[UIScrollView alloc] init];
+        _mediaScrollView.pagingEnabled = YES;
+        _mediaScrollView.showsHorizontalScrollIndicator = NO;
+        _mediaScrollView.showsVerticalScrollIndicator = NO;
+        _mediaScrollView.alwaysBounceHorizontal = YES;
+        _mediaScrollView.alwaysBounceVertical = NO;
+        _mediaScrollView.delegate = self;
+        [_mediaContainerView addSubview:_mediaScrollView];
+
+        _mediaIndicatorContainerView = [[UIView alloc] init];
+        _mediaIndicatorContainerView.backgroundColor = [UIColor clearColor];
+        [self.frontContentView addSubview:_mediaIndicatorContainerView];
 
         _cnTextView = [[UITextView alloc] init];
         _cnTextView.backgroundColor = [UIColor clearColor];
@@ -186,20 +220,21 @@
         _recordHintLabel.numberOfLines = 2;
         [self.frontContentView addSubview:_recordHintLabel];
 
-        UIView *dashedLine = [[UIView alloc] init];
-        dashedLine.backgroundColor = [UIColor clearColor];
-        [self.frontContentView addSubview:dashedLine];
+        _dashedLineView = [[UIView alloc] init];
+        _dashedLineView.backgroundColor = [self dashedPatternColor];
+        [self.frontContentView addSubview:_dashedLineView];
 
+        // 中文（学生）：与拼音固定 6px 间距；顶部依赖媒体区域（与旧版“图片 + 60”一致）
         [_cnTextView mas_makeConstraints:^(MASConstraintMaker *make) {
             make.centerX.equalTo(self.frontContentView);
             make.left.right.equalTo(self.frontContentView).inset(16);
-            // 学生（中文）label 与图片之间 60
-            make.top.equalTo(self.imageView.mas_bottom).offset(60);
+            make.top.equalTo(self.mediaContainerView.mas_bottom).offset(60);
+            make.bottom.equalTo(self.pinyinLabel.mas_top).offset(-6);
         }];
         [_pinyinLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            // 拼音紧跟学生 label，间距 6
-            make.top.equalTo(self.cnTextView.mas_bottom).offset(6);
+            // 拼音：与中文固定 6px 间距，避免纵向约束循环
             make.centerX.equalTo(self.frontContentView);
+            make.top.equalTo(self.cnTextView.mas_bottom).offset(6);
         }];
         [_playButton mas_makeConstraints:^(MASConstraintMaker *make) {
             make.left.equalTo(self.pinyinLabel.mas_right).offset(8);
@@ -211,50 +246,66 @@
             make.left.right.equalTo(self.frontContentView).inset(16);
         }];
 
-        [dashedLine mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(self.recordHintLabel.mas_bottom).offset(18);
+        [self.dashedLineView mas_makeConstraints:^(MASConstraintMaker *make) {
+            // 虚线固定放在拼音下方（不依赖 recordHint，避免空文案时链路不稳定）
+            make.top.equalTo(self.pinyinLabel.mas_bottom).offset(22);
             make.left.right.equalTo(self.frontContentView).inset(32);
             make.height.mas_equalTo(1);
         }];
 
         [_enLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(dashedLine.mas_bottom).offset(20);
+            make.top.equalTo(self.dashedLineView.mas_bottom).offset(20);
             make.left.right.equalTo(self.frontContentView).inset(16);
             make.bottom.equalTo(self.frontContentView).offset(-53);
         }];
 
-        [_imageView mas_makeConstraints:^(MASConstraintMaker *make) {
-            // 图片固定在卡片上方区域：上左右各 60，中间高度由图片比例自适应
+        [_mediaContainerView mas_makeConstraints:^(MASConstraintMaker *make) {
+            // 中间媒体区域：可承载图片/视频，支持左右滑动
             make.top.equalTo(self.frontContentView).offset(40);
-            make.left.right.equalTo(self.frontContentView).inset(60);
+            make.left.right.equalTo(self.frontContentView).inset(16);
+            make.height.greaterThanOrEqualTo(@160);
+            // 跟旧版 imageView 一样：由下方“学生”位置反推高度（尽量保持视觉比例）
+            make.bottom.equalTo(self.cnTextView.mas_top).offset(-60);
+        }];
+        [_mediaScrollView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.mediaContainerView);
+        }];
+        // 分页指示器放在媒体区域下方
+        [_mediaIndicatorContainerView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.mediaContainerView.mas_bottom).offset(10);
+            make.centerX.equalTo(self.mediaContainerView);
+            make.height.mas_equalTo(4);
         }];
 
-        CAShapeLayer *dashLayer = [CAShapeLayer layer];
-        dashLayer.strokeColor = [UIColor colorWithRed:0xE2 / 255.0
-                                                green:0xE2 / 255.0
-                                                 blue:0xE2 / 255.0
-                                                alpha:1.0].CGColor;
-        dashLayer.fillColor = [UIColor clearColor].CGColor;
-        dashLayer.lineWidth = 1.0;
-        dashLayer.lineDashPattern = @[@4, @2];
-        [dashedLine.layer addSublayer:dashLayer];
-
-        // 等自动布局计算出 dashedLine 的真实宽度后，再根据 bounds 画满整条虚线，
-        // 这样左右与 card 的间距一致。
-        __weak UIView *weakLine = dashedLine;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            UIView *strongLine = weakLine;
-            if (!strongLine) return;
-            [strongLine layoutIfNeeded];
-            CGFloat lineWidth = CGRectGetWidth(strongLine.bounds);
-            dashLayer.frame = CGRectMake(0, 0, lineWidth, 1.0);
-            UIBezierPath *path = [UIBezierPath bezierPath];
-            [path moveToPoint:CGPointMake(0, 0.5)];
-            [path addLineToPoint:CGPointMake(lineWidth, 0.5)];
-            dashLayer.path = path.CGPath;
-        });
     }
     return self;
+}
+
+- (UIButton *)mediaPlayPauseButton {
+    if (!_mediaPlayPauseButton) {
+        _mediaPlayPauseButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        _mediaPlayPauseButton.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.45];
+        _mediaPlayPauseButton.layer.cornerRadius = 28;
+        _mediaPlayPauseButton.layer.masksToBounds = YES;
+        _mediaPlayPauseButton.adjustsImageWhenHighlighted = YES;
+        if (@available(iOS 13.0, *)) {
+            UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightSemibold];
+            UIImage *play = [[UIImage systemImageNamed:@"play.fill"] imageWithConfiguration:cfg];
+            UIImage *pause = [[UIImage systemImageNamed:@"pause.fill"] imageWithConfiguration:cfg];
+            [_mediaPlayPauseButton setImage:play forState:UIControlStateNormal];
+            [_mediaPlayPauseButton setImage:pause forState:UIControlStateSelected];
+            _mediaPlayPauseButton.tintColor = [UIColor whiteColor];
+        } else {
+            [_mediaPlayPauseButton setTitle:@"▶︎" forState:UIControlStateNormal];
+            [_mediaPlayPauseButton setTitle:@"Ⅱ" forState:UIControlStateSelected];
+            [_mediaPlayPauseButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+            _mediaPlayPauseButton.titleLabel.font = [UIFont boldSystemFontOfSize:20];
+        }
+        [_mediaPlayPauseButton addTarget:self action:@selector(onTapMediaPlayPause) forControlEvents:UIControlEventTouchUpInside];
+        _mediaPlayPauseButton.bounds = CGRectMake(0, 0, 56, 56);
+        _mediaPlayPauseButton.hidden = YES;
+    }
+    return _mediaPlayPauseButton;
 }
 
 -(void)configureWithUnit:(YTUnit *)unit theme:(YTDifficultyTheme *)theme audio:(YTAudioMuxService *)audio recording:(YTRecordingService *)recording scoring:(YTScoringService *)scoring {
@@ -276,15 +327,11 @@
         }];
     }
 
-    // 数据驱动：优先使用 unit.imageName；若为空则 fallback 到本地占位图
-    UIImage *img = nil;
-    if (unit.imageName.length > 0) {
-        img = [UIImage imageNamed:unit.imageName];
-    }
-    if (!img) {
-        img = [UIImage imageNamed:@"take_img1"];
-    }
-    self.imageView.image = img;
+    [self rebuildMediaWithUnit:unit];
+    // 约束布局完成后再计算分页 frame，避免初次 bounds=0 导致“看不到媒体”
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self layoutMediaIfNeeded];
+    });
     [self applyCNAttributedTextForUnit:unit];
     self.pinyinLabel.text = unit.titlePinyin ?: @"";
     self.enLabel.text = unit.titleEN ?: @"";
@@ -296,6 +343,388 @@
     self.primaryState.title = @"Start recording";
     self.primaryState.enabled = YES;
     [self emitPrimaryState];
+}
+
+#pragma mark - Media (image / video pager)
+
+- (NSArray<NSDictionary *> *)mediaItemsForUnit:(YTUnit *)unit {
+    NSArray *items = unit.mediaItems;
+    if ([items isKindOfClass:[NSArray class]] && items.count > 0) return items;
+
+    // 兜底：兼容旧字段 imageURLString/imageName
+    NSMutableArray<NSDictionary *> *fallback = [NSMutableArray array];
+    if (unit.imageURLString.length > 0) {
+        [fallback addObject:@{@"type": @"image", @"url": unit.imageURLString ?: @""}];
+    } else if (unit.imageName.length > 0) {
+        [fallback addObject:@{@"type": @"image", @"name": unit.imageName ?: @""}];
+    } else {
+        [fallback addObject:@{@"type": @"image", @"name": @"take_img1"}];
+    }
+    return fallback;
+}
+
+- (UIColor *)mediaIndicatorSelectedColor {
+    return self.theme.primaryColor ?: [UIColor colorWithWhite:0.20 alpha:1.0];
+}
+
+- (UIColor *)mediaIndicatorNormalColor {
+    return [[self mediaIndicatorSelectedColor] colorWithAlphaComponent:0.25];
+}
+
+- (void)rebuildMediaIndicatorsWithCount:(NSInteger)count {
+    for (UIView *v in self.mediaIndicatorViews.copy) {
+        [v removeFromSuperview];
+    }
+    [self.mediaIndicatorViews removeAllObjects];
+
+    self.mediaIndicatorContainerView.hidden = (count <= 1);
+    if (count <= 0) {
+        [self.mediaIndicatorContainerView mas_updateConstraints:^(MASConstraintMaker *make) {
+            make.width.mas_equalTo(0);
+        }];
+        self.currentMediaPage = 0;
+        return;
+    }
+
+    UIView *prev = nil;
+    CGFloat itemWidth = 26.0;
+    CGFloat gap = 4.0;
+    for (NSInteger i = 0; i < count; i++) {
+        UIView *dot = [[UIView alloc] init];
+        dot.backgroundColor = [self mediaIndicatorNormalColor];
+        dot.layer.cornerRadius = 2.0;
+        dot.layer.masksToBounds = YES;
+        [self.mediaIndicatorContainerView addSubview:dot];
+        [self.mediaIndicatorViews addObject:dot];
+
+        [dot mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.bottom.equalTo(self.mediaIndicatorContainerView);
+            make.width.mas_equalTo(itemWidth);
+            if (prev) {
+                make.left.equalTo(prev.mas_right).offset(gap);
+            } else {
+                make.left.equalTo(self.mediaIndicatorContainerView);
+            }
+        }];
+        prev = dot;
+    }
+    [prev mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.right.equalTo(self.mediaIndicatorContainerView);
+    }];
+    CGFloat totalWidth = count * itemWidth + MAX(0, count - 1) * gap;
+    [self.mediaIndicatorContainerView mas_updateConstraints:^(MASConstraintMaker *make) {
+        make.width.mas_equalTo(totalWidth);
+    }];
+    [self updateMediaIndicatorSelection:0];
+}
+
+- (void)updateMediaIndicatorSelection:(NSInteger)index {
+    if (self.mediaIndicatorViews.count == 0) {
+        self.currentMediaPage = 0;
+        return;
+    }
+    index = MAX(0, MIN(index, (NSInteger)self.mediaIndicatorViews.count - 1));
+    self.currentMediaPage = index;
+    UIColor *selected = [self mediaIndicatorSelectedColor];
+    UIColor *normal = [self mediaIndicatorNormalColor];
+    for (NSInteger i = 0; i < self.mediaIndicatorViews.count; i++) {
+        UIView *dot = self.mediaIndicatorViews[i];
+        dot.backgroundColor = (i == index) ? selected : normal;
+    }
+}
+
+- (void)stopActiveVideoIfNeeded {
+    if (self.activePlayer) {
+        [self.activePlayer pause];
+    }
+    if (self.activePlayerLayer) {
+        [self.activePlayerLayer removeFromSuperlayer];
+    }
+    if (self.videoEndObserver) {
+        [[NSNotificationCenter defaultCenter] removeObserver:self.videoEndObserver];
+        self.videoEndObserver = nil;
+    }
+    self.activePlayerLayer = nil;
+    self.activePlayer = nil;
+    self.activeVideoIndex = NSNotFound;
+    self.activeVideoURLString = nil;
+    if (_mediaPlayPauseButton.superview) {
+        [_mediaPlayPauseButton removeFromSuperview];
+    }
+    _mediaPlayPauseButton.hidden = YES;
+}
+
+- (void)rebuildMediaWithUnit:(YTUnit *)unit {
+    [self stopActiveVideoIfNeeded];
+
+    for (UIView *v in self.mediaScrollView.subviews.copy) {
+        [v removeFromSuperview];
+    }
+    [self.mediaPageViews removeAllObjects];
+
+    self.currentMediaItems = [self mediaItemsForUnit:unit];
+    [self rebuildMediaIndicatorsWithCount:self.currentMediaItems.count];
+    self.currentMediaPage = 0;
+
+    for (NSInteger i = 0; i < self.currentMediaItems.count; i++) {
+        NSDictionary *it = self.currentMediaItems[i];
+        NSString *type = [it isKindOfClass:[NSDictionary class]] ? (it[@"type"] ?: @"") : @"";
+
+        UIView *page = [[UIView alloc] init];
+        page.backgroundColor = [UIColor clearColor];
+        page.clipsToBounds = YES;
+        [self.mediaScrollView addSubview:page];
+        [self.mediaPageViews addObject:page];
+
+        if ([type isEqualToString:@"video"]) {
+            // 视频页：先放占位图，真正的 playerLayer 在可见页时再挂载
+            UIView *bg = [[UIView alloc] init];
+            bg.backgroundColor = [UIColor colorWithWhite:0.95 alpha:1];
+            [page addSubview:bg];
+            bg.frame = page.bounds;
+            bg.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+
+            UIImageView *poster = [[UIImageView alloc] init];
+            poster.contentMode = UIViewContentModeScaleAspectFit;
+            poster.clipsToBounds = YES;
+            poster.image = [UIImage imageNamed:@"take_img1"];
+            poster.tag = kMediaVideoPosterTag;
+            [page addSubview:poster];
+            poster.frame = page.bounds;
+            poster.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+
+            UIView *videoHost = [[UIView alloc] init];
+            videoHost.backgroundColor = [UIColor clearColor];
+            videoHost.userInteractionEnabled = NO;
+            videoHost.tag = kMediaVideoHostTag;
+            [page addSubview:videoHost];
+            videoHost.frame = page.bounds;
+            videoHost.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        } else {
+            UIImageView *iv = [[UIImageView alloc] init];
+            iv.contentMode = UIViewContentModeScaleAspectFit;
+            iv.clipsToBounds = YES;
+            [page addSubview:iv];
+            iv.frame = page.bounds;
+            iv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+
+            UIImage *ph = nil;
+            NSString *name = it[@"name"];
+            if ([name isKindOfClass:[NSString class]] && name.length > 0) {
+                ph = [UIImage imageNamed:name];
+            }
+            if (!ph) ph = [UIImage imageNamed:@"take_img1"];
+
+            NSString *urlStr = it[@"url"];
+            if ([urlStr isKindOfClass:[NSString class]] && urlStr.length > 0) {
+                NSURL *url = [NSURL URLWithString:urlStr];
+                [iv sd_setImageWithURL:url placeholderImage:ph];
+            } else {
+                iv.image = ph;
+            }
+        }
+    }
+
+    [self requestMediaLayoutAndPlayAtIndex:0];
+}
+
+- (void)requestMediaLayoutAndPlayAtIndex:(NSInteger)index {
+    [self.rootView layoutIfNeeded];
+    [self layoutMediaPages];
+    [self scrollToMediaIndex:index animated:NO];
+    [self playVideoIfNeededAtIndex:index];
+}
+
+- (void)layoutMediaIfNeeded {
+    // 容器尺寸变化（如旋转/外层重布局）后重新计算分页 frame，避免分页错位
+    [self.rootView layoutIfNeeded];
+    [self layoutMediaPages];
+    [self scrollToMediaIndex:self.currentMediaPage animated:NO];
+}
+
+- (UIColor *)dashedPatternColor {
+    static UIColor *cachedColor = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        CGSize size = CGSizeMake(7, 1); // 4px 实线 + 3px 空白
+        UIGraphicsBeginImageContextWithOptions(size, NO, 0);
+        CGContextRef ctx = UIGraphicsGetCurrentContext();
+        if (ctx) {
+            UIColor *stroke = [theAppDelegate.window colorWithHexString:@"#E2E2E2" alpha:1.0];
+            CGContextSetFillColorWithColor(ctx, stroke.CGColor);
+            CGContextFillRect(ctx, CGRectMake(0, 0, 4, 1));
+        }
+        UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+        cachedColor = [UIColor colorWithPatternImage:img ?: [UIImage new]];
+    });
+    return cachedColor;
+}
+
+- (void)layoutMediaPages {
+    CGFloat w = CGRectGetWidth(self.mediaContainerView.bounds);
+    CGFloat h = CGRectGetHeight(self.mediaContainerView.bounds);
+    if (w <= 0 || h <= 0) return;
+
+    for (NSInteger i = 0; i < self.mediaPageViews.count; i++) {
+        UIView *page = self.mediaPageViews[i];
+        page.frame = CGRectMake(w * i, 0, w, h);
+    }
+    self.mediaScrollView.contentSize = CGSizeMake(w * self.mediaPageViews.count, h);
+    // 约束变化后确保滚动位置仍对齐页边界
+    [self scrollToMediaIndex:self.currentMediaPage animated:NO];
+
+    // 首次布局或旋转后，保持视频 layer 与按钮都跟随 page 尺寸
+    if (self.activeVideoIndex != NSNotFound &&
+        self.activeVideoIndex < self.mediaPageViews.count) {
+        UIView *page = self.mediaPageViews[self.activeVideoIndex];
+        if (self.activePlayerLayer) {
+            UIView *videoHost = [page viewWithTag:kMediaVideoHostTag];
+            self.activePlayerLayer.frame = (videoHost ? videoHost.bounds : page.bounds);
+        }
+        if (self.mediaPlayPauseButton.superview == page) {
+            self.mediaPlayPauseButton.center = CGPointMake(CGRectGetMidX(page.bounds), CGRectGetMidY(page.bounds));
+        }
+    }
+
+}
+
+- (void)scrollToMediaIndex:(NSInteger)index animated:(BOOL)animated {
+    CGFloat w = CGRectGetWidth(self.mediaContainerView.bounds);
+    if (w <= 0) return;
+    index = MAX(0, MIN(index, (NSInteger)self.mediaPageViews.count - 1));
+    [self.mediaScrollView setContentOffset:CGPointMake(w * index, 0) animated:animated];
+    [self updateMediaIndicatorSelection:index];
+}
+
+- (void)playVideoIfNeededAtIndex:(NSInteger)index {
+    if (index < 0 || index >= self.currentMediaItems.count) return;
+
+    NSDictionary *it = self.currentMediaItems[index];
+    NSString *type = [it isKindOfClass:[NSDictionary class]] ? (it[@"type"] ?: @"") : @"";
+    if (![type isEqualToString:@"video"]) {
+        // 切到图片页：仅暂停，不销毁视频实例（回到视频页可继续）
+        if (self.activePlayer) {
+            [self.activePlayer pause];
+        }
+        self.mediaPlayPauseButton.selected = NO;
+        self.mediaPlayPauseButton.hidden = YES;
+        return;
+    }
+
+    NSString *urlStr = [it isKindOfClass:[NSDictionary class]] ? it[@"url"] : @"";
+    if (![urlStr isKindOfClass:[NSString class]] || urlStr.length == 0) return;
+    NSURL *url = [NSURL URLWithString:urlStr];
+    if (!url) return;
+
+    UIView *page = (index < self.mediaPageViews.count) ? self.mediaPageViews[index] : nil;
+    if (!page) return;
+    if (CGRectGetWidth(page.bounds) <= 0 || CGRectGetHeight(page.bounds) <= 0) {
+        // 首次进入时 page 可能尚未完成布局，延迟到下一帧重试
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self layoutMediaIfNeeded];
+            [self playVideoIfNeededAtIndex:index];
+        });
+        return;
+    }
+    BOOL shouldRecreatePlayer = (self.activePlayer == nil ||
+                                 self.activeVideoURLString.length == 0 ||
+                                 ![self.activeVideoURLString isEqualToString:urlStr]);
+    self.activeVideoIndex = index;
+
+    UIView *videoHost = [page viewWithTag:kMediaVideoHostTag];
+    if (!videoHost) {
+        videoHost = page;
+    }
+    if (shouldRecreatePlayer) {
+        [self stopActiveVideoIfNeeded];
+        self.activeVideoIndex = index;
+        self.activeVideoURLString = urlStr;
+
+        AVPlayer *p = [AVPlayer playerWithURL:url];
+        p.muted = YES;
+        self.activePlayer = p;
+
+        AVPlayerLayer *layer = [AVPlayerLayer playerLayerWithPlayer:p];
+        layer.videoGravity = AVLayerVideoGravityResizeAspect;
+        layer.frame = videoHost.bounds;
+        [videoHost.layer addSublayer:layer];
+        self.activePlayerLayer = layer;
+
+        __weak typeof(self) weakSelf = self;
+        self.videoEndObserver = [[NSNotificationCenter defaultCenter] addObserverForName:AVPlayerItemDidPlayToEndTimeNotification object:p.currentItem queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+            __strong typeof(weakSelf) selfStrong = weakSelf;
+            if (!selfStrong) return;
+            [selfStrong.activePlayer seekToTime:kCMTimeZero completionHandler:^(BOOL finished) {
+                if (finished) {
+                    [selfStrong.activePlayer play];
+                    selfStrong.mediaPlayPauseButton.selected = YES;
+                }
+            }];
+        }];
+    } else {
+        // 复用已有 player/layer：重挂到当前页，避免切页时出现“重新加载闪烁”
+        if (self.activePlayerLayer.superlayer != videoHost.layer) {
+            [self.activePlayerLayer removeFromSuperlayer];
+            [videoHost.layer addSublayer:self.activePlayerLayer];
+        }
+        self.activePlayerLayer.frame = videoHost.bounds;
+    }
+
+    UIView *poster = [page viewWithTag:kMediaVideoPosterTag];
+    if (poster) {
+        poster.hidden = YES;
+    }
+
+    // 视频页中间：播放/暂停按钮
+    UIButton *btn = self.mediaPlayPauseButton;
+    if (btn.superview != page) {
+        [btn removeFromSuperview];
+        [page addSubview:btn];
+    }
+    btn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+    btn.center = CGPointMake(CGRectGetMidX(page.bounds), CGRectGetMidY(page.bounds));
+    btn.selected = (self.activePlayer.rate > 0.01);
+    btn.hidden = NO;
+}
+
+- (void)onTapMediaPlayPause {
+    if (self.activeVideoIndex == NSNotFound || self.activeVideoIndex >= self.currentMediaItems.count) return;
+    if (!self.activePlayer) {
+        // 兜底：若因重建等场景还未准备好 player，这里先准备不播放
+        [self playVideoIfNeededAtIndex:self.activeVideoIndex];
+        if (!self.activePlayer) return;
+    }
+
+    if (self.activePlayer.rate > 0.01) {
+        [self.activePlayer pause];
+        self.mediaPlayPauseButton.selected = NO;
+    } else {
+        [self.activePlayer play];
+        self.mediaPlayPauseButton.selected = YES;
+    }
+}
+
+#pragma mark - UIScrollViewDelegate
+
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
+    if (scrollView != self.mediaScrollView) return;
+    CGFloat w = CGRectGetWidth(self.mediaContainerView.bounds);
+    if (w <= 0) return;
+    NSInteger idx = (NSInteger)llround(scrollView.contentOffset.x / w);
+    idx = MAX(0, MIN(idx, (NSInteger)self.mediaPageViews.count - 1));
+    [self updateMediaIndicatorSelection:idx];
+    [self playVideoIfNeededAtIndex:idx];
+}
+
+- (void)scrollViewDidEndScrollingAnimation:(UIScrollView *)scrollView {
+    if (scrollView != self.mediaScrollView) return;
+    CGFloat w = CGRectGetWidth(self.mediaContainerView.bounds);
+    if (w <= 0) return;
+    NSInteger idx = (NSInteger)llround(scrollView.contentOffset.x / w);
+    idx = MAX(0, MIN(idx, (NSInteger)self.mediaPageViews.count - 1));
+    [self updateMediaIndicatorSelection:idx];
+    [self playVideoIfNeededAtIndex:idx];
 }
 
 - (void)applyCNAttributedTextForUnit:(YTUnit *)unit {
@@ -968,7 +1397,7 @@
         [v removeFromSuperview];
     }
 
-    if (unit.exerciseType == YTExerciseTypeListenChooseImage) {
+    if (unit.unitType == YTUnitTypeExerciseListenChooseImage) {
         // 听词选图：展示“音频按钮 + 拼音提示 + 2x2 图格”
         self.titleLabel.text = NSLocalizedString(@"Choose the matching image", @"");
         self.audioButton.hidden = NO;
@@ -989,15 +1418,15 @@
         self.titleLabel.adjustsFontSizeToFitWidth = YES;
         self.titleLabel.minimumScaleFactor = 0.85;
 
-        self.titleLabel.text = (unit.exerciseType == YTExerciseTypeListenChooseResponse)
+        self.titleLabel.text = (unit.unitType == YTUnitTypeExerciseListenChooseResponse)
             ? NSLocalizedString(@"Choose the correct response", @"")
             : NSLocalizedString(@"Choose the matching word", @"");
         // 看图选词/纯选择题一般不强制音频
-        self.audioButton.hidden = (unit.exerciseType != YTExerciseTypeListenChooseResponse);
+        self.audioButton.hidden = (unit.unitType != YTUnitTypeExerciseListenChooseResponse);
         self.pinyinLabel.hidden = YES;
         self.pinyinLabel.text = @"";
 
-        if (unit.exerciseType == YTExerciseTypeLookChooseWord) {
+        if (unit.unitType == YTUnitTypeExerciseLookChooseWord) {
             // 看图选词：去掉标题下横线，整体按新规范排版
             self.dividerLine.hidden = YES;
             [self.optionsContainer mas_remakeConstraints:^(MASConstraintMaker *make) {
@@ -1018,7 +1447,7 @@
         }
 
         [self buildWordOptionsWithHeaderImage];
-        if (unit.exerciseType == YTExerciseTypeListenChooseResponse) {
+        if (unit.unitType == YTUnitTypeExerciseListenChooseResponse) {
             [self autoPlayIfNeeded];
         }
     }
@@ -1051,6 +1480,7 @@
         NSDictionary *opt = self.unit.options[i];
         NSString *optId = opt[@"id"];
         NSString *imgName = opt[@"imageName"];
+        NSString *imgURLString = opt[@"imageURL"];
         NSString *text = opt[@"text"];
 
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -1079,6 +1509,10 @@
         UIImageView *iv = [[UIImageView alloc] initWithImage:iconImg];
         iv.contentMode = UIViewContentModeScaleAspectFit;
         [btn addSubview:iv];
+        if (imgURLString.length > 0) {
+            NSURL *url = [NSURL URLWithString:imgURLString];
+            [iv sd_setImageWithURL:url placeholderImage:iconImg];
+        }
 
         UILabel *lbl = [[UILabel alloc] init];
         lbl.text = text;
@@ -1101,23 +1535,40 @@
 
 - (void)buildWordOptionsWithHeaderImage {
     UIImageView *header = nil;
-    BOOL isLookChooseWord = (self.unit.exerciseType == YTExerciseTypeLookChooseWord);
+    BOOL isLookChooseWord = (self.unit.unitType == YTUnitTypeExerciseLookChooseWord);
     if (isLookChooseWord) {
-            // 看图选词：使用后端下发题干大图（unit.imageName），为空则 fallback 到占位图
-        UIImage *img = nil;
+            // 看图选词：优先远程 URL；失败回退本地 imageName；再兜底占位图
+        UIImage *ph = nil;
         if (self.unit.imageName.length > 0) {
-            img = [UIImage imageNamed:self.unit.imageName];
+            ph = [UIImage imageNamed:self.unit.imageName];
         }
-        if (!img) {
-            img = [UIImage imageNamed:@"take_img1"];
+        if (!ph) {
+            ph = [UIImage imageNamed:@"take_img1"];
         }
-        header = [[UIImageView alloc] initWithImage:img];
+        header = [[UIImageView alloc] initWithImage:ph];
         header.contentMode = UIViewContentModeScaleAspectFit;
         [self.optionsContainer addSubview:header];
+        if (self.unit.imageURLString.length > 0) {
+            NSURL *url = [NSURL URLWithString:self.unit.imageURLString];
+            [header sd_setImageWithURL:url placeholderImage:ph];
+        }
     } else if (self.unit.imageName.length > 0) {
-        header = [[UIImageView alloc] initWithImage:[UIImage imageNamed:self.unit.imageName]];
+        UIImage *ph = [UIImage imageNamed:self.unit.imageName];
+        header = [[UIImageView alloc] initWithImage:ph];
         header.contentMode = UIViewContentModeScaleAspectFit;
         [self.optionsContainer addSubview:header];
+        if (self.unit.imageURLString.length > 0) {
+            NSURL *url = [NSURL URLWithString:self.unit.imageURLString];
+            [header sd_setImageWithURL:url placeholderImage:ph ?: [UIImage imageNamed:@"take_img1"]];
+        }
+    } else if (self.unit.imageURLString.length > 0) {
+        // 没有本地兜底时，也允许只靠远程图展示（用统一占位图避免空白）
+        UIImage *ph = [UIImage imageNamed:@"take_img1"];
+        header = [[UIImageView alloc] initWithImage:ph];
+        header.contentMode = UIViewContentModeScaleAspectFit;
+        [self.optionsContainer addSubview:header];
+        NSURL *url = [NSURL URLWithString:self.unit.imageURLString];
+        [header sd_setImageWithURL:url placeholderImage:ph];
     }
 
     UIView *list = [[UIView alloc] init];
@@ -1154,7 +1605,7 @@
 
     CGFloat btnH = 44;
     // 看图选词：选项上下间距 16，其它题型保持 10
-    CGFloat gap = (self.unit.exerciseType == YTExerciseTypeLookChooseWord) ? 16.0 : 10.0;
+    CGFloat gap = (self.unit.unitType == YTUnitTypeExerciseLookChooseWord) ? 16.0 : 10.0;
     for (NSInteger i = 0; i < self.unit.options.count; i++) {
         NSDictionary *opt = self.unit.options[i];
         NSString *optId = opt[@"id"];
@@ -1241,7 +1692,6 @@
 
 - (void)handlePrimaryActionWithCompletion:(void (^)(YTUnitSubmitResult * _Nullable, NSError * _Nullable))completion {
     if (self.selectedOptionId.length == 0) {
-        // 交互兜底：理论上按钮不可点；这里仍保留防御性检查
         if (completion) completion(nil, [NSError errorWithDomain:@"YTChoiceExerciseUnitView" code:4001 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Please choose an option", @"")}]);
         return;
     }
@@ -1249,7 +1699,6 @@
     YTUnitSubmitResult *r = [[YTUnitSubmitResult alloc] init];
     r.isCorrect = correct;
     if (!correct) {
-        // 找到正确答案文字
         NSString *answer = nil;
         for (NSDictionary *opt in self.unit.options) {
             if ([opt[@"id"] isEqual:self.unit.correctOptionId]) {
@@ -1259,149 +1708,9 @@
         }
         r.correctAnswerText = answer ?: @"";
     }
-    self.completeSignalSatisfied = YES; // PRD：提交一次即完成
+    self.completeSignalSatisfied = YES;
     [self applySubmitFeedbackCorrect:correct];
     if (completion) completion(r, nil);
-}
-
-@end
-
-#pragma mark - Grammar
-
-/**
- Grammar/Usage Presenter（引导页）
- 
- 设计意图（MVP）：
- - 语法页更多承担“解释/示例”，不做严格测验，因此默认主按钮为 Got it
- - 用气泡列表展示多行文本，便于未来扩展“示例/高亮/点击展开”
- 
- 注意：
- - 当前 `ruleButton` 仅做 UI 占位（后续可弹出更详细规则/跳转详情页）
- */
-@interface YTGrammarUnitView : YTBaseUnitView
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UIScrollView *scrollView;
-@property (nonatomic, strong) UIStackView *stack;
-@property (nonatomic, strong) UIButton *ruleButton;
-@end
-
-@implementation YTGrammarUnitView
-
-- (instancetype)init {
-    self = [super init];
-    if (self) {
-        UIView *card = [[UIView alloc] init];
-        card.backgroundColor = [UIColor whiteColor];
-        card.layer.cornerRadius = 18;
-        card.layer.masksToBounds = YES;
-        [self.rootView addSubview:card];
-        [card mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.edges.equalTo(self.rootView);
-        }];
-
-        _titleLabel = [[UILabel alloc] init];
-        _titleLabel.textColor = BLACK_COLOR_1F;
-        _titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
-        _titleLabel.text = NSLocalizedString(@"Usage:", @"");
-        [card addSubview:_titleLabel];
-        [_titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(card).offset(16);
-            make.left.right.equalTo(card).inset(16);
-        }];
-
-        _scrollView = [[UIScrollView alloc] init];
-        _scrollView.showsVerticalScrollIndicator = NO;
-        [card addSubview:_scrollView];
-        [_scrollView mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.right.equalTo(card);
-            make.top.equalTo(self.titleLabel.mas_bottom).offset(10);
-            make.bottom.equalTo(card).offset(-72);
-        }];
-
-        UIView *content = [[UIView alloc] init];
-        [_scrollView addSubview:content];
-        [content mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.edges.equalTo(self.scrollView);
-            make.width.equalTo(self.scrollView);
-        }];
-
-        _stack = [[UIStackView alloc] init];
-        _stack.axis = UILayoutConstraintAxisVertical;
-        _stack.alignment = UIStackViewAlignmentFill;
-        _stack.distribution = UIStackViewDistributionFill;
-        _stack.spacing = 12;
-        [content addSubview:_stack];
-        [_stack mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(content).offset(6);
-            make.left.right.equalTo(content).inset(16);
-            make.bottom.equalTo(content).offset(-10);
-        }];
-
-        _ruleButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        _ruleButton.layer.cornerRadius = 14;
-        _ruleButton.layer.masksToBounds = YES;
-        _ruleButton.backgroundColor = [UIColor colorWithWhite:0.95 alpha:1];
-        [_ruleButton setTitle:NSLocalizedString(@"Grammar Rule", @"") forState:UIControlStateNormal];
-        [_ruleButton setTitleColor:BLACK_COLOR_1F forState:UIControlStateNormal];
-        _ruleButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
-        [card addSubview:_ruleButton];
-        [_ruleButton mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.right.equalTo(card).inset(16);
-            make.bottom.equalTo(card).offset(-16);
-            make.height.mas_equalTo(44);
-        }];
-    }
-    return self;
-}
-
-- (void)configureWithUnit:(YTUnit *)unit theme:(YTDifficultyTheme *)theme audio:(YTAudioMuxService *)audio recording:(YTRecordingService *)recording scoring:(YTScoringService *)scoring {
-    [super configureWithUnit:unit theme:theme audio:audio recording:recording scoring:scoring];
-    // 复用同一个 view，切题时先清空旧的 bubble
-    for (UIView *v in self.stack.arrangedSubviews) {
-        [self.stack removeArrangedSubview:v];
-        [v removeFromSuperview];
-    }
-
-    NSString *txt = unit.grammarText ?: @"";
-    // 简单按换行切分为多条 bubble（后续可替换为富文本/结构化数据）
-    NSArray<NSString *> *lines = [txt componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
-    for (NSString *line in lines) {
-        NSString *s = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        if (s.length == 0) continue;
-
-        UILabel *bubble = [[UILabel alloc] init];
-        bubble.text = s;
-        bubble.numberOfLines = 0;
-        bubble.textColor = BLACK_COLOR_1F;
-        bubble.font = [UIFont fontWithName:FONT_NAME_Regular size:16];
-        bubble.backgroundColor = [UIColor colorWithWhite:0.96 alpha:1];
-        bubble.layer.cornerRadius = 14;
-        bubble.layer.masksToBounds = YES;
-        bubble.layer.borderWidth = 1;
-        bubble.layer.borderColor = [UIColor colorWithWhite:0.90 alpha:1].CGColor;
-        bubble.textAlignment = NSTextAlignmentLeft;
-        bubble.layoutMargins = UIEdgeInsetsMake(12, 12, 12, 12);
-        bubble.translatesAutoresizingMaskIntoConstraints = NO;
-
-        UIView *wrap = [[UIView alloc] init];
-        [wrap addSubview:bubble];
-        [bubble mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.top.bottom.equalTo(wrap);
-            make.left.equalTo(wrap);
-            make.right.lessThanOrEqualTo(wrap);
-        }];
-        [self.stack addArrangedSubview:wrap];
-    }
-
-    self.primaryState.kind = YTUnitPrimaryKindGotIt;
-    self.primaryState.title = @"Got it";
-    self.primaryState.enabled = YES;
-    [self emitPrimaryState];
-}
-
-- (void)handlePrimaryActionWithCompletion:(void (^)(YTUnitSubmitResult * _Nullable, NSError * _Nullable))completion {
-    self.completeSignalSatisfied = YES;
-    if (completion) completion(nil, nil);
 }
 
 @end
@@ -1650,11 +1959,7 @@
     if (!correct) {
         NSString *answer = nil;
         for (NSDictionary *opt in self.unit.options) {
-            NSString *oid = opt[@"id"];
-            if ([oid isEqual:self.unit.correctOptionId]) {
-                answer = opt[@"text"];
-                break;
-            }
+            if ([opt[@"id"] isEqual:self.unit.correctOptionId]) { answer = opt[@"text"]; break; }
         }
         r.correctAnswerText = answer ?: @"";
     }
@@ -1873,11 +2178,7 @@
     if (!correct) {
         NSString *answer = nil;
         for (NSDictionary *opt in self.unit.options) {
-            NSString *oid = opt[@"id"];
-            if ([oid isEqual:self.unit.correctOptionId]) {
-                answer = opt[@"text"];
-                break;
-            }
+            if ([opt[@"id"] isEqual:self.unit.correctOptionId]) { answer = opt[@"text"]; break; }
         }
         r.correctAnswerText = answer ?: @"";
     }
@@ -1892,16 +2193,21 @@
 @property (nonatomic, strong) UIView *cardView;
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UIView *selectedRowContainer;
-@property (nonatomic, strong) UIStackView *selectedStack;
+@property (nonatomic, strong) UIView *selectedFlowView;
 @property (nonatomic, strong) UIView *dividerLine;
 @property (nonatomic, strong) UIView *tokensRowContainer;
-@property (nonatomic, strong) UIStackView *tokensStack;
+@property (nonatomic, strong) UIView *tokensFlowView;
 @property (nonatomic, strong) NSMutableArray<UIButton *> *tokenButtons;
 @property (nonatomic, strong) NSMutableArray<UIView *> *tokenSlots;
 @property (nonatomic, strong) NSMutableArray<NSNumber *> *tokenWidths;
 @property (nonatomic, strong) NSMutableArray<UIView *> *tokenPlaceholders;
 @property (nonatomic, strong) NSMutableArray<UIButton *> *selectedChipButtons;
 @property (nonatomic, assign) BOOL hasSubmitted;
+@property (nonatomic, assign) CGFloat lastTokensRowHeight;
+@property (nonatomic, assign) CGFloat lastSelectedRowHeight;
+
+- (void)requestBuildSentenceFlowLayout;
+- (void)layoutBuildSentenceFlow;
 @end
 
 @implementation YTBuildSentenceUnitView
@@ -1952,21 +2258,15 @@
         [_selectedRowContainer mas_makeConstraints:^(MASConstraintMaker *make) {
             make.top.equalTo(self.titleLabel.mas_bottom).offset(110);
             make.left.right.equalTo(self.cardView).inset(16);
+            // 容器高度会根据 flow 布局自动调整
             make.height.mas_equalTo(44);
         }];
 
-        _selectedStack = [[UIStackView alloc] init];
-        _selectedStack.axis = UILayoutConstraintAxisHorizontal;
-        _selectedStack.alignment = UIStackViewAlignmentFill;
-        _selectedStack.distribution = UIStackViewDistributionFill;
-        _selectedStack.spacing = 10;
-        [_selectedRowContainer addSubview:_selectedStack];
-        [_selectedStack mas_makeConstraints:^(MASConstraintMaker *make) {
-            // 让已选行内容“紧凑居中”，避免 stack 拉伸导致子视图宽度被撑开
-            make.center.equalTo(self.selectedRowContainer);
-            make.top.bottom.equalTo(self.selectedRowContainer);
-            make.left.greaterThanOrEqualTo(self.selectedRowContainer);
-            make.right.lessThanOrEqualTo(self.selectedRowContainer);
+        _selectedFlowView = [[UIView alloc] init];
+        _selectedFlowView.backgroundColor = [UIColor clearColor];
+        [_selectedRowContainer addSubview:_selectedFlowView];
+        [_selectedFlowView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.selectedRowContainer);
         }];
 
         _dividerLine = [[UIView alloc] init];
@@ -1985,21 +2285,20 @@
             make.left.right.equalTo(self.cardView).inset(16);
             make.top.greaterThanOrEqualTo(self.dividerLine.mas_bottom).offset(20);
             make.bottom.equalTo(self.cardView).offset(-34);
+            // 容器高度会根据 flow 布局自动调整
             make.height.mas_equalTo(44);
         }];
 
-        _tokensStack = [[UIStackView alloc] init];
-        _tokensStack.axis = UILayoutConstraintAxisHorizontal;
-        _tokensStack.alignment = UIStackViewAlignmentFill;
-        _tokensStack.distribution = UIStackViewDistributionFill;
-        _tokensStack.spacing = 12;
-        [_tokensRowContainer addSubview:_tokensStack];
-        [_tokensStack mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.center.equalTo(self.tokensRowContainer);
-            make.top.bottom.equalTo(self.tokensRowContainer);
-            make.left.greaterThanOrEqualTo(self.tokensRowContainer);
-            make.right.lessThanOrEqualTo(self.tokensRowContainer);
+        _tokensFlowView = [[UIView alloc] init];
+        _tokensFlowView.backgroundColor = [UIColor clearColor];
+        [_tokensRowContainer addSubview:_tokensFlowView];
+        [_tokensFlowView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.tokensRowContainer);
         }];
+
+        // flow 高度缓存：避免 layoutSubviews 里频繁 mas_updateConstraints 触发布局抖动
+        self.lastTokensRowHeight = 44.0;
+        self.lastSelectedRowHeight = 44.0;
     }
     return self;
 }
@@ -2013,19 +2312,16 @@
     [self.tokenPlaceholders removeAllObjects];
     [self.selectedChipButtons removeAllObjects];
 
-    for (UIView *v in self.selectedStack.arrangedSubviews) {
-        [self.selectedStack removeArrangedSubview:v];
+    for (UIView *v in self.selectedFlowView.subviews) {
         [v removeFromSuperview];
     }
-    for (UIView *v in self.tokensStack.arrangedSubviews) {
-        [self.tokensStack removeArrangedSubview:v];
+    for (UIView *v in self.tokensFlowView.subviews) {
         [v removeFromSuperview];
     }
 
     NSArray<NSDictionary *> *tokens = unit.options ?: @[];
     UIFont *font = [UIFont fontWithName:FONT_NAME_Semibold size:16] ?: [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     CGFloat minW = 44;
-    CGFloat h = 44;
 
     for (NSInteger i = 0; i < tokens.count; i++) {
         NSDictionary *opt = tokens[i];
@@ -2034,16 +2330,13 @@
 
         UIView *slot = [[UIView alloc] init];
         slot.backgroundColor = [UIColor clearColor];
-        [self.tokensStack addArrangedSubview:slot];
+        slot.translatesAutoresizingMaskIntoConstraints = YES; // 使用 frame flow 布局
+        [self.tokensFlowView addSubview:slot];
         [self.tokenSlots addObject:slot];
 
         CGSize sz = [text sizeWithAttributes:@{NSFontAttributeName: font}];
         CGFloat w = MAX(minW, sz.width + 28);
         [self.tokenWidths addObject:@(w)];
-        [slot mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.height.mas_equalTo(h);
-            make.width.mas_equalTo(w);
-        }];
 
         UIView *placeholder = [[UIView alloc] init];
         placeholder.backgroundColor = [UIColor colorWithWhite:0.94 alpha:1];
@@ -2051,9 +2344,7 @@
         placeholder.layer.masksToBounds = YES;
         placeholder.hidden = YES;
         [slot addSubview:placeholder];
-        [placeholder mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.edges.equalTo(slot);
-        }];
+        placeholder.translatesAutoresizingMaskIntoConstraints = YES;
         [self.tokenPlaceholders addObject:placeholder];
 
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -2068,9 +2359,7 @@
         btn.titleLabel.font = font;
         [btn addTarget:self action:@selector(onTapTokenSlotButton:) forControlEvents:UIControlEventTouchUpInside];
         [slot addSubview:btn];
-        [btn mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.edges.equalTo(slot);
-        }];
+        btn.translatesAutoresizingMaskIntoConstraints = YES;
         [self.tokenButtons addObject:btn];
     }
 
@@ -2078,6 +2367,7 @@
     self.primaryState.title = @"Submit";
     self.primaryState.enabled = NO;
     [self emitPrimaryState];
+    [self requestBuildSentenceFlowLayout];
 }
 
 - (void)onTapTokenSlotButton:(UIButton *)btn {
@@ -2103,18 +2393,12 @@
     [chip setTitleColor:BLACK_COLOR_1F forState:UIControlStateNormal];
     chip.titleLabel.font = btn.titleLabel.font;
     [chip addTarget:self action:@selector(onTapSelectedChipButton:) forControlEvents:UIControlEventTouchUpInside];
-    [self.selectedStack addArrangedSubview:chip];
+    chip.translatesAutoresizingMaskIntoConstraints = YES;
+    [self.selectedFlowView addSubview:chip];
     [self.selectedChipButtons addObject:chip];
-    // 要求：上方已选词块宽度与底部对应词块一致
-    if (idx >= 0 && idx < self.tokenWidths.count) {
-        CGFloat w = [self.tokenWidths[idx] doubleValue];
-        [chip mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.height.mas_equalTo(44);
-            make.width.mas_equalTo(w);
-        }];
-    }
 
     [self updatePrimaryEnabled];
+    [self requestBuildSentenceFlowLayout];
 }
 
 - (void)onTapSelectedChipButton:(UIButton *)chip {
@@ -2130,7 +2414,6 @@
         chip.transform = CGAffineTransformMakeScale(0.92, 0.92);
         chip.alpha = 0.0;
     } completion:^(__unused BOOL finished) {
-        [self.selectedStack removeArrangedSubview:chip];
         [chip removeFromSuperview];
         [self.selectedChipButtons removeObject:chip];
 
@@ -2144,12 +2427,13 @@
         }
 
         [self updatePrimaryEnabled];
+        [self requestBuildSentenceFlowLayout];
     }];
 }
 
 - (void)updatePrimaryEnabled {
     NSInteger total = self.tokenButtons.count;
-    NSInteger selected = self.selectedStack.arrangedSubviews.count;
+    NSInteger selected = self.selectedChipButtons.count;
     self.primaryState.enabled = (total > 0 && selected == total);
     [self emitPrimaryState];
 }
@@ -2157,8 +2441,7 @@
 - (void)resetBuildSentenceSelectionAnimated:(BOOL)animated {
     void (^apply)(void) = ^{
         // 清空顶部
-        for (UIView *v in self.selectedStack.arrangedSubviews.copy) {
-            [self.selectedStack removeArrangedSubview:v];
+        for (UIView *v in self.selectedFlowView.subviews.copy) {
             [v removeFromSuperview];
         }
         [self.selectedChipButtons removeAllObjects];
@@ -2174,6 +2457,7 @@
 
         self.hasSubmitted = NO;
         [self updatePrimaryEnabled];
+        [self requestBuildSentenceFlowLayout];
     };
 
     if (!animated) {
@@ -2226,9 +2510,7 @@
     UIColor *blueFill = [blue colorWithAlphaComponent:0.15];
     NSArray<NSString *> *correctTokens = ok ? @[] : [self correctTokenTextsInOrder];
     NSInteger i = 0;
-    for (UIView *v in self.selectedStack.arrangedSubviews) {
-        if (![v isKindOfClass:[UIButton class]]) continue;
-        UIButton *b = (UIButton *)v;
+    for (UIButton *b in self.selectedChipButtons) {
         NSString *t = [b currentTitle] ?: @"";
         if (ok) {
             b.layer.borderWidth = 2;
@@ -2252,14 +2534,13 @@
 }
 
 - (void)handlePrimaryActionWithCompletion:(void (^)(YTUnitSubmitResult * _Nullable, NSError * _Nullable))completion {
-    if (self.selectedStack.arrangedSubviews.count != self.tokenButtons.count) {
+    if (self.selectedChipButtons.count != self.tokenButtons.count) {
         if (completion) completion(nil, [NSError errorWithDomain:@"YTBuildSentenceUnitView" code:5001 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Please complete the sentence", @"")}]);
         return;
     }
     NSMutableArray<NSString *> *parts = [NSMutableArray array];
-    for (UIView *v in self.selectedStack.arrangedSubviews) {
-        if (![v isKindOfClass:[UIButton class]]) continue;
-        NSString *t = [(UIButton *)v currentTitle] ?: @"";
+    for (UIButton *b in self.selectedChipButtons) {
+        NSString *t = [b currentTitle] ?: @"";
         if (t.length) [parts addObject:t];
     }
     NSString *answer = [parts componentsJoinedByString:@""];
@@ -2279,6 +2560,97 @@
     // 由容器在“答错弹窗”按钮点击后触发
     if (!self.hasSubmitted) return;
     [self resetBuildSentenceSelectionAnimated:YES];
+}
+
+- (void)requestBuildSentenceFlowLayout {
+    // YTBuildSentenceUnitView 不是 UIView（继承 NSObject），需要对 rootView 触发布局并在下一轮计算 flow 坐标
+    [self.rootView setNeedsLayout];
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        [self layoutBuildSentenceFlow];
+    });
+}
+
+- (void)layoutBuildSentenceFlow {
+    // 注意：selectedFlowView/tokensFlowView 内子视图使用 frame 布局，避免 UIStackView 不支持换行导致的挤压。
+    const CGFloat chipH = 44.0;
+    const CGFloat tokenH = 44.0;
+    const CGFloat tokenSpacingX = 12.0;
+    const CGFloat tokenRowSpacingY = 12.0;
+    const CGFloat chipSpacingX = 10.0;
+    const CGFloat chipRowSpacingY = 10.0;
+
+    // 1) tokensFlowView：底部词块池（含占位块）
+    CGFloat tokensW = CGRectGetWidth(self.tokensFlowView.bounds);
+    if (tokensW > 0 && self.tokenSlots.count == self.tokenWidths.count &&
+        self.tokenButtons.count == self.tokenWidths.count &&
+        self.tokenPlaceholders.count == self.tokenWidths.count) {
+        CGFloat x = 0;
+        CGFloat y = 0;
+        CGFloat rowMaxH = 0;
+        for (NSInteger i = 0; i < self.tokenSlots.count; i++) {
+            UIView *slot = self.tokenSlots[i];
+            CGFloat w = [self.tokenWidths[i] doubleValue];
+            if (w <= 0) w = 44;
+
+            if (x > 0 && (x + w) > tokensW) {
+                x = 0;
+                y += rowMaxH + tokenRowSpacingY;
+                rowMaxH = 0;
+            }
+            rowMaxH = MAX(rowMaxH, tokenH);
+
+            slot.frame = CGRectMake(x, y, w, tokenH);
+
+            UIView *ph = self.tokenPlaceholders[i];
+            UIButton *btn = self.tokenButtons[i];
+            ph.frame = slot.bounds;
+            btn.frame = slot.bounds;
+
+            x += w + tokenSpacingX;
+        }
+        CGFloat requiredH = y + tokenH;
+        requiredH = MAX(44.0, requiredH);
+        if (fabs(requiredH - self.lastTokensRowHeight) > 0.5) {
+            self.lastTokensRowHeight = requiredH;
+            [self.tokensRowContainer mas_updateConstraints:^(MASConstraintMaker *make) {
+                make.height.mas_equalTo(requiredH);
+            }];
+        }
+    }
+
+    // 2) selectedFlowView：上方已选 chip
+    CGFloat selectedW = CGRectGetWidth(self.selectedFlowView.bounds);
+    if (selectedW > 0) {
+        CGFloat x = 0;
+        CGFloat y = 0;
+        CGFloat rowMaxH = 0;
+        for (UIButton *chip in self.selectedChipButtons) {
+            NSInteger idx = chip.tag;
+            CGFloat w = (idx >= 0 && idx < self.tokenWidths.count) ? [self.tokenWidths[idx] doubleValue] : 44.0;
+            if (w <= 0) w = 44.0;
+
+            if (x > 0 && (x + w) > selectedW) {
+                x = 0;
+                y += rowMaxH + chipRowSpacingY;
+                rowMaxH = 0;
+            }
+            rowMaxH = MAX(rowMaxH, chipH);
+
+            chip.frame = CGRectMake(x, y, w, chipH);
+            x += w + chipSpacingX;
+        }
+        CGFloat requiredH = y + chipH;
+        requiredH = MAX(44.0, requiredH);
+        if (fabs(requiredH - self.lastSelectedRowHeight) > 0.5) {
+            self.lastSelectedRowHeight = requiredH;
+            [self.selectedRowContainer mas_updateConstraints:^(MASConstraintMaker *make) {
+                make.height.mas_equalTo(requiredH);
+            }];
+        }
+    }
 }
 
 @end
@@ -2740,11 +3112,7 @@
     if (!correct) {
         NSString *answer = nil;
         for (NSDictionary *opt in self.unit.options) {
-            NSString *oid = opt[@"id"];
-            if ([oid isEqual:self.unit.correctOptionId]) {
-                answer = opt[@"text"];
-                break;
-            }
+            if ([opt[@"id"] isEqual:self.unit.correctOptionId]) { answer = opt[@"text"]; break; }
         }
         r.correctAnswerText = answer ?: @"";
     }
@@ -2762,36 +3130,30 @@
 + (id<YTUnitViewProtocol>)buildViewForUnit:(YTUnit *)unit {
     /**
      映射规则（MVP）：
-     - vocab/dialogue_line：同为“跟读/录音评分”交互，复用 `YTPronounceUnitView`
-     - grammar：Usage/Grammar 引导页
-     - exercise：按 exerciseType 分发到不同 Presenter
+     - pronounce（由 vocab/dialogue_line 合并）：同为“跟读/录音评分”交互，复用 `YTPronounceUnitView`
+     - exercise_*：按 unitType 分发到不同 Presenter
      *
      扩展方式：
      - 新增题型时：新增 Presenter 类，并在此处补一条分支
      */
-    if (unit.unitType == YTUnitTypeVocab || unit.unitType == YTUnitTypeDialogueLine) {
+    if (unit.unitType == YTUnitTypePronounce) {
         return [[YTPronounceUnitView alloc] init];
     }
-    if (unit.unitType == YTUnitTypeGrammar) {
-        return [[YTGrammarUnitView alloc] init];
-    }
-    if (unit.unitType == YTUnitTypeExercise) {
-        if (unit.exerciseType == YTExerciseTypeListenChooseImage || unit.exerciseType == YTExerciseTypeLookChooseWord) {
-            return [[YTChoiceExerciseUnitView alloc] init];
-        }
-        if (unit.exerciseType == YTExerciseTypeChooseWordFillBlank) {
-            return [[YTFillBlankUnitView alloc] init];
-        }
-        if (unit.exerciseType == YTExerciseTypeListenChooseResponse) {
-            return [[YTListenResponseUnitView alloc] init];
-        }
-        if (unit.exerciseType == YTExerciseTypeBuildSentence) {
-            return [[YTBuildSentenceUnitView alloc] init];
-        }
-        if (unit.exerciseType == YTExerciseTypeCompleteDialogue) {
-            return [[YTCompleteDialogueUnitView alloc] init];
-        }
+    if (unit.unitType == YTUnitTypeExerciseListenChooseImage ||
+        unit.unitType == YTUnitTypeExerciseLookChooseWord) {
         return [[YTChoiceExerciseUnitView alloc] init];
+    }
+    if (unit.unitType == YTUnitTypeExerciseChooseWordFillBlank) {
+        return [[YTFillBlankUnitView alloc] init];
+    }
+    if (unit.unitType == YTUnitTypeExerciseListenChooseResponse) {
+        return [[YTListenResponseUnitView alloc] init];
+    }
+    if (unit.unitType == YTUnitTypeExerciseBuildSentence) {
+        return [[YTBuildSentenceUnitView alloc] init];
+    }
+    if (unit.unitType == YTUnitTypeExerciseCompleteDialogue) {
+        return [[YTCompleteDialogueUnitView alloc] init];
     }
     return [[YTBaseUnitView alloc] init];
 }

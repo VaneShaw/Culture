@@ -292,20 +292,41 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         [v removeFromSuperview];
     }
 
-    // 工厂根据 unitType/exerciseType 返回对应 Presenter（题型扩展点）
+    // 工厂根据 unitType 返回对应 Presenter（题型扩展点）
     self.unitView = [YTUnitViewFactory buildViewForUnit:u];
     __weak typeof(self) weakSelf = self;
     self.unitView.onPrimaryStateChanged = ^(YTUnitPrimaryState *state) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
         // 容器只消费“主按钮状态”：文案/可用/类型（Submit/Continue/GotIt/Record）
-        [self.primaryButton setTitle:NSLocalizedString(state.title ?: @"", @"") forState:UIControlStateNormal];
+        NSString *rawTitle = state.title ?: @"";
+        BOOL isRecordingState = NO;
+        if (state.kind == YTUnitPrimaryKindRecord) {
+            NSRange recordingRange = [rawTitle rangeOfString:@"Recording" options:NSCaseInsensitiveSearch];
+            NSRange stopHintRange = [rawTitle rangeOfString:@"tap to stop" options:NSCaseInsensitiveSearch];
+            isRecordingState = (recordingRange.location != NSNotFound && stopHintRange.location != NSNotFound);
+        }
+        if (isRecordingState) {
+            UIImage *recordingImage = [UIImage imageNamed:@"talk_vectoring"];
+            if (recordingImage) {
+                [self.primaryButton setTitle:@"" forState:UIControlStateNormal];
+                [self.primaryButton setImage:recordingImage forState:UIControlStateNormal];
+                self.primaryButton.imageView.contentMode = UIViewContentModeCenter;
+            } else {
+                // 资源缺失时回退文字，避免按钮空白
+                [self.primaryButton setImage:nil forState:UIControlStateNormal];
+                [self.primaryButton setTitle:NSLocalizedString(rawTitle, @"") forState:UIControlStateNormal];
+            }
+        } else {
+            [self.primaryButton setImage:nil forState:UIControlStateNormal];
+            [self.primaryButton setTitle:NSLocalizedString(rawTitle, @"") forState:UIControlStateNormal];
+        }
         self.primaryButton.enabled = state.enabled;
         self.primaryButton.tag = state.kind;
+        // 保留绿色主题底，只替换录音中的前景内容（图标/文字）
         self.primaryButton.backgroundColor = self.theme.primaryColor;
     };
 
-    // 注入服务
     [self.unitView configureWithUnit:u
                                theme:self.theme
                                audio:[YTAudioMuxService shared]
@@ -343,10 +364,10 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         }
 
         if (kind == YTUnitPrimaryKindSubmit) {
-            // 提交：展示对错反馈（错误时给出正确答案），并将该 unit 计为完成（PRD MVP）
+            // 提交：展示对错反馈（错误时给出正确答案）；仅答对时计入进度
             BOOL correct = submitResult ? submitResult.isCorrect : YES;
             [self showAnswerResultSheetCorrect:correct submitResult:submitResult];
-            [self markUnitCompletedIfNeeded:u];
+            if (correct) [self markUnitCompletedIfNeeded:u];
             return;
         }
 
@@ -403,8 +424,9 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     NSString *correctText = submitResult.correctAnswerText ?: @"";
     // 听音类题型：如果有拼音提示，则把拼音放在前面一起展示（由调用方拼好传入弹窗）
     YTUnit *u = (self.currentIndex >= 0 && self.currentIndex < self.units.count) ? self.units[self.currentIndex] : nil;
-    if (u && u.unitType == YTUnitTypeExercise) {
-        BOOL isListening = (u.exerciseType == YTExerciseTypeListenChooseImage || u.exerciseType == YTExerciseTypeListenChooseResponse);
+    if (u) {
+        BOOL isListening = (u.unitType == YTUnitTypeExerciseListenChooseImage ||
+                            u.unitType == YTUnitTypeExerciseListenChooseResponse);
         if (isListening && (u.titlePinyin.length > 0)) {
             // 例：图书馆（tú shū guǎn）
             if (correctText.length > 0) {
@@ -514,8 +536,8 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     CGFloat p = [self currentProgress];
     NSInteger percent = (NSInteger)round(p * 100.0);
     NSString *progressPrefix = NSLocalizedString(@"Progress", @"");
-    NSString *vocabPrefix = NSLocalizedString(@"Vocabulary", @"");
-    NSString *prefix = (self.levelId == YTLevelIdBeginner) ? progressPrefix : vocabPrefix;
+    // 进度胶囊文案：所有难度统一展示“Progress”，避免 Intermediate/Advanced 被误显示为“Vocabulary”
+    NSString *prefix = progressPrefix;
     self.progressPillLabel.text = [NSString stringWithFormat:@"%@  %ld%%", prefix, (long)percent];
 
     // 渐变进度条：仅在有进度时展示（渐变放在背景层，避免盖住文字）

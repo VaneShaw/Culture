@@ -35,6 +35,7 @@
     NSMutableArray<NSDictionary *> *resp = [NSMutableArray array];
 
     if (levelId == YTLevelIdBeginner) {
+        NSString *remoteImageURL = @"https://img0.baidu.com/it/u=3591665277,2616537962&fm=253&app=138&f=JPEG?w=800&h=1333";
         NSArray *vocabs = @[
             @{@"cn": @"学生", @"py": @"xué shēng", @"en": @"Student", @"img": @"scene_vocab_student"},
             @{@"cn": @"老师", @"py": @"lǎo shī", @"en": @"Teacher", @"img": @"scene_vocab_teacher"},
@@ -43,13 +44,27 @@
         ];
         for (NSInteger i = 0; i < vocabs.count; i++) {
             NSDictionary *d = vocabs[i];
+            // Demo：词汇页中间媒体可为图片或视频（左右滑动）。
+            // 后续接真实接口时由后端下发 display.media 结构即可。
+            NSArray *media = nil;
+            if (i == 0) {
+                media = @[
+                    @{@"type": @"video", @"url": @"https://www.w3schools.com/html/mov_bbb.mp4"},
+                    @{@"type": @"image", @"url": remoteImageURL ?: @""},
+                ];
+            } else {
+                media = @[
+                    @{@"type": @"image", @"url": remoteImageURL ?: @""},
+                ];
+            }
             [resp addObject:@{
                 @"unitType": @"vocab",
                 @"unitId": [NSString stringWithFormat:@"vocab_%ld", (long)i],
                 @"stepIndex": @(i),
                 @"display": @{
                     @"title": @{@"zh": d[@"cn"], @"pinyin": d[@"py"], @"en": d[@"en"]},
-                    @"image": @{@"name": d[@"img"]},
+                    @"image": @{@"name": d[@"img"], @"url": remoteImageURL ?: @""},
+                    @"media": media ?: @[],
                     @"audio": @{@"referenceUrl": @""},
                 }
             }];
@@ -62,8 +77,7 @@
             NSString *correctId = (i == 0) ? @"b" : @"d";
 
             [resp addObject:@{
-                @"unitType": @"exercise",
-                @"exerciseType": @(YTExerciseTypeListenChooseImage),
+                @"unitType": @"exercise_listen_choose_image",
                 @"unitId": unitId,
                 @"stepIndex": @(vocabs.count + i),
                 @"display": @{
@@ -91,8 +105,7 @@
             NSString *correctId = (i == 0) ? @"b" : @"c";
 
             [resp addObject:@{
-                @"unitType": @"exercise",
-                @"exerciseType": @(YTExerciseTypeLookChooseWord),
+                @"unitType": @"exercise_look_choose_word",
                 @"unitId": unitId,
                 @"stepIndex": @(vocabs.count + 2 + i),
                 @"display": @{
@@ -151,15 +164,15 @@
             }];
         }
 
-        NSArray *exTypes = @[
-            @(YTExerciseTypeChooseWordFillBlank),
-            @(YTExerciseTypeListenChooseResponse),
-            @(YTExerciseTypeBuildSentence),
-            @(YTExerciseTypeCompleteDialogue),
+        NSArray<NSString *> *exTypes = @[
+            @"exercise_choose_word_fill_blank",
+            @"exercise_listen_choose_response",
+            @"exercise_build_sentence",
+            @"exercise_complete_dialogue",
         ];
 
         for (NSInteger i = 0; i < exTypes.count; i++) {
-            YTExerciseType t = (YTExerciseType)[exTypes[i] integerValue];
+            NSString *t = exTypes[i];
             NSString *unitId = [NSString stringWithFormat:@"ex_%ld", (long)i];
 
             NSMutableDictionary *display = [@{
@@ -170,7 +183,7 @@
 
             NSString *correctOptionId = @"";
 
-            if (t == YTExerciseTypeChooseWordFillBlank) {
+            if ([t isEqualToString:@"exercise_choose_word_fill_blank"]) {
                 display[@"title"] = @{@"zh": @"你是学生__？", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"吗"},
@@ -178,7 +191,7 @@
                     @{@"id": @"c", @"text": @"啊"},
                 ];
                 correctOptionId = @"a";
-            } else if (t == YTExerciseTypeListenChooseResponse) {
+            } else if ([t isEqualToString:@"exercise_listen_choose_response"]) {
                 display[@"title"] = @{@"zh": @"听音选择正确回应", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"是的，我是学生。"},
@@ -188,7 +201,7 @@
                 // MVP 当前 audioURLString 为空即可
                 display[@"audio"] = @{@"referenceUrl": @""};
                 correctOptionId = @"a";
-            } else if (t == YTExerciseTypeBuildSentence) {
+            } else if ([t isEqualToString:@"exercise_build_sentence"]) {
                 display[@"title"] = @{@"zh": @"拼出句子", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"text": @"你"},
@@ -199,7 +212,7 @@
                 ];
                 // MVP：复用 correctOptionId 保存“正确句子字符串”
                 correctOptionId = @"你是学生吗？";
-            } else if (t == YTExerciseTypeCompleteDialogue) {
+            } else if ([t isEqualToString:@"exercise_complete_dialogue"]) {
                 display[@"title"] = @{@"zh": @"你是学生吗？如果是的话请回答一下，我们需要确认你的身份。", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"是的"},
@@ -211,8 +224,7 @@
             }
 
             [resp addObject:@{
-                @"unitType": @"exercise",
-                @"exerciseType": @(t),
+                @"unitType": t,
                 @"unitId": unitId,
                 @"stepIndex": @(lines.count + i),
                 @"display": display,
@@ -263,14 +275,14 @@
             }];
         }
 
-        NSArray *exTypes = @[
-            @(YTExerciseTypeChooseWordFillBlank),
-            @(YTExerciseTypeListenChooseResponse),
-            @(YTExerciseTypeBuildSentence),
-            @(YTExerciseTypeCompleteDialogue),
+        NSArray<NSString *> *exTypes = @[
+            @"exercise_choose_word_fill_blank",
+            @"exercise_listen_choose_response",
+            @"exercise_build_sentence",
+            @"exercise_complete_dialogue",
         ];
         for (NSInteger i = 0; i < exTypes.count; i++) {
-            YTExerciseType t = (YTExerciseType)[exTypes[i] integerValue];
+            NSString *t = exTypes[i];
             NSString *unitId = [NSString stringWithFormat:@"ex_adv_%ld", (long)i];
 
             NSMutableDictionary *display = [@{
@@ -280,7 +292,7 @@
             } mutableCopy];
             NSString *correctOptionId = @"";
 
-            if (t == YTExerciseTypeChooseWordFillBlank) {
+            if ([t isEqualToString:@"exercise_choose_word_fill_blank"]) {
                 display[@"title"] = @{@"zh": @"请问图书馆在__里？", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"哪"},
@@ -288,7 +300,7 @@
                     @{@"id": @"c", @"text": @"呢"},
                 ];
                 correctOptionId = @"a";
-            } else if (t == YTExerciseTypeListenChooseResponse) {
+            } else if ([t isEqualToString:@"exercise_listen_choose_response"]) {
                 display[@"title"] = @{@"zh": @"听音选择正确回应", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"还没有，要到九点才开门。"},
@@ -296,7 +308,7 @@
                     @{@"id": @"c", @"text": @"谢谢。"},
                 ];
                 correctOptionId = @"a";
-            } else if (t == YTExerciseTypeBuildSentence) {
+            } else if ([t isEqualToString:@"exercise_build_sentence"]) {
                 display[@"title"] = @{@"zh": @"拼出句子", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"text": @"现在"},
@@ -305,7 +317,7 @@
                     @{@"text": @"？"},
                 ];
                 correctOptionId = @"现在开门了吗？";
-            } else if (t == YTExerciseTypeCompleteDialogue) {
+            } else if ([t isEqualToString:@"exercise_complete_dialogue"]) {
                 display[@"title"] = @{@"zh": @"现在开门了吗？", @"pinyin": @"", @"en": @""};
                 display[@"answerTemplate"] = @{@"zh": @"__，还没有。"};
                 display[@"options"] = @[
@@ -317,10 +329,39 @@
             }
 
             [resp addObject:@{
-                @"unitType": @"exercise",
-                @"exerciseType": @(t),
+                @"unitType": t,
                 @"unitId": unitId,
                 @"stepIndex": @(lines.count + i),
+                @"display": display,
+                @"evaluation": @{@"rule": @{@"correctOptionId": correctOptionId}}
+            }];
+        }
+
+        // 追加一题：困难级句子组装（要求至少 7 个词块）
+        {
+            NSString *t = @"exercise_build_sentence";
+            NSString *unitId = [NSString stringWithFormat:@"ex_adv_%ld", (long)exTypes.count];
+
+            // 注意：答案字符串必须等于 options 中 text 的顺序拼接（无空格）
+            NSString *correctOptionId = @"现在请你打开书本开始学习";
+            NSMutableDictionary *display = [@{
+                @"title": @{@"zh": @"拼出句子", @"pinyin": @"", @"en": @""},
+                @"options": @[
+                    @{@"text": @"现在"},
+                    @{@"text": @"请"},
+                    @{@"text": @"你"},
+                    @{@"text": @"打开"},
+                    @{@"text": @"书本"},
+                    @{@"text": @"开始"},
+                    @{@"text": @"学习"},
+                ],
+                @"audio": @{@"referenceUrl": @""},
+            } mutableCopy];
+
+            [resp addObject:@{
+                @"unitType": t,
+                @"unitId": unitId,
+                @"stepIndex": @(lines.count + exTypes.count),
                 @"display": display,
                 @"evaluation": @{@"rule": @{@"correctOptionId": correctOptionId}}
             }];
@@ -353,8 +394,8 @@
         NSDictionary *display = payload[@"display"];
         if (![display isKindOfClass:[NSDictionary class]]) display = @{};
 
-        if ([unitTypeStr isEqualToString:@"vocab"]) {
-            u.unitType = YTUnitTypeVocab;
+        if ([unitTypeStr isEqualToString:@"vocab"] || [unitTypeStr isEqualToString:@"dialogue_line"]) {
+            u.unitType = YTUnitTypePronounce;
             NSDictionary *title = display[@"title"] ?: @{};
             if ([title isKindOfClass:[NSDictionary class]]) {
                 u.titleCN = title[@"zh"];
@@ -364,25 +405,16 @@
             NSDictionary *image = display[@"image"] ?: @{};
             if ([image isKindOfClass:[NSDictionary class]]) {
                 u.imageName = image[@"name"];
+                u.imageURLString = image[@"url"];
+            }
+            id media = display[@"media"];
+            if ([media isKindOfClass:[NSArray class]]) {
+                u.mediaItems = (NSArray *)media;
             }
             NSDictionary *audio = display[@"audio"] ?: @{};
             if ([audio isKindOfClass:[NSDictionary class]]) {
                 u.audioURLString = audio[@"referenceUrl"];
             }
-        } else if ([unitTypeStr isEqualToString:@"dialogue_line"]) {
-            u.unitType = YTUnitTypeDialogueLine;
-            NSDictionary *title = display[@"title"] ?: @{};
-            if ([title isKindOfClass:[NSDictionary class]]) {
-                u.titleCN = title[@"zh"];
-                u.titlePinyin = title[@"pinyin"];
-                u.titleEN = title[@"en"];
-            }
-
-            NSDictionary *image = display[@"image"] ?: @{};
-            if ([image isKindOfClass:[NSDictionary class]]) {
-                u.imageName = image[@"name"];
-            }
-
             NSArray *highlights = display[@"highlights"];
             if ([highlights isKindOfClass:[NSArray class]]) {
                 NSMutableArray<NSString *> *texts = [NSMutableArray array];
@@ -408,11 +440,19 @@
                 u.grammarPageArrowText = grammarPage[@"arrowText"];
                 u.grammarPageExamples = grammarPage[@"examples"];
             }
-        } else if ([unitTypeStr isEqualToString:@"exercise"]) {
-            u.unitType = YTUnitTypeExercise;
-            NSNumber *exTypeNum = payload[@"exerciseType"];
-            if ([exTypeNum isKindOfClass:[NSNumber class]]) {
-                u.exerciseType = (YTExerciseType)[exTypeNum integerValue];
+        } else if ([unitTypeStr hasPrefix:@"exercise_"]) {
+            if ([unitTypeStr isEqualToString:@"exercise_listen_choose_image"]) {
+                u.unitType = YTUnitTypeExerciseListenChooseImage;
+            } else if ([unitTypeStr isEqualToString:@"exercise_look_choose_word"]) {
+                u.unitType = YTUnitTypeExerciseLookChooseWord;
+            } else if ([unitTypeStr isEqualToString:@"exercise_choose_word_fill_blank"]) {
+                u.unitType = YTUnitTypeExerciseChooseWordFillBlank;
+            } else if ([unitTypeStr isEqualToString:@"exercise_listen_choose_response"]) {
+                u.unitType = YTUnitTypeExerciseListenChooseResponse;
+            } else if ([unitTypeStr isEqualToString:@"exercise_build_sentence"]) {
+                u.unitType = YTUnitTypeExerciseBuildSentence;
+            } else if ([unitTypeStr isEqualToString:@"exercise_complete_dialogue"]) {
+                u.unitType = YTUnitTypeExerciseCompleteDialogue;
             }
 
             NSDictionary *title = display[@"title"] ?: @{};
@@ -425,6 +465,7 @@
             NSDictionary *image = display[@"image"] ?: @{};
             if ([image isKindOfClass:[NSDictionary class]]) {
                 u.imageName = image[@"name"];
+                u.imageURLString = image[@"url"];
             }
 
             NSArray *options = display[@"options"];
