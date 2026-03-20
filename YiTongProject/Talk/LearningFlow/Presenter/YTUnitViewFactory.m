@@ -82,6 +82,10 @@
     if (completion) completion(nil, nil);
 }
 
+- (void)applyRestoredAnswerSnapshot:(NSDictionary *)snapshot {
+    (void)snapshot;
+}
+
 @end
 
 #pragma mark - Vocab / Dialogue line (recording)
@@ -91,12 +95,12 @@
  
  UI/交互（MVP）：
  - 展示：图片 + 中/拼音/英
- - 播放：点击喇叭播放标准音；播放完成后将该 unit 视为“完成”（满足 progress 条件）
+ - 播放：点击喇叭仅辅助听标准音，不单独算作完成
  - 录音：底部主按钮驱动录音状态机：Start -> Recording -> Stop -> Scoring -> (Correct/Try again)
  
  说明：
- - “完成条件”是：播放过一次标准音 或 拿到一次评分结果（PRD MVP）
- - 评分失败/无音频时做兜底提示，不阻断用户继续流程
+ - 「完成/解锁下一题/进度」条件：模拟评分 verdict 为 Correct（达标）
+ - 未达标可重录；仅播放不视为完成
  */
 @interface YTPronounceUnitView : YTBaseUnitView
 <UITextViewDelegate, UIScrollViewDelegate>
@@ -1141,17 +1145,14 @@ static NSInteger const kMediaVideoHostTag = 9102;
 
 - (void)onPlay {
     if (self.unit.audioURLString.length == 0) {
-        // 无音频：按“已播放”兜底，保证链路可跑通（后续接接口再严格化）
         self.hasPlayedOnce = YES;
-        self.completeSignalSatisfied = YES;
-        self.recordHintLabel.text = NSLocalizedString(@"Playback complete (standard pronunciation)", @"");
+        self.recordHintLabel.text = NSLocalizedString(@"No reference audio; please use recording to practice.", @"");
         return;
     }
     __weak typeof(self) weakSelf = self;
     [self.audio playURLString:self.unit.audioURLString completion:^(__unused BOOL success, __unused NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
         self.hasPlayedOnce = YES;
-        self.completeSignalSatisfied = YES;
         self.recordHintLabel.text = NSLocalizedString(@"Playback complete (standard pronunciation)", @"");
     }];
 }
@@ -1206,7 +1207,7 @@ static NSInteger const kMediaVideoHostTag = 9102;
                     self.recordHintLabel.text = NSLocalizedString(@"Microphone permission denied, please enable it in system settings before recording.", @"");
                 } else {
                     self.primaryState.title = @"Start recording";
-                    self.recordHintLabel.text = NSLocalizedString(@"Recording failed; you can complete by playing the standard pronunciation.", @"");
+                    self.recordHintLabel.text = NSLocalizedString(@"Recording failed; please try again.", @"");
                 }
                 [self emitPrimaryState];
                 if (completion) completion(nil, error);
@@ -1248,13 +1249,14 @@ static NSInteger const kMediaVideoHostTag = 9102;
                 return;
             }
 
-            self.completeSignalSatisfied = YES; // PRD：拿到评分结果即可完成
             if (result.verdict == YTScoreVerdictCorrect) {
+                self.completeSignalSatisfied = YES;
                 self.primaryState.title = @"Correct";
                 self.primaryState.enabled = YES;
                 NSString *fmt = NSLocalizedString(@"Score %ld (completed)", @"");
                 self.recordHintLabel.text = [NSString stringWithFormat:fmt, (long)result.score];
             } else {
+                self.completeSignalSatisfied = NO;
                 self.primaryState.title = @"Try again";
                 self.primaryState.enabled = YES;
                 NSString *fmt = NSLocalizedString(@"Score %ld (retry)", @"");
@@ -1707,10 +1709,30 @@ static NSInteger const kMediaVideoHostTag = 9102;
             }
         }
         r.correctAnswerText = answer ?: @"";
+    } else if (self.selectedOptionId.length > 0) {
+        r.restorableAnswerPayload = @{@"selectedOptionId": self.selectedOptionId};
     }
-    self.completeSignalSatisfied = YES;
+    self.completeSignalSatisfied = correct;
     [self applySubmitFeedbackCorrect:correct];
     if (completion) completion(r, nil);
+}
+
+- (void)applyRestoredAnswerSnapshot:(NSDictionary *)snapshot {
+    NSString *sid = snapshot[@"selectedOptionId"];
+    if (sid.length == 0) return;
+    self.hasAutoPlayed = YES;
+    for (UIButton *btn in self.optionButtons) {
+        if ([(btn.accessibilityIdentifier ?: @"") isEqualToString:sid]) {
+            [self onSelectOption:btn];
+            break;
+        }
+    }
+    [self applySubmitFeedbackCorrect:YES];
+    self.completeSignalSatisfied = YES;
+    self.primaryState.kind = YTUnitPrimaryKindContinue;
+    self.primaryState.title = @"Talk_Continue";
+    self.primaryState.enabled = YES;
+    [self emitPrimaryState];
 }
 
 @end
@@ -1962,10 +1984,29 @@ static NSInteger const kMediaVideoHostTag = 9102;
             if ([opt[@"id"] isEqual:self.unit.correctOptionId]) { answer = opt[@"text"]; break; }
         }
         r.correctAnswerText = answer ?: @"";
+    } else if (self.selectedOptionId.length > 0) {
+        r.restorableAnswerPayload = @{@"selectedOptionId": self.selectedOptionId};
     }
-    self.completeSignalSatisfied = YES;
+    self.completeSignalSatisfied = correct;
     [self applySubmitFeedbackCorrect:correct];
     if (completion) completion(r, nil);
+}
+
+- (void)applyRestoredAnswerSnapshot:(NSDictionary *)snapshot {
+    NSString *sid = snapshot[@"selectedOptionId"];
+    if (sid.length == 0) return;
+    for (UIButton *btn in self.optionButtons) {
+        if ([(btn.accessibilityIdentifier ?: @"") isEqualToString:sid]) {
+            [self onSelectFillBlankOption:btn];
+            break;
+        }
+    }
+    [self applySubmitFeedbackCorrect:YES];
+    self.completeSignalSatisfied = YES;
+    self.primaryState.kind = YTUnitPrimaryKindContinue;
+    self.primaryState.title = @"Talk_Continue";
+    self.primaryState.enabled = YES;
+    [self emitPrimaryState];
 }
 
 @end
@@ -2181,10 +2222,29 @@ static NSInteger const kMediaVideoHostTag = 9102;
             if ([opt[@"id"] isEqual:self.unit.correctOptionId]) { answer = opt[@"text"]; break; }
         }
         r.correctAnswerText = answer ?: @"";
+    } else if (self.selectedOptionId.length > 0) {
+        r.restorableAnswerPayload = @{@"selectedOptionId": self.selectedOptionId};
     }
-    self.completeSignalSatisfied = YES;
+    self.completeSignalSatisfied = correct;
     [self applySubmitFeedbackCorrect:correct];
     if (completion) completion(r, nil);
+}
+
+- (void)applyRestoredAnswerSnapshot:(NSDictionary *)snapshot {
+    NSString *sid = snapshot[@"selectedOptionId"];
+    if (sid.length == 0) return;
+    for (UIButton *btn in self.optionButtons) {
+        if ([(btn.accessibilityIdentifier ?: @"") isEqualToString:sid]) {
+            [self onSelectListenResponseOption:btn];
+            break;
+        }
+    }
+    [self applySubmitFeedbackCorrect:YES];
+    self.completeSignalSatisfied = YES;
+    self.primaryState.kind = YTUnitPrimaryKindContinue;
+    self.primaryState.title = @"Talk_Continue";
+    self.primaryState.enabled = YES;
+    [self emitPrimaryState];
 }
 
 @end
@@ -2550,10 +2610,44 @@ static NSInteger const kMediaVideoHostTag = 9102;
     YTUnitSubmitResult *r = [[YTUnitSubmitResult alloc] init];
     r.isCorrect = ok;
     if (!ok) r.correctAnswerText = correct;
-    self.completeSignalSatisfied = YES;
+    if (ok) {
+        NSMutableArray *ordered = [NSMutableArray array];
+        for (UIButton *b in self.selectedChipButtons) {
+            [ordered addObject:[b currentTitle] ?: @""];
+        }
+        if (ordered.count > 0) {
+            r.restorableAnswerPayload = @{@"orderedTokenTexts": ordered};
+        }
+    }
+    self.completeSignalSatisfied = ok;
     self.hasSubmitted = YES;
     [self applyResultStyleCorrect:ok];
     if (completion) completion(r, nil);
+}
+
+- (void)applyRestoredAnswerSnapshot:(NSDictionary *)snapshot {
+    NSArray *texts = snapshot[@"orderedTokenTexts"];
+    if (![texts isKindOfClass:[NSArray class]] || texts.count == 0) return;
+    for (id t in texts) {
+        if (![t isKindOfClass:[NSString class]]) continue;
+        NSString *txt = (NSString *)t;
+        for (UIButton *btn in self.tokenButtons) {
+            if (btn.hidden) continue;
+            if ([[btn currentTitle] isEqualToString:txt]) {
+                [self onTapTokenSlotButton:btn];
+                break;
+            }
+        }
+    }
+    if (self.selectedChipButtons.count != self.tokenButtons.count) return;
+    self.hasSubmitted = YES;
+    [self applyResultStyleCorrect:YES];
+    self.completeSignalSatisfied = YES;
+    self.primaryState.kind = YTUnitPrimaryKindContinue;
+    self.primaryState.title = @"Talk_Continue";
+    self.primaryState.enabled = YES;
+    [self emitPrimaryState];
+    [self requestBuildSentenceFlowLayout];
 }
 
 - (void)resetAfterWrongAnswerIfNeeded {
@@ -3115,10 +3209,428 @@ static NSInteger const kMediaVideoHostTag = 9102;
             if ([opt[@"id"] isEqual:self.unit.correctOptionId]) { answer = opt[@"text"]; break; }
         }
         r.correctAnswerText = answer ?: @"";
+    } else if (self.selectedOptionId.length > 0) {
+        r.restorableAnswerPayload = @{@"selectedOptionId": self.selectedOptionId};
     }
-    self.completeSignalSatisfied = YES;
+    self.completeSignalSatisfied = correct;
     [self applySubmitFeedbackCorrect:correct];
     if (completion) completion(r, nil);
+}
+
+- (void)applyRestoredAnswerSnapshot:(NSDictionary *)snapshot {
+    NSString *sid = snapshot[@"selectedOptionId"];
+    if (sid.length == 0) return;
+    for (UIButton *btn in self.optionButtons) {
+        if ([(btn.accessibilityIdentifier ?: @"") isEqualToString:sid]) {
+            [self onSelectCompleteDialogueOption:btn];
+            break;
+        }
+    }
+    [self applySubmitFeedbackCorrect:YES];
+    self.completeSignalSatisfied = YES;
+    self.primaryState.kind = YTUnitPrimaryKindContinue;
+    self.primaryState.title = @"Talk_Continue";
+    self.primaryState.enabled = YES;
+    [self emitPrimaryState];
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        [self updateAnswerDashIfNeeded];
+    });
+}
+
+@end
+
+#pragma mark - Practice transition（词汇/句子 → 练习题）
+
+@interface YTPracticeTransitionUnitView : YTBaseUnitView
+@property (nonatomic, strong) UIView *cardView;
+@property (nonatomic, strong) UIScrollView *scrollView;
+@property (nonatomic, strong) UIView *scrollContentView;
+@property (nonatomic, strong) UIImageView *badgeImageView;
+@property (nonatomic, strong) UILabel *titleLabel;
+@property (nonatomic, strong) UILabel *subtitleLabel;
+@property (nonatomic, strong) UIStackView *advancedStack;
+@property (nonatomic, strong) UILabel *advSection1Caption;
+@property (nonatomic, strong) UILabel *advSection1Body;
+@property (nonatomic, strong) UILabel *advSection2Caption;
+@property (nonatomic, strong) UILabel *advSection2Body;
+@property (nonatomic, strong) UIStackView *tailStack;
+@end
+
+@implementation YTPracticeTransitionUnitView
+
+/// 卡片底：比难度页背景色略深一点（与主色 token 区分，避免过重）
+static UIColor *YTPracticeTransitionCardBackground(YTDifficultyTheme *theme) {
+    UIColor *base = theme.backgroundColor ?: theme.primaryColor;
+    CGFloat r = 0, g = 0, b = 0, a = 1;
+    if (![base getRed:&r green:&g blue:&b alpha:&a]) {
+        return base;
+    }
+    const CGFloat k = 0.94;
+    return [UIColor colorWithRed:MIN(1.f, r * k) green:MIN(1.f, g * k) blue:MIN(1.f, b * k) alpha:a];
+}
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _cardView = [[UIView alloc] init];
+        _cardView.layer.cornerRadius = 18;
+        _cardView.layer.masksToBounds = YES;
+        [self.rootView addSubview:_cardView];
+        [_cardView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.rootView);
+        }];
+
+        _scrollView = [[UIScrollView alloc] init];
+        _scrollView.showsVerticalScrollIndicator = NO;
+        _scrollView.alwaysBounceVertical = YES;
+        [_cardView addSubview:_scrollView];
+        [_scrollView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.cardView);
+        }];
+
+        _scrollContentView = [[UIView alloc] init];
+        [_scrollView addSubview:_scrollContentView];
+        [_scrollContentView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.scrollView);
+            make.width.equalTo(self.scrollView);
+        }];
+
+        _badgeImageView = [[UIImageView alloc] init];
+        _badgeImageView.contentMode = UIViewContentModeScaleAspectFit;
+        [_scrollContentView addSubview:_badgeImageView];
+        [_badgeImageView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.scrollContentView).offset(56);
+            make.centerX.equalTo(self.scrollContentView);
+            make.width.mas_equalTo(162);
+            make.height.mas_equalTo(172);
+        }];
+
+        UIColor *titleInk = [theAppDelegate.window colorWithHexString:@"#1F2540" alpha:1];
+        UIColor *subInk = [UIColor colorWithRed:0x63 / 255.0 green:0x63 / 255.0 blue:0x7D / 255.0 alpha:1];
+
+        _titleLabel = [[UILabel alloc] init];
+        _titleLabel.textAlignment = NSTextAlignmentCenter;
+        _titleLabel.numberOfLines = 0;
+        _titleLabel.textColor = titleInk;
+        _titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
+        [_scrollContentView addSubview:_titleLabel];
+        [_titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.badgeImageView.mas_bottom).offset(66);
+            make.left.right.equalTo(self.scrollContentView).inset(16);
+        }];
+
+        _subtitleLabel = [[UILabel alloc] init];
+        _subtitleLabel.textAlignment = NSTextAlignmentCenter;
+        _subtitleLabel.numberOfLines = 0;
+        _subtitleLabel.textColor = subInk;
+        _subtitleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:15] ?: [UIFont systemFontOfSize:15];
+        [_scrollContentView addSubview:_subtitleLabel];
+
+        _advSection1Caption = [[UILabel alloc] init];
+        _advSection1Caption.numberOfLines = 0;
+        _advSection1Caption.textAlignment = NSTextAlignmentLeft;
+        _advSection1Caption.font = [UIFont fontWithName:FONT_NAME_Semibold size:13] ?: [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
+
+        _advSection1Body = [[UILabel alloc] init];
+        _advSection1Body.numberOfLines = 0;
+        _advSection1Body.textAlignment = NSTextAlignmentLeft;
+        _advSection1Body.textColor = titleInk;
+        _advSection1Body.font = [UIFont fontWithName:FONT_NAME_Regular size:15] ?: [UIFont systemFontOfSize:15];
+
+        _advSection2Caption = [[UILabel alloc] init];
+        _advSection2Caption.numberOfLines = 0;
+        _advSection2Caption.textAlignment = NSTextAlignmentLeft;
+        _advSection2Caption.font = _advSection1Caption.font;
+
+        _advSection2Body = [[UILabel alloc] init];
+        _advSection2Body.numberOfLines = 0;
+        _advSection2Body.textAlignment = NSTextAlignmentLeft;
+        _advSection2Body.textColor = titleInk;
+        _advSection2Body.font = _advSection1Body.font;
+
+        _advancedStack = [[UIStackView alloc] initWithArrangedSubviews:@[
+            _advSection1Caption, _advSection1Body, _advSection2Caption, _advSection2Body
+        ]];
+        _advancedStack.axis = UILayoutConstraintAxisVertical;
+        _advancedStack.alignment = UIStackViewAlignmentFill;
+        _advancedStack.spacing = 6;
+        _advancedStack.hidden = YES;
+        [_advancedStack setCustomSpacing:14 afterView:_advSection1Body];
+
+        _tailStack = [[UIStackView alloc] initWithArrangedSubviews:@[ _subtitleLabel, _advancedStack ]];
+        _tailStack.axis = UILayoutConstraintAxisVertical;
+        _tailStack.alignment = UIStackViewAlignmentFill;
+        _tailStack.spacing = 0;
+        [_scrollContentView addSubview:_tailStack];
+        [_tailStack mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.titleLabel.mas_bottom).offset(10);
+            make.left.right.equalTo(self.scrollContentView).inset(16);
+            make.bottom.equalTo(self.scrollContentView).offset(-28);
+        }];
+    }
+    return self;
+}
+
+- (void)configureWithUnit:(YTUnit *)unit
+                    theme:(YTDifficultyTheme *)theme
+                    audio:(YTAudioMuxService *)audio
+                recording:(YTRecordingService *)recording
+                  scoring:(YTScoringService *)scoring
+{
+    [super configureWithUnit:unit theme:theme audio:audio recording:recording scoring:scoring];
+    self.completeSignalSatisfied = YES;
+
+    self.cardView.backgroundColor = YTPracticeTransitionCardBackground(theme);
+
+    NSString *title = NSLocalizedString(@"Talk_PracticeTransition_Title_Beginner", @"");
+    if (unit.levelId == YTLevelIdIntermediate) {
+        title = NSLocalizedString(@"Talk_PracticeTransition_Title_Intermediate", @"");
+    } else if (unit.levelId == YTLevelIdAdvanced) {
+        title = NSLocalizedString(@"Talk_PracticeTransition_Title_Advanced", @"");
+    }
+    self.titleLabel.text = title;
+
+    UIColor *captionTint = theme.primaryColor;
+    CGFloat cr = 0, cg = 0, cb = 0, ca = 1;
+    if ([captionTint getRed:&cr green:&cg blue:&cb alpha:&ca]) {
+        self.advSection1Caption.textColor = [UIColor colorWithRed:cr green:cg blue:cb alpha:0.68];
+        self.advSection2Caption.textColor = self.advSection1Caption.textColor;
+    } else {
+        self.advSection1Caption.textColor = [captionTint colorWithAlphaComponent:0.68f];
+        self.advSection2Caption.textColor = self.advSection1Caption.textColor;
+    }
+
+    CGFloat tailGap = (unit.levelId == YTLevelIdAdvanced) ? 18 : 10;
+    [self.tailStack mas_updateConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.titleLabel.mas_bottom).offset(tailGap);
+    }];
+
+    if (unit.levelId == YTLevelIdAdvanced) {
+        self.subtitleLabel.hidden = YES;
+        self.advancedStack.hidden = NO;
+        self.advSection1Caption.text = NSLocalizedString(@"Talk_PracticeTransition_AdvSec1_Label", @"");
+        self.advSection1Body.text = NSLocalizedString(@"Talk_PracticeTransition_AdvSec1_Body", @"");
+        self.advSection2Caption.text = NSLocalizedString(@"Talk_PracticeTransition_AdvSec2_Label", @"");
+        self.advSection2Body.text = NSLocalizedString(@"Talk_PracticeTransition_AdvSec2_Body", @"");
+
+        UIImage *img = nil;
+        if (@available(iOS 13.0, *)) {
+            img = [UIImage systemImageNamed:@"star.circle.fill"];
+            self.badgeImageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            self.badgeImageView.tintColor = theme.primaryColor;
+        }
+        if (!self.badgeImageView.image) {
+            img = [UIImage imageNamed:@"talk_practice_transition_badge"];
+            self.badgeImageView.image = img;
+            self.badgeImageView.tintColor = nil;
+        }
+    } else {
+        self.subtitleLabel.hidden = NO;
+        self.advancedStack.hidden = YES;
+        if (unit.levelId == YTLevelIdIntermediate) {
+            self.subtitleLabel.text = NSLocalizedString(@"Talk_PracticeTransition_Subtitle_Intermediate", @"");
+            UIImage *img = nil;
+            if (@available(iOS 13.0, *)) {
+                UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:96 weight:UIImageSymbolWeightRegular];
+                img = [UIImage systemImageNamed:@"questionmark.circle.fill" withConfiguration:cfg];
+                self.badgeImageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+                self.badgeImageView.tintColor = theme.primaryColor;
+            }
+            if (!self.badgeImageView.image) {
+                img = [UIImage imageNamed:@"talk_practice_transition_badge"];
+                self.badgeImageView.image = img;
+                self.badgeImageView.tintColor = nil;
+            }
+        } else {
+            self.subtitleLabel.text = NSLocalizedString(@"Talk_PracticeTransition_Subtitle", @"");
+            UIImage *badge = [UIImage imageNamed:@"talk_practice_transition_badge"];
+            if (!badge && @available(iOS 13.0, *)) {
+                badge = [UIImage systemImageNamed:@"checkmark.seal.fill"];
+                self.badgeImageView.image = [badge imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+                self.badgeImageView.tintColor = theme.primaryColor;
+            } else {
+                self.badgeImageView.image = badge;
+                self.badgeImageView.tintColor = nil;
+            }
+        }
+    }
+
+    self.primaryState.kind = YTUnitPrimaryKindContinue;
+    self.primaryState.title = @"Talk_Continue";
+    self.primaryState.enabled = YES;
+    [self emitPrimaryState];
+}
+
+@end
+
+#pragma mark - Level completion（本难度练习全部完成）
+
+@interface YTLevelCompletionUnitView : YTBaseUnitView
+@property (nonatomic, strong) UIView *cardView;
+@property (nonatomic, strong) UIScrollView *scrollView;
+@property (nonatomic, strong) UIView *scrollContentView;
+@property (nonatomic, strong) UIImageView *badgeImageView;
+@property (nonatomic, strong) UILabel *scoreLabel;
+@property (nonatomic, strong) UILabel *headlineLabel;
+@property (nonatomic, strong) UILabel *subtitleLabel;
+@end
+
+@implementation YTLevelCompletionUnitView
+
+static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
+    UIColor *pc = theme.primaryColor;
+    CGFloat r, g, b, a;
+    if (![pc getRed:&r green:&g blue:&b alpha:&a]) {
+        return pc;
+    }
+    const CGFloat k = 0.88f;
+    return [UIColor colorWithRed:MIN(1.f, r * k) green:MIN(1.f, g * k) blue:MIN(1.f, b * k) alpha:a];
+}
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _cardView = [[UIView alloc] init];
+        _cardView.layer.cornerRadius = 18;
+        _cardView.layer.masksToBounds = YES;
+        [self.rootView addSubview:_cardView];
+        [_cardView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.rootView);
+        }];
+
+        _scrollView = [[UIScrollView alloc] init];
+        _scrollView.showsVerticalScrollIndicator = NO;
+        [_cardView addSubview:_scrollView];
+        [_scrollView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.cardView);
+        }];
+
+        _scrollContentView = [[UIView alloc] init];
+        [_scrollView addSubview:_scrollContentView];
+        [_scrollContentView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.scrollView);
+            make.width.equalTo(self.scrollView);
+        }];
+
+        _badgeImageView = [[UIImageView alloc] init];
+        _badgeImageView.contentMode = UIViewContentModeScaleAspectFit;
+        [_scrollContentView addSubview:_badgeImageView];
+        [_badgeImageView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.scrollContentView).offset(35);
+            make.centerX.equalTo(self.scrollContentView);
+            make.width.height.mas_equalTo(214);
+        }];
+
+        _scoreLabel = [[UILabel alloc] init];
+        _scoreLabel.textAlignment = NSTextAlignmentCenter;
+        _scoreLabel.textColor = [UIColor whiteColor];
+        _scoreLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:90] ?: [UIFont systemFontOfSize:90 weight:UIFontWeightBold];
+        [_scrollContentView addSubview:_scoreLabel];
+        [_scoreLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.badgeImageView.mas_bottom).offset(20);
+            make.centerX.equalTo(self.scrollContentView);
+        }];
+
+        _headlineLabel = [[UILabel alloc] init];
+        _headlineLabel.textAlignment = NSTextAlignmentCenter;
+        _headlineLabel.textColor = [UIColor whiteColor];
+        _headlineLabel.numberOfLines = 0;
+        _headlineLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
+        [_scrollContentView addSubview:_headlineLabel];
+
+        _subtitleLabel = [[UILabel alloc] init];
+        _subtitleLabel.textAlignment = NSTextAlignmentCenter;
+        _subtitleLabel.textColor = [[UIColor whiteColor] colorWithAlphaComponent:0.92];
+        _subtitleLabel.numberOfLines = 0;
+        _subtitleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:15] ?: [UIFont systemFontOfSize:15];
+        [_scrollContentView addSubview:_subtitleLabel];
+
+        [_headlineLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.scoreLabel.mas_bottom).offset(8);
+            make.left.right.equalTo(self.scrollContentView).inset(16);
+        }];
+        [_subtitleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.headlineLabel.mas_bottom).offset(10);
+            make.left.right.equalTo(self.scrollContentView).inset(16);
+            make.bottom.equalTo(self.scrollContentView).offset(-28);
+        }];
+    }
+    return self;
+}
+
+- (void)configureWithUnit:(YTUnit *)unit
+                    theme:(YTDifficultyTheme *)theme
+                    audio:(YTAudioMuxService *)audio
+                recording:(YTRecordingService *)recording
+                  scoring:(YTScoringService *)scoring
+{
+    [super configureWithUnit:unit theme:theme audio:audio recording:recording scoring:scoring];
+    self.completeSignalSatisfied = YES;
+
+    self.cardView.backgroundColor = YTLevelCompleteCardFill(theme);
+
+    BOOL isBeginner = (unit.levelId == YTLevelIdBeginner);
+    self.scoreLabel.hidden = !isBeginner;
+    if (isBeginner) {
+        self.scoreLabel.text = NSLocalizedString(@"Talk_LevelComplete_Beginner_Score", @"");
+        [self.scoreLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.badgeImageView.mas_bottom).offset(20);
+            make.centerX.equalTo(self.scrollContentView);
+        }];
+        [self.headlineLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.scoreLabel.mas_bottom).offset(8);
+            make.left.right.equalTo(self.scrollContentView).inset(16);
+        }];
+    } else {
+        [self.scoreLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.badgeImageView.mas_bottom).offset(0);
+            make.centerX.equalTo(self.scrollContentView);
+            make.height.mas_equalTo(0);
+        }];
+        [self.headlineLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.badgeImageView.mas_bottom).offset(24);
+            make.left.right.equalTo(self.scrollContentView).inset(16);
+        }];
+    }
+
+    if (unit.levelId == YTLevelIdBeginner) {
+        self.headlineLabel.text = NSLocalizedString(@"Talk_LevelComplete_Beginner_Headline", @"");
+        self.subtitleLabel.text = NSLocalizedString(@"Talk_LevelComplete_Beginner_Subtitle", @"");
+    } else if (unit.levelId == YTLevelIdIntermediate) {
+        self.headlineLabel.text = NSLocalizedString(@"Talk_LevelComplete_Intermediate_Headline", @"");
+        self.subtitleLabel.text = NSLocalizedString(@"Talk_LevelComplete_Intermediate_Subtitle", @"");
+    } else {
+        self.headlineLabel.text = NSLocalizedString(@"Talk_LevelComplete_Advanced_Headline", @"");
+        self.subtitleLabel.text = NSLocalizedString(@"Talk_LevelComplete_Advanced_Subtitle", @"");
+    }
+
+    UIImage *img = [UIImage imageNamed:@"talk_level_complete_badge"];
+    if (!img && @available(iOS 13.0, *)) {
+        if (unit.levelId == YTLevelIdBeginner) {
+            img = [UIImage systemImageNamed:@"leaf.fill"];
+        } else if (unit.levelId == YTLevelIdIntermediate) {
+            img = [UIImage systemImageNamed:@"location.north.circle.fill"];
+        } else {
+            img = [UIImage systemImageNamed:@"mountain.2.fill"];
+        }
+        self.badgeImageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        self.badgeImageView.tintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.95];
+    } else {
+        self.badgeImageView.image = img;
+        self.badgeImageView.tintColor = img ? nil : [UIColor whiteColor];
+    }
+
+    self.primaryState.kind = YTUnitPrimaryKindContinue;
+    if (unit.levelId == YTLevelIdAdvanced) {
+        self.primaryState.title = @"Talk_LevelComplete_Primary_Explore";
+    } else {
+        self.primaryState.title = @"Talk_LevelComplete_Primary_MoveNext";
+    }
+    self.primaryState.enabled = YES;
+    [self emitPrimaryState];
 }
 
 @end
@@ -3136,6 +3648,12 @@ static NSInteger const kMediaVideoHostTag = 9102;
      扩展方式：
      - 新增题型时：新增 Presenter 类，并在此处补一条分支
      */
+    if (unit.unitType == YTUnitTypePracticeTransition) {
+        return [[YTPracticeTransitionUnitView alloc] init];
+    }
+    if (unit.unitType == YTUnitTypeLevelCompletion) {
+        return [[YTLevelCompletionUnitView alloc] init];
+    }
     if (unit.unitType == YTUnitTypePronounce) {
         return [[YTPronounceUnitView alloc] init];
     }

@@ -20,6 +20,8 @@ typedef NS_ENUM(NSInteger, YTUnitType) {
     YTUnitTypeExerciseListenChooseResponse = 4, // 听音回应
     YTUnitTypeExerciseBuildSentence = 5,        // 句子组装
     YTUnitTypeExerciseCompleteDialogue = 6,     // 完成对话
+    YTUnitTypePracticeTransition = 7,           // 词汇/句子学完后 → 练习题前的过渡页（不计入进度）
+    YTUnitTypeLevelCompletion = 8,              // 本难度全部练习结束后的完成页（不计入进度）
 };
 
 /// PRD: 入门/简单/困难
@@ -99,7 +101,13 @@ typedef NS_ENUM(NSInteger, YTLevelId) {
 /// - 例：@"__，我是学生。"
 @property (nonatomic, copy, nullable) NSString *answerTemplateCN;
 
-/// 是否计入进度（当前所有 unitType 都计入）
+/// 后台下发（续学）：本题此前是否已答对；为 YES 时可用 `serverAnswerPayload` 预填（与本地快照字段形状一致）
+/// 对接接口时：每道练习题建议带「是否已答对」+ 可恢复答案结构；续学「继续」时用其预填，「从头开始」忽略。
+@property (nonatomic, assign) BOOL answeredCorrectFromServer;
+/// 后台下发的可恢复答案（如 @{@"selectedOptionId":@"a"} 或句子组装的 orderedTokenTexts）
+@property (nonatomic, copy, nullable) NSDictionary *serverAnswerPayload;
+
+/// 是否计入进度（过渡页 / 完成页不计入）
 - (BOOL)countsTowardProgress;
 
 @end

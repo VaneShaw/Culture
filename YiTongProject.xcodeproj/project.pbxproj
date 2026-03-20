@@ -48,6 +48,7 @@
 		6A7E0D958A2A4C9AA1B3C11B /* YTAudioMuxService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D908A2A4C9AA1B3C116 /* YTAudioMuxService.m */; };
 		6A7E0D968A2A4C9AA1B3C11C /* YTRecordingService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */; };
 		6A7E0D978A2A4C9AA1B3C11D /* YTScoringService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */; };
+		6A7E0D9A8A2A4C9AA1B3C142 /* YTTalkLearningDataService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */; };
 		6A7E0D9C8A2A4C9AA1B3C122 /* YTUnitViewFactory.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */; };
 		6A7E0DA08A2A4C9AA1B3C126 /* TalkEventTracker.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */; };
 		6A7E0DA38A2A4C9AA1B3C129 /* YTAnswerResultBottomSheet.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */; };
@@ -290,6 +291,8 @@
 		6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTRecordingService.m; sourceTree = "<group>"; };
 		6A7E0D938A2A4C9AA1B3C119 /* YTScoringService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTScoringService.h; sourceTree = "<group>"; };
 		6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTScoringService.m; sourceTree = "<group>"; };
+		6A7E0D9A8A2A4C9AA1B3C140 /* YTTalkLearningDataService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkLearningDataService.h; sourceTree = "<group>"; };
+		6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkLearningDataService.m; sourceTree = "<group>"; };
 		6A7E0D9D8A2A4C9AA1B3C123 /* TalkEventTracker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkEventTracker.h; sourceTree = "<group>"; };
 		6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkEventTracker.m; sourceTree = "<group>"; };
 		6A7E0D998A2A4C9AA1B3C11F /* YTUnitViewProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitViewProtocol.h; sourceTree = "<group>"; };
@@ -824,6 +827,8 @@
 				6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */,
 				6A7E0D938A2A4C9AA1B3C119 /* YTScoringService.h */,
 				6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */,
+				6A7E0D9A8A2A4C9AA1B3C140 /* YTTalkLearningDataService.h */,
+				6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */,
 			);
 			path = Service;
 			sourceTree = "<group>";
@@ -1554,6 +1559,7 @@
 				6A7E0D958A2A4C9AA1B3C11B /* YTAudioMuxService.m in Sources */,
 				6A7E0D968A2A4C9AA1B3C11C /* YTRecordingService.m in Sources */,
 				6A7E0D978A2A4C9AA1B3C11D /* YTScoringService.m in Sources */,
+				6A7E0D9A8A2A4C9AA1B3C142 /* YTTalkLearningDataService.m in Sources */,
 				6A7E0D9C8A2A4C9AA1B3C122 /* YTUnitViewFactory.m in Sources */,
 				6A7E0DA08A2A4C9AA1B3C126 /* TalkEventTracker.m in Sources */,
 				6A7E0DA38A2A4C9AA1B3C129 /* YTAnswerResultBottomSheet.m in Sources */,

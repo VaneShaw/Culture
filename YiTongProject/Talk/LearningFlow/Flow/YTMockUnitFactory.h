@@ -30,6 +30,14 @@ NS_ASSUME_NONNULL_BEGIN
                       levelId:(YTLevelId)levelId
                     completion:(void (^)(NSArray<YTUnit *> * _Nonnull units))completion;
 
+/// 构建完整 mock 接口响应：@{ @"units": [...], @"lastPosition": {...} }，lastPosition 模拟阶段从本地取
++ (NSDictionary *)buildMockAPIResponseForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId;
+
+/// 将接口返回的 units 数组映射为 YTUnit
++ (NSArray<YTUnit *> *)buildUnitsFromAPIResponse:(NSArray<NSDictionary *> *)response
+                                        sceneId:(NSString *)sceneId
+                                        levelId:(YTLevelId)levelId;
+
 @end
 
 NS_ASSUME_NONNULL_END

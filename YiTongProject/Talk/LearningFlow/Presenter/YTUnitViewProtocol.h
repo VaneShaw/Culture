@@ -29,6 +29,8 @@ typedef NS_ENUM(NSInteger, YTUnitPrimaryKind) {
 @interface YTUnitSubmitResult : NSObject
 @property (nonatomic, assign) BOOL isCorrect;
 @property (nonatomic, copy, nullable) NSString *correctAnswerText;
+/// 仅答对时填充：用于续学「继续」时恢复选项/句子（本地持久化或对接后台同结构）
+@property (nonatomic, copy, nullable) NSDictionary *restorableAnswerPayload;
 @end
 
 typedef void (^YTUnitPrimaryStateChanged)(YTUnitPrimaryState *state);
@@ -48,6 +50,9 @@ typedef void (^YTUnitPrimaryStateChanged)(YTUnitPrimaryState *state);
                     audio:(YTAudioMuxService *)audio
                 recording:(YTRecordingService *)recording
                   scoring:(YTScoringService *)scoring;
+
+/// 续学「继续」或后台下发：恢复已答对题目的 UI（payload 与 `restorableAnswerPayload` 同结构）
+- (void)applyRestoredAnswerSnapshot:(NSDictionary *)snapshot;
 
 /// 容器点击底部主按钮时调用；不同 kind 会走不同逻辑
 ///

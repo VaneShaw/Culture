@@ -28,6 +28,9 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (instancetype)initWithSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId preloadedUnits:(NSArray<YTUnit *> * _Nullable)preloadedUnits;
 
+/// 预加载 units 且跳过接口拉取与续学弹窗，从第 0 步开课（用于完成页无缝进入下一难度）
+- (instancetype)initWithSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId preloadedUnits:(NSArray<YTUnit *> * _Nullable)preloadedUnits skipFetchUsePreloaded:(BOOL)skip;
+
 @end
 
 NS_ASSUME_NONNULL_END

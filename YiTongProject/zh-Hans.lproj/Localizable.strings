@@ -240,6 +240,26 @@
 
 /* Talk - LearningFlow */
 "Talk_Continue" = "继续";
+"Talk_PracticeTransition_Title_Beginner" = "词汇学习完成";
+"Talk_PracticeTransition_Title_Intermediate" = "语法已掌握！";
+"Talk_PracticeTransition_Title_Advanced" = "语法升级！";
+"Talk_PracticeTransition_Subtitle" = "来看看你记住了多少";
+"Talk_PracticeTransition_Subtitle_Intermediate" = "小贴士：在陈述句后加「吗」即可构成疑问句。";
+"Talk_PracticeTransition_AdvSec1_Label" = "逻辑掌握";
+"Talk_PracticeTransition_AdvSec1_Body" = "预期表达（还没有）：你可以谈论尚未发生的事。";
+"Talk_PracticeTransition_AdvSec2_Label" = "表达风格";
+"Talk_PracticeTransition_AdvSec2_Body" = "文化缓冲（请问）：你的语气更专业、更礼貌。";
+
+"Talk_LevelComplete_Primary_MoveNext" = "进入下一等级";
+"Talk_LevelComplete_Primary_Explore" = "探索其他场景";
+"Talk_LevelComplete_Beginner_Score" = "4";
+"Talk_LevelComplete_Beginner_Headline" = "核心词汇";
+"Talk_LevelComplete_Beginner_Subtitle" = "你已掌握本话题的核心词汇";
+"Talk_LevelComplete_Intermediate_Headline" = "是非问句模式";
+"Talk_LevelComplete_Intermediate_Subtitle" = "你已掌握如何用「吗」提出简单疑问";
+"Talk_LevelComplete_Advanced_Headline" = "语法与文化";
+"Talk_LevelComplete_Advanced_Subtitle" = "你已掌握如何礼貌提问，并描述尚未发生的动作。";
+
 "Renew Now" = "立即续费";
 "Unlocked!" = "解锁成功!";
 "Your 7-day free trial is now active." = "7 天免费试用已激活";
@@ -376,9 +396,10 @@
 "Correct" = "正确";
 "Try again" = "再试一次";
 
-"Playback complete (standard pronunciation)" = "已播放标准发音（完成）";
+"Playback complete (standard pronunciation)" = "已播放标准发音";
+"No reference audio; please use recording to practice." = "暂无标准音频，请通过录音练习";
 "Microphone permission denied, please enable it in system settings before recording." = "麦克风权限被拒绝，请到系统设置开启后再录音";
-"Recording failed; you can complete by playing the standard pronunciation." = "录音失败，可通过播放标准音完成";
+"Recording failed; please try again." = "录音失败，请重试";
 "Scoring failed; please try again later." = "评分失败，可稍后再试";
 "Score %ld (completed)" = "得分 %ld（完成）";
 "Score %ld (retry)" = "得分 %ld（可再试）";

@@ -35,6 +35,25 @@ Tap to start recording and say this sound out loud
 
 /* Talk - LearningFlow */
 "Talk_Continue" = "Continue";
+"Talk_PracticeTransition_Title_Beginner" = "Vocabulary Completed";
+"Talk_PracticeTransition_Title_Intermediate" = "Grammar Mastered!";
+"Talk_PracticeTransition_Title_Advanced" = "Grammar Level Up!";
+"Talk_PracticeTransition_Subtitle" = "Let's check what you remember";
+"Talk_PracticeTransition_Subtitle_Intermediate" = "Tip: Add 「吗」 to a statement to ask a question.";
+"Talk_PracticeTransition_AdvSec1_Label" = "Logic Mastered";
+"Talk_PracticeTransition_AdvSec1_Body" = "Expectation Logic (还没有): You can now talk about things that haven't happened — yet.";
+"Talk_PracticeTransition_AdvSec2_Label" = "Communication Style";
+"Talk_PracticeTransition_AdvSec2_Body" = "Cultural Softener (请问): Your tone is now more professional and polite.";
+
+"Talk_LevelComplete_Primary_MoveNext" = "Move to the next level";
+"Talk_LevelComplete_Primary_Explore" = "Explore another scenario";
+"Talk_LevelComplete_Beginner_Score" = "4";
+"Talk_LevelComplete_Beginner_Headline" = "Core Words";
+"Talk_LevelComplete_Beginner_Subtitle" = "You've mastered the key vocabulary for this topic";
+"Talk_LevelComplete_Intermediate_Headline" = "Yes/No Question Pattern";
+"Talk_LevelComplete_Intermediate_Subtitle" = "You've mastered how to ask simple questions using 「吗」(ma)";
+"Talk_LevelComplete_Advanced_Headline" = "Grammar & Culture";
+"Talk_LevelComplete_Advanced_Subtitle" = "You've mastered how to start questions politely and describe actions that haven't happened yet.";
 
 "Detected last learning at %@, continue?" = "Detected last learning at %@, continue?";
 "Continue last learning" = "Continue last learning";
@@ -68,8 +87,9 @@ Tap to start recording and say this sound out loud
 "Submit" = "Submit";
 
 "Playback complete (standard pronunciation)" = "Playback complete (standard pronunciation)";
+"No reference audio; please use recording to practice." = "No reference audio; please use recording to practice.";
 "Microphone permission denied, please enable it in system settings before recording." = "Microphone permission denied, please enable it in system settings before recording.";
-"Recording failed; you can complete by playing the standard pronunciation." = "Recording failed; you can complete by playing the standard pronunciation.";
+"Recording failed; please try again." = "Recording failed; please try again.";
 "Scoring failed; please try again later." = "Scoring failed; please try again later.";
 "Score %ld (completed)" = "Score %ld (completed)";
 "Score %ld (retry)" = "Score %ld (retry)";

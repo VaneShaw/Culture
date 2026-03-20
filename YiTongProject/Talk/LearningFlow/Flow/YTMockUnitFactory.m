@@ -4,6 +4,9 @@
 //
 
 #import "YTMockUnitFactory.h"
+#import "HeaderConfig.h"
+
+static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
 
 @implementation YTMockUnitFactory
 
@@ -13,25 +16,31 @@
     // MVP：用固定延迟模拟接口耗时（后续接真实网络只需替换这里）
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-        NSArray<NSDictionary *> *response = [self buildMockAPIResponseForSceneId:sceneId levelId:levelId];
-        NSArray<YTUnit *> *units = [self buildUnitsFromAPIResponse:response sceneId:sceneId levelId:levelId];
+        NSDictionary *response = [self buildMockAPIResponseForSceneId:sceneId levelId:levelId];
+        NSArray<NSDictionary *> *unitsArray = response[@"units"];
+        if (![unitsArray isKindOfClass:[NSArray class]]) unitsArray = @[];
+        NSArray<YTUnit *> *units = [self buildUnitsFromAPIResponse:unitsArray sceneId:sceneId levelId:levelId];
         if (completion) completion(units);
     });
 }
 
 + (NSArray<YTUnit *> *)buildUnitsForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId {
-    NSArray<NSDictionary *> *response = [self buildMockAPIResponseForSceneId:sceneId levelId:levelId];
-    return [self buildUnitsFromAPIResponse:response sceneId:sceneId levelId:levelId];
+    NSDictionary *response = [self buildMockAPIResponseForSceneId:sceneId levelId:levelId];
+    NSArray<NSDictionary *> *unitsArray = response[@"units"];
+    if (![unitsArray isKindOfClass:[NSArray class]]) unitsArray = @[];
+    return [self buildUnitsFromAPIResponse:unitsArray sceneId:sceneId levelId:levelId];
 }
 
 #pragma mark - Mock API response -> YTUnit mapping
 
 /**
- * mock “接口返回”的结构（为贴近真实接入，先构建 response，再映射成 YTUnit）
+ * mock “接口返回”的完整结构（为贴近真实接入，先构建 response，再映射成 YTUnit）
  *
- * response 目前只覆盖 MVP 用到的字段；未来替换真实接口时，尽量保持这些字段形状一致即可。
+ * 返回结构：@{ @"units": [...], @"lastPosition": {...} }
+ * - units：各难度的学习单元列表
+ * - lastPosition：上次学习步骤（模拟阶段从本地取；接接口后由接口返回）
  */
-+ (NSArray<NSDictionary *> *)buildMockAPIResponseForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId {
++ (NSDictionary *)buildMockAPIResponseForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId {
     NSMutableArray<NSDictionary *> *resp = [NSMutableArray array];
 
     if (levelId == YTLevelIdBeginner) {
@@ -368,7 +377,15 @@
         }
     }
 
-    return resp;
+    // 上次学习步骤：模拟阶段从本地取；接接口后该字段由接口返回
+    NSString *lastPositionKey = [NSString stringWithFormat:@"%@_%@_%ld", kLastPositionKeyPrefix, sceneId ?: @"", (long)levelId];
+    id lastPositionRaw = [KUSER_DEFAULT objectForKey:lastPositionKey];
+    if (![lastPositionRaw isKindOfClass:[NSDictionary class]]) lastPositionRaw = nil;
+
+    return @{
+        @"units": resp,
+        @"lastPosition": lastPositionRaw ?: [NSNull null],
+    };
 }
 
 /**
@@ -453,6 +470,9 @@
                 u.unitType = YTUnitTypeExerciseBuildSentence;
             } else if ([unitTypeStr isEqualToString:@"exercise_complete_dialogue"]) {
                 u.unitType = YTUnitTypeExerciseCompleteDialogue;
+            } else {
+                // 未知 exercise_*：必须标成练习题，避免默认成 pronounce 导致进度/解锁异常
+                u.unitType = YTUnitTypeExerciseListenChooseImage;
             }
 
             NSDictionary *title = display[@"title"] ?: @{};
