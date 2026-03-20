@@ -67,7 +67,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
                 ];
             }
             [resp addObject:@{
-                @"unitType": @"vocab",
+                @"unitType": @"pronounce",
                 @"unitId": [NSString stringWithFormat:@"vocab_%ld", (long)i],
                 @"stepIndex": @(i),
                 @"display": @{
@@ -166,7 +166,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             }
 
             [resp addObject:@{
-                @"unitType": @"dialogue_line",
+                @"unitType": @"pronounce",
                 @"unitId": [NSString stringWithFormat:@"dlg_%ld", (long)i],
                 @"stepIndex": @(i),
                 @"display": display
@@ -277,7 +277,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             }
 
             [resp addObject:@{
-                @"unitType": @"dialogue_line",
+                @"unitType": @"pronounce",
                 @"unitId": [NSString stringWithFormat:@"dlg_adv_%ld", (long)i],
                 @"stepIndex": @(i),
                 @"display": display
@@ -411,7 +411,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
         NSDictionary *display = payload[@"display"];
         if (![display isKindOfClass:[NSDictionary class]]) display = @{};
 
-        if ([unitTypeStr isEqualToString:@"vocab"] || [unitTypeStr isEqualToString:@"dialogue_line"]) {
+        if ([unitTypeStr isEqualToString:@"pronounce"]) {
             u.unitType = YTUnitTypePronounce;
             NSDictionary *title = display[@"title"] ?: @{};
             if ([title isKindOfClass:[NSDictionary class]]) {
@@ -517,4 +517,3 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
 }
 
 @end
-

@@ -88,10 +88,10 @@
 
 @end
 
-#pragma mark - Vocab / Dialogue line (recording)
+#pragma mark - Pronounce (recording)
 
 /**
- 跟读/对话逐句 Presenter（vocab + dialogue_line）
+ 发音练习 Presenter
  
  UI/交互（MVP）：
  - 展示：图片 + 中/拼音/英
@@ -3642,7 +3642,7 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
 + (id<YTUnitViewProtocol>)buildViewForUnit:(YTUnit *)unit {
     /**
      映射规则（MVP）：
-     - pronounce（由 vocab/dialogue_line 合并）：同为“跟读/录音评分”交互，复用 `YTPronounceUnitView`
+     - pronounce：统一“跟读/录音评分”交互，复用 `YTPronounceUnitView`
      - exercise_*：按 unitType 分发到不同 Presenter
      *
      扩展方式：
@@ -3677,4 +3677,3 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
 }
 
 @end
-

@@ -13,7 +13,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_ENUM(NSInteger, YTUnitType) {
-    YTUnitTypePronounce = 0,                    // vocab/dialogue_line 合并
+    YTUnitTypePronounce = 0,                    // 发音练习
     YTUnitTypeExerciseListenChooseImage = 1,    // 听词选图
     YTUnitTypeExerciseLookChooseWord = 2,       // 看图选词
     YTUnitTypeExerciseChooseWordFillBlank = 3,  // 选词填空
@@ -113,4 +113,3 @@ typedef NS_ENUM(NSInteger, YTLevelId) {
 @end
 
 NS_ASSUME_NONNULL_END
-
