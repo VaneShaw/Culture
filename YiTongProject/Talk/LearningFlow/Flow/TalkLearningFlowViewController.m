@@ -21,7 +21,9 @@
 #import "YTUnitViewFactory.h"
 #import "TalkEventTracker.h"
 #import "YTAnswerResultBottomSheet.h"
+#import "YTResumeLearningAlertView.h"
 #import "YTTalkLearningDataService.h"
+#import "YTDepthPrimaryButton.h"
 
 /**
  场景对话 - 学习流容器（核心页）
@@ -37,11 +39,6 @@
  - 续学位置与已完成集合落地本地（无接口先跑通闭环）
  */
 static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown";
-
-/// 在「最后一节发音/对话」与「第一道练习题」之间插入过渡页（不计入进度）
-static NSArray<YTUnit *> *YTInsertPracticeTransitionUnitIfNeeded(NSArray<YTUnit *> *units, NSString *sceneId, YTLevelId levelId);
-/// 在流程末尾追加本难度「完成页」（不计入进度）
-static NSArray<YTUnit *> *YTAppendLevelCompletionUnitIfNeeded(NSArray<YTUnit *> *units, NSString *sceneId, YTLevelId levelId);
 
 @interface TalkLearningFlowViewController ()
 
@@ -62,7 +59,9 @@ static NSArray<YTUnit *> *YTAppendLevelCompletionUnitIfNeeded(NSArray<YTUnit *> 
 @property (nonatomic, strong) UILabel *progressPillLabel;
 @property (nonatomic, strong) UIView *contentContainer;
 @property (nonatomic, strong) id<YTUnitViewProtocol> unitView;
-@property (nonatomic, strong) UIButton *primaryButton;
+@property (nonatomic, strong) YTDepthPrimaryButton *primaryDepthButton;
+/// 等价于 `primaryDepthButton.actionButton`，便于沿用原有主按钮逻辑
+@property (nonatomic, readonly) UIButton *primaryButton;
 @property (nonatomic, strong) UIButton *prevButton;
 @property (nonatomic, strong) UIButton *nextButton;
 
@@ -81,53 +80,6 @@ static NSArray<YTUnit *> *YTAppendLevelCompletionUnitIfNeeded(NSArray<YTUnit *> 
 @end
 
 @implementation TalkLearningFlowViewController
-
-static NSArray<YTUnit *> *YTInsertPracticeTransitionUnitIfNeeded(NSArray<YTUnit *> *units, NSString *sceneId, YTLevelId levelId) {
-    if (units.count == 0) return units;
-    for (YTUnit *u in units) {
-        if (u.unitType == YTUnitTypePracticeTransition) return units;
-    }
-    NSInteger firstExerciseIndex = NSNotFound;
-    for (NSInteger i = 0; i < units.count; i++) {
-        if (units[i].unitType != YTUnitTypePronounce) {
-            firstExerciseIndex = i;
-            break;
-        }
-    }
-    // 仅当存在「至少一节发音/对话」且其后还有练习题时插入；第一道就是练习或全为发音时不插
-    if (firstExerciseIndex == NSNotFound || firstExerciseIndex == 0) return units;
-
-    YTUnit *t = [[YTUnit alloc] init];
-    t.sceneId = sceneId;
-    t.levelId = levelId;
-    t.unitType = YTUnitTypePracticeTransition;
-    t.unitId = [NSString stringWithFormat:@"%@_%ld_practice_transition", sceneId ?: @"scene", (long)levelId];
-
-    NSMutableArray<YTUnit *> *m = [units mutableCopy];
-    [m insertObject:t atIndex:firstExerciseIndex];
-    for (NSInteger i = 0; i < m.count; i++) {
-        m[i].stepIndex = i;
-    }
-    return [m copy];
-}
-
-static NSArray<YTUnit *> *YTAppendLevelCompletionUnitIfNeeded(NSArray<YTUnit *> *units, NSString *sceneId, YTLevelId levelId) {
-    if (units.count == 0) return units;
-    for (YTUnit *u in units) {
-        if (u.unitType == YTUnitTypeLevelCompletion) return units;
-    }
-    YTUnit *c = [[YTUnit alloc] init];
-    c.sceneId = sceneId;
-    c.levelId = levelId;
-    c.unitType = YTUnitTypeLevelCompletion;
-    c.unitId = [NSString stringWithFormat:@"%@_%ld_level_complete", sceneId ?: @"scene", (long)levelId];
-    NSMutableArray<YTUnit *> *m = [units mutableCopy];
-    [m addObject:c];
-    for (NSInteger i = 0; i < m.count; i++) {
-        m[i].stepIndex = i;
-    }
-    return [m copy];
-}
 
 /// 是否为「练习题」题型（不含过渡页/完成页/发音）
 static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
@@ -245,9 +197,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 
 /// 下一难度无缝切换：与 `startFlow` 中插入过渡/完成页、恢复已完成集合逻辑一致，但不走接口与续学
 - (void)applyPreloadedUnitsAndStartFresh {
-    NSArray<YTUnit *> *raw = self.units ?: @[];
-    NSArray<YTUnit *> *withTransition = YTInsertPracticeTransitionUnitIfNeeded(raw, self.sceneId, self.levelId);
-    self.units = YTAppendLevelCompletionUnitIfNeeded(withTransition, self.sceneId, self.levelId);
+    self.units = [YTMockUnitFactory learningFlowUnitsFromRawUnits:self.units sceneId:self.sceneId levelId:self.levelId];
     [self restoreCompletedUnits];
     [self startFreshFromBeginning];
 }
@@ -258,9 +208,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 }
 
 - (void)applyBootstrap:(YTLearningFlowBootstrap *)bootstrap {
-    NSArray<YTUnit *> *raw = bootstrap.units ?: @[];
-    NSArray<YTUnit *> *withTransition = YTInsertPracticeTransitionUnitIfNeeded(raw, self.sceneId, self.levelId);
-    self.units = YTAppendLevelCompletionUnitIfNeeded(withTransition, self.sceneId, self.levelId);
+    self.units = [YTMockUnitFactory learningFlowUnitsFromRawUnits:bootstrap.units sceneId:self.sceneId levelId:self.levelId];
     [self.completedUnitIds removeAllObjects];
     if (bootstrap.completedUnitIds.count > 0) {
         [self.completedUnitIds addObjectsFromArray:bootstrap.completedUnitIds];
@@ -323,29 +271,35 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 
     [self.view addSubview:self.prevButton];
     [self.view addSubview:self.nextButton];
-    [self.view addSubview:self.primaryButton];
+    [self.view addSubview:self.primaryDepthButton];
 
     [self.prevButton mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.view).offset(20);
         make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-18);
-        make.width.height.mas_equalTo(54);
+        make.width.mas_equalTo(82);
+        make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
     }];
     [self.nextButton mas_makeConstraints:^(MASConstraintMaker *make) {
         make.right.equalTo(self.view).offset(-20);
         make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-18);
-        make.width.height.mas_equalTo(54);
+        make.width.mas_equalTo(82);
+        make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
     }];
-    [self.primaryButton mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.primaryDepthButton mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.prevButton.mas_right).offset(12);
         make.right.equalTo(self.nextButton.mas_left).offset(-12);
-        make.centerY.equalTo(self.prevButton);
-        make.height.mas_equalTo(54);
+        make.top.equalTo(self.prevButton.mas_top);
+        make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
     }];
+    // 左右箭头按钮的“整体胶囊高度”与主按钮 totalHeight 对齐
+    CGFloat sideH = self.primaryDepthButton.totalHeight;
+    self.prevButton.layer.cornerRadius = sideH / 2.0;
+    self.nextButton.layer.cornerRadius = sideH / 2.0;
 
     [self.view addSubview:self.bottomToast];
     [self.bottomToast mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.right.equalTo(self.view).inset(20);
-        make.bottom.equalTo(self.primaryButton.mas_top).offset(-12);
+        make.bottom.equalTo(self.primaryDepthButton.mas_top).offset(-12);
         make.height.mas_equalTo(56);
     }];
     self.bottomToast.hidden = YES;
@@ -356,7 +310,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     [self.contentContainer mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.right.equalTo(self.view).inset(20);
         make.top.equalTo(self.progressPillLabel.mas_bottom).offset(16);
-        make.bottom.equalTo(self.primaryButton.mas_top).offset(-16);
+        make.bottom.equalTo(self.primaryDepthButton.mas_top).offset(-16);
         make.height.equalTo(self.contentContainer.mas_width).multipliedBy(546.0 / 335.0).priority(999);
     }];
 
@@ -388,24 +342,22 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 }
 
 - (void)showResumePromptWithLastPosition:(YTLastPosition *)pos {
-    // 续学弹窗：
-    // - 让用户确认是否从上次位置继续（避免默认跳转导致迷惑）
-    // - “取消”直接返回上一页（避免留在空学习流页）
-    NSString *unitName = [NSString stringWithFormat:@"%@-%@", [self levelName], [self unitDisplayNameForStepIndex:pos.stepIndex]];
-    NSString *tpl = NSLocalizedString(@"Detected last learning at %@, continue?", @"");
-    NSString *message = [NSString stringWithFormat:tpl, unitName];
-
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
-
+    // 续学弹窗：与 YTTipAlertView 同风格的卡片 + 圆环进度 + 继续/重新开始（无关闭按钮时仅能通过两按钮选择）
+    CGFloat progressRatio = [self currentProgress];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Continue last learning", @"") style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+    [YTResumeLearningAlertView showInView:self.view
+                            progressRatio:progressRatio
+                                    title:nil
+                               onContinue:^{
         __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         self.resumePrefillCorrectAnswers = YES;
         NSInteger idx = [self indexForLastPosition:pos];
         [self showUnitAtIndex:MAX(0, idx)];
-    }]];
-    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Start from beginning", @"") style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+    }
+                                onRestart:^{
         __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         self.resumePrefillCorrectAnswers = NO;
         [self.progressStore clearAnswerSnapshotsForSceneId:self.sceneId levelId:self.levelId];
         [self.progressStore clearLastPositionForSceneId:self.sceneId levelId:self.levelId];
@@ -413,13 +365,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
         [self persistCompletedUnits];
         [self resetLearnStateFlagsOnAllUnits];
         [self showUnitAtIndex:0];
-    }]];
-    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Cancel", @"") style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
-        __strong typeof(weakSelf) self = weakSelf;
-        [self.navigationController popViewControllerAnimated:YES];
-    }]];
-
-    [self presentViewController:alert animated:YES completion:nil];
+    }];
 }
 
 - (NSInteger)indexForLastPosition:(YTLastPosition *)pos {
@@ -495,17 +441,17 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     self.prevButton.hidden = isTrans;
     self.nextButton.hidden = isTrans;
     if (isTrans) {
-        [self.primaryButton mas_remakeConstraints:^(MASConstraintMaker *make) {
+        [self.primaryDepthButton mas_remakeConstraints:^(MASConstraintMaker *make) {
             make.left.right.equalTo(self.view).inset(20);
             make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-18);
-            make.height.mas_equalTo(54);
+            make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
         }];
     } else {
-        [self.primaryButton mas_remakeConstraints:^(MASConstraintMaker *make) {
+        [self.primaryDepthButton mas_remakeConstraints:^(MASConstraintMaker *make) {
             make.left.equalTo(self.prevButton.mas_right).offset(12);
             make.right.equalTo(self.nextButton.mas_left).offset(-12);
-            make.centerY.equalTo(self.prevButton);
-            make.height.mas_equalTo(54);
+            make.top.equalTo(self.prevButton.mas_top);
+            make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
         }];
     }
 }
@@ -532,8 +478,6 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     BOOL nextUnlocked = [self isCurrentStepUnlockedForNext];
     self.prevButton.enabled = hasPrev;
     self.nextButton.enabled = (hasNext && nextUnlocked);
-    self.prevButton.alpha = hasPrev ? 1.0 : 0.35;
-    self.nextButton.alpha = (hasNext && nextUnlocked) ? 1.0 : 0.35;
 }
 
 - (void)mountUnitViewForUnit:(YTUnit *)u {
@@ -575,13 +519,15 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
         self.primaryButton.tag = state.kind;
         // 过渡页 / 完成页：深色主按钮；其余题型保留难度主题色（录音态见上）
         YTUnit *cu = (self.currentIndex >= 0 && self.currentIndex < self.units.count) ? self.units[self.currentIndex] : nil;
+        UIColor *faceColor;
         if (cu && (cu.unitType == YTUnitTypePracticeTransition || cu.unitType == YTUnitTypeLevelCompletion)) {
-            self.primaryButton.backgroundColor = [theAppDelegate.window colorWithHexString:@"#1F2540" alpha:1];
-            [self.primaryButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+            faceColor = [theAppDelegate.window colorWithHexString:@"#1F2540" alpha:1];
         } else {
-            self.primaryButton.backgroundColor = self.theme.primaryColor;
-            [self.primaryButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+            faceColor = self.theme.primaryColor;
         }
+        self.primaryDepthButton.depthColor = nil;
+        self.primaryDepthButton.faceColor = faceColor;
+        [self.primaryButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
         [self updateNavButtons];
     };
 
@@ -792,14 +738,14 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
         [self.navigationController popViewControllerAnimated:YES];
         return;
     }
-    NSArray<YTUnit *> *raw = [YTMockUnitFactory buildUnitsForSceneId:self.sceneId levelId:next];
-    if (raw.count == 0) {
+    NSArray<YTUnit *> *nextUnits = [YTMockUnitFactory learningFlowUnitsForSceneId:self.sceneId levelId:next];
+    if (nextUnits.count == 0) {
         [self.navigationController popViewControllerAnimated:YES];
         return;
     }
     TalkLearningFlowViewController *nextVC = [[TalkLearningFlowViewController alloc] initWithSceneId:self.sceneId
                                                                                              levelId:next
-                                                                                      preloadedUnits:raw
+                                                                                      preloadedUnits:nextUnits
                                                                               skipFetchUsePreloaded:YES];
     nextVC.hidesBottomBarWhenPushed = YES;
     UINavigationController *nav = self.navigationController;
@@ -840,18 +786,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 - (CGFloat)currentProgress {
     // 进度 = 已写入 completed 的单元数 / 本关计入进度的单元总数。
     // 「何时写入」由 markUnitCompletedIfNeeded 各分支保证（练习答对、发音/跟读完成等），与顶部条展示一致。
-    NSInteger total = 0;
-    NSInteger done = 0;
-    for (YTUnit *u in self.units) {
-        if (![u countsTowardProgress]) continue;
-        total += 1;
-        NSString *uid = u.unitId;
-        if (uid.length > 0 && [self.completedUnitIds containsObject:uid]) {
-            done += 1;
-        }
-    }
-    if (total <= 0) return 0;
-    return (CGFloat)done / (CGFloat)total;
+    return [YTMockUnitFactory progressRatioForUnits:self.units completedUnitIdentifiers:self.completedUnitIds];
 }
 
 - (void)updateProgressUI {
@@ -1027,18 +962,21 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     return _contentContainer;
 }
 
-- (UIButton *)primaryButton {
-    if (!_primaryButton) {
-        // 主按钮由 Presenter 驱动状态：title/enabled/kind（tag 存 kind）
-        _primaryButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        _primaryButton.layer.cornerRadius = 27;
-        _primaryButton.layer.masksToBounds = YES;
-        [_primaryButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        _primaryButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
-        [_primaryButton addTarget:self action:@selector(onPrimaryButton) forControlEvents:UIControlEventTouchUpInside];
-        [_primaryButton setTitle:NSLocalizedString(@"Talk_Continue", @"") forState:UIControlStateNormal];
+- (YTDepthPrimaryButton *)primaryDepthButton {
+    if (!_primaryDepthButton) {
+        _primaryDepthButton = [YTDepthPrimaryButton learningFlowPrimaryButton];
+        UIColor *initialFace = self.theme.primaryColor ?: [UIColor clearColor];
+        _primaryDepthButton.faceColor = initialFace;
+        UIButton *b = _primaryDepthButton.actionButton;
+        b.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
+        [b addTarget:self action:@selector(onPrimaryButton) forControlEvents:UIControlEventTouchUpInside];
+        [b setTitle:NSLocalizedString(@"Talk_Continue", @"") forState:UIControlStateNormal];
     }
-    return _primaryButton;
+    return _primaryDepthButton;
+}
+
+- (UIButton *)primaryButton {
+    return self.primaryDepthButton.actionButton;
 }
 
 - (UIButton *)prevButton {
@@ -1046,17 +984,30 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
         // 左箭头：回看上一题；右箭头是否可点由「本题是否已达成完成条件」决定（见 updateNavButtons）
         _prevButton = [UIButton buttonWithType:UIButtonTypeCustom];
         _prevButton.backgroundColor = [UIColor whiteColor];
-        _prevButton.layer.cornerRadius = 27;
         _prevButton.layer.masksToBounds = YES;
         _prevButton.layer.borderWidth = 1;
         _prevButton.layer.borderColor = [UIColor colorWithWhite:0.88 alpha:1].CGColor;
-        if (@available(iOS 13.0, *)) {
-            [_prevButton setImage:[UIImage systemImageNamed:@"chevron.left"] forState:UIControlStateNormal];
-        } else {
-            [_prevButton setTitle:@"<" forState:UIControlStateNormal];
-            [_prevButton setTitleColor:BLACK_COLOR_1F forState:UIControlStateNormal];
+
+        UIImage *selImg = [UIImage imageNamed:@"talk_arrow_left_sel"];
+        UIImage *unSelImg = [UIImage imageNamed:@"talk_arrow_left_unSel"];
+        if (selImg) {
+            [_prevButton setImage:[selImg imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal] forState:UIControlStateNormal];
         }
-        _prevButton.tintColor = BLACK_COLOR_1F;
+        if (unSelImg) {
+            [_prevButton setImage:[unSelImg imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal] forState:UIControlStateDisabled];
+        }
+
+        // 资源兜底：确保按钮至少可见
+        if (!selImg || !unSelImg) {
+            if (@available(iOS 13.0, *)) {
+                [_prevButton setImage:[UIImage systemImageNamed:@"chevron.left"] forState:UIControlStateNormal];
+            } else {
+                [_prevButton setTitle:@"<" forState:UIControlStateNormal];
+                [_prevButton setTitleColor:BLACK_COLOR_1F forState:UIControlStateNormal];
+            }
+            _prevButton.tintColor = BLACK_COLOR_1F;
+        }
+
         [_prevButton addTarget:self action:@selector(goPrev) forControlEvents:UIControlEventTouchUpInside];
     }
     return _prevButton;
@@ -1067,17 +1018,30 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
         // 右切题：最后一题或本题未过关时禁用（alpha 降低）
         _nextButton = [UIButton buttonWithType:UIButtonTypeCustom];
         _nextButton.backgroundColor = [UIColor whiteColor];
-        _nextButton.layer.cornerRadius = 27;
         _nextButton.layer.masksToBounds = YES;
         _nextButton.layer.borderWidth = 1;
         _nextButton.layer.borderColor = [UIColor colorWithWhite:0.88 alpha:1].CGColor;
-        if (@available(iOS 13.0, *)) {
-            [_nextButton setImage:[UIImage systemImageNamed:@"chevron.right"] forState:UIControlStateNormal];
-        } else {
-            [_nextButton setTitle:@">" forState:UIControlStateNormal];
-            [_nextButton setTitleColor:BLACK_COLOR_1F forState:UIControlStateNormal];
+
+        UIImage *selImg = [UIImage imageNamed:@"talk_arrow_right_sel"];
+        UIImage *unSelImg = [UIImage imageNamed:@"talk_arrow_right_unSel"];
+        if (selImg) {
+            [_nextButton setImage:[selImg imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal] forState:UIControlStateNormal];
         }
-        _nextButton.tintColor = BLACK_COLOR_1F;
+        if (unSelImg) {
+            [_nextButton setImage:[unSelImg imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal] forState:UIControlStateDisabled];
+        }
+
+        // 资源兜底：确保按钮至少可见
+        if (!selImg || !unSelImg) {
+            if (@available(iOS 13.0, *)) {
+                [_nextButton setImage:[UIImage systemImageNamed:@"chevron.right"] forState:UIControlStateNormal];
+            } else {
+                [_nextButton setTitle:@">" forState:UIControlStateNormal];
+                [_nextButton setTitleColor:BLACK_COLOR_1F forState:UIControlStateNormal];
+            }
+            _nextButton.tintColor = BLACK_COLOR_1F;
+        }
+
         [_nextButton addTarget:self action:@selector(goNext) forControlEvents:UIControlEventTouchUpInside];
     }
     return _nextButton;

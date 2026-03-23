@@ -96,7 +96,8 @@
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return 196.0;
+    // 卡片容器 190 + 上下间隔 20（让阴影/圆角有留白）
+    return 210.0;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -104,7 +105,26 @@
     if (!cell) {
         cell = [[TalkTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"TalkCell"];
     }
-    // TODO: 用真正的模型填充，这里先占位
+    
+    NSInteger row = indexPath.row;
+    YTTalkSceneCellStatus status = (YTTalkSceneCellStatus)(row % 3);
+    
+    // MVP：先用静态文案+两张占位图做 UI 验证，后续再接真实数据模型
+    NSString *title = @"At School";
+    NSString *subtitle = @"Mastering School\nCommunication Skills";
+    NSString *imageName = @"take_img0";
+    
+    if ([self.type isEqualToString:@"hot"]) {
+        title = @"At Home";
+        subtitle = @"Mastering Home\nCommunication Skills";
+        imageName = @"take_img1";
+    } else if ([self.type isEqualToString:@"new"]) {
+        title = @"At Restaurant";
+        subtitle = @"Mastering Dining\nCommunication Skills";
+        imageName = @"take_img1";
+    }
+    
+    [cell configureWithTitle:title subtitle:subtitle imageName:imageName status:status];
     return cell;
 }
 

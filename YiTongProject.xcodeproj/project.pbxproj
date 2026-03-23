@@ -67,6 +67,10 @@
 		6A7E0D9C8A2A4C9AA1B3C122 /* YTUnitViewFactory.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */; };
 		6A7E0DA08A2A4C9AA1B3C126 /* TalkEventTracker.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */; };
 		6A7E0DA38A2A4C9AA1B3C129 /* YTAnswerResultBottomSheet.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */; };
+		6A7E0DA78A2A4C9AA1B3C12D /* YTDepthPrimaryButton.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */; };
+		6A7E0DA8BA2A4C9AA1B3C131 /* YTTipAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */; };
+		6A7E0DA8EA2A4C9AA1B3C134 /* YTResumeLearningAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */; };
+		3DCE4D5B2F7B22A100A1B2CD /* YTTopicLevelProgressIndicator.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D5A2F7B22A100A1B2CC /* YTTopicLevelProgressIndicator.m */; };
 		3D47D59B2EE65953003DC597 /* ReceiptSyncManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D47D59A2EE65953003DC597 /* ReceiptSyncManager.m */; };
 		3D47D59E2EE6CB72003DC597 /* DateHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D47D59D2EE6CB72003DC597 /* DateHelper.m */; };
 		3D4830A52E7BE27A00E6BFAD /* NoNetworkView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D4830A42E7BE27A00E6BFAD /* NoNetworkView.m */; };
@@ -349,6 +353,14 @@
 		6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnitViewFactory.m; sourceTree = "<group>"; };
 		6A7E0DA18A2A4C9AA1B3C127 /* YTAnswerResultBottomSheet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAnswerResultBottomSheet.h; sourceTree = "<group>"; };
 		6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAnswerResultBottomSheet.m; sourceTree = "<group>"; };
+		6A7E0DA58A2A4C9AA1B3C12B /* YTDepthPrimaryButton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDepthPrimaryButton.h; sourceTree = "<group>"; };
+		6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDepthPrimaryButton.m; sourceTree = "<group>"; };
+		6A7E0DA888A2A4C9AA1B3C12E /* YTTipAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTipAlertView.h; sourceTree = "<group>"; };
+		6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTipAlertView.m; sourceTree = "<group>"; };
+		6A7E0DA8CA2A4C9AA1B3C132 /* YTResumeLearningAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTResumeLearningAlertView.h; sourceTree = "<group>"; };
+		6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTResumeLearningAlertView.m; sourceTree = "<group>"; };
+		3DCE4D592F7B22A100A1B2CB /* YTTopicLevelProgressIndicator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTopicLevelProgressIndicator.h; sourceTree = "<group>"; };
+		3DCE4D5A2F7B22A100A1B2CC /* YTTopicLevelProgressIndicator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTopicLevelProgressIndicator.m; sourceTree = "<group>"; };
 		3D47D5992EE65953003DC597 /* ReceiptSyncManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ReceiptSyncManager.h; sourceTree = "<group>"; };
 		3D47D59A2EE65953003DC597 /* ReceiptSyncManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ReceiptSyncManager.m; sourceTree = "<group>"; };
 		3D47D59C2EE6CB72003DC597 /* DateHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DateHelper.h; sourceTree = "<group>"; };
@@ -931,6 +943,14 @@
 			children = (
 				6A7E0DA18A2A4C9AA1B3C127 /* YTAnswerResultBottomSheet.h */,
 				6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */,
+				6A7E0DA58A2A4C9AA1B3C12B /* YTDepthPrimaryButton.h */,
+				6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */,
+				6A7E0DA888A2A4C9AA1B3C12E /* YTTipAlertView.h */,
+				6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */,
+				6A7E0DA8CA2A4C9AA1B3C132 /* YTResumeLearningAlertView.h */,
+				6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */,
+				3DCE4D592F7B22A100A1B2CB /* YTTopicLevelProgressIndicator.h */,
+				3DCE4D5A2F7B22A100A1B2CC /* YTTopicLevelProgressIndicator.m */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -1661,6 +1681,10 @@
 				6A7E0D9C8A2A4C9AA1B3C122 /* YTUnitViewFactory.m in Sources */,
 				6A7E0DA08A2A4C9AA1B3C126 /* TalkEventTracker.m in Sources */,
 				6A7E0DA38A2A4C9AA1B3C129 /* YTAnswerResultBottomSheet.m in Sources */,
+				6A7E0DA78A2A4C9AA1B3C12D /* YTDepthPrimaryButton.m in Sources */,
+				6A7E0DA8BA2A4C9AA1B3C131 /* YTTipAlertView.m in Sources */,
+				6A7E0DA8EA2A4C9AA1B3C134 /* YTResumeLearningAlertView.m in Sources */,
+				3DCE4D5B2F7B22A100A1B2CD /* YTTopicLevelProgressIndicator.m in Sources */,
 				3D0FDD232F31843700929D28 /* EventTypes.m in Sources */,
 				42AFBE3C2E2DE108008EECD4 /* AudioManager.m in Sources */,
 				3D152B012EE129220015CDCD /* SubscriptionAlertHelper.m in Sources */,

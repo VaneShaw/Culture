@@ -32,6 +32,22 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
 
 @implementation YTLevelCompletionUnitView
 
+- (BOOL)yt_shouldUseChineseBadge {
+    NSString *lang = [NSLocale preferredLanguages].firstObject ?: @"";
+    return [lang hasPrefix:@"zh"];
+}
+
+- (NSString *)yt_badgeImageNameForLevel:(YTLevelId)levelId {
+    NSString *levelToken = @"advanced";
+    if (levelId == YTLevelIdBeginner) {
+        levelToken = @"beginner";
+    } else if (levelId == YTLevelIdIntermediate) {
+        levelToken = @"intermediate";
+    }
+    NSString *langToken = [self yt_shouldUseChineseBadge] ? @"zh" : @"en";
+    return [NSString stringWithFormat:@"talk_level_complete_badge_%@_%@", levelToken, langToken];
+}
+
 - (instancetype)init {
     self = [super init];
     if (self) {
@@ -150,7 +166,11 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
         self.subtitleLabel.text = NSLocalizedString(@"Talk_LevelComplete_Advanced_Subtitle", @"");
     }
 
-    UIImage *img = [UIImage imageNamed:@"talk_level_complete_badge"];
+    UIImage *img = [UIImage imageNamed:[self yt_badgeImageNameForLevel:unit.levelId]];
+    if (!img) {
+        // 兼容旧资源名，避免素材未同步时出现空白
+        img = [UIImage imageNamed:@"talk_level_complete_badge"];
+    }
     if (!img && @available(iOS 13.0, *)) {
         if (unit.levelId == YTLevelIdBeginner) {
             img = [UIImage systemImageNamed:@"leaf.fill"];

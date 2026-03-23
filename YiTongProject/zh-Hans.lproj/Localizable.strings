@@ -240,6 +240,21 @@
 
 /* Talk - LearningFlow */
 "Talk_Continue" = "继续";
+"Talk_Home_Title" = "探索场景";
+"Talk_Home_Banner_Title" = "在真实生活场景中掌握中文";
+"Talk_Home_Banner_Subtitle" = "Master Chinese in Real-life Scenarios";
+"Talk_Home_Banner_Tag" = "全新场景对话学习模式上线";
+"Talk_Home_Banner_Title_2" = "真实场景开口表达更自然";
+"Talk_Home_Banner_Subtitle_2" = "Practice speaking with practical dialogue";
+"Talk_Home_Banner_Tag_2" = "口语表达专项训练";
+"Talk_Home_Banner_Title_3" = "从入门到进阶系统学习";
+"Talk_Home_Banner_Subtitle_3" = "Step-by-step practice for better fluency";
+"Talk_Home_Banner_Tag_3" = "分级学习路径";
+"Talk_Home_Tab_AllScenes" = "全部场景";
+"Talk_Home_Tab_HotScenes" = "热门场景";
+"Talk_Home_Tab_NewScenes" = "最新场景";
+"Talk_TopicHome_Title" = "校园场景导航";
+"Talk_TopicHome_Subtitle" = "校园真实场景对话";
 "Talk_PracticeTransition_Title_Beginner" = "词汇学习完成";
 "Talk_PracticeTransition_Title_Intermediate" = "语法已掌握！";
 "Talk_PracticeTransition_Title_Advanced" = "语法升级！";
@@ -385,6 +400,8 @@
 "Vocabulary" = "词汇";
 "Congratulations, you've unlocked the next level!" = "恭喜你解锁下一个等级！";
 "Beginner" = "入门";
+"Simple" = "进阶";
+"Difficult" = "困难";
 "Intermediate" = "进阶";
 "Advanced" = "困难";
 "Step %ld" = "第%ld步";

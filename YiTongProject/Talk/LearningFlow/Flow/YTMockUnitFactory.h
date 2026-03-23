@@ -38,6 +38,17 @@ NS_ASSUME_NONNULL_BEGIN
                                         sceneId:(NSString *)sceneId
                                         levelId:(YTLevelId)levelId;
 
+/// 与 `TalkLearningFlowViewController` 一致：在 raw units 上插入过渡页、追加完成页（已存在则跳过）
++ (NSArray<YTUnit *> *)learningFlowUnitsFromRawUnits:(NSArray<YTUnit *> *)rawUnits
+                                             sceneId:(NSString *)sceneId
+                                             levelId:(YTLevelId)levelId;
+
+/// `buildUnitsForSceneId` + 过渡页 + 完成页
++ (NSArray<YTUnit *> *)learningFlowUnitsForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId;
+
+/// 与容器页 `currentProgress` 一致：已完成且计入进度的 unit 数 / 计入进度的总数
++ (CGFloat)progressRatioForUnits:(NSArray<YTUnit *> *)units completedUnitIdentifiers:(NSSet<NSString *> *)completedIds;
+
 @end
 
 NS_ASSUME_NONNULL_END

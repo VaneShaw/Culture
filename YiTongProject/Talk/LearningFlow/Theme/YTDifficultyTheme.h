@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) YTLevelId levelId;
 
 @property (nonatomic, strong) UIColor *backgroundColor;
+/// 主操作色（底栏主按钮、正确反馈弹窗主按钮等，见 `YTDepthPrimaryButton`）
 @property (nonatomic, strong) UIColor *primaryColor;
 @property (nonatomic, strong) UIColor *progressTintColor;
 

@@ -4,6 +4,7 @@
 //
 
 #import "YTAnswerResultBottomSheet.h"
+#import "YTDepthPrimaryButton.h"
 #import "HeaderConfig.h"
 #import <Masonry/Masonry.h>
 
@@ -22,7 +23,7 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *messageLabel;
 @property (nonatomic, strong) UILabel *highlightLabel;
-@property (nonatomic, strong) UIButton *primaryButton;
+@property (nonatomic, strong) YTDepthPrimaryButton *primaryDepthButton;
 
 @property (nonatomic, assign) YTAnswerResultBottomSheetStyle style;
 @property (nonatomic, strong, nullable) UIColor *customAccentColor;
@@ -131,11 +132,11 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
         make.top.equalTo(self.messageLabel.mas_bottom).offset(8);
     }];
 
-    [self.sheetView addSubview:self.primaryButton];
-    [self.primaryButton mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.sheetView addSubview:self.primaryDepthButton];
+    [self.primaryDepthButton mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.right.equalTo(self.sheetView).inset(16);
         make.top.equalTo(self.highlightLabel.mas_bottom).offset(14);
-        make.height.mas_equalTo(52);
+        make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
         // 按钮底部按 safeArea 处理，保证不被 home indicator 挡住
         make.bottom.equalTo(self.sheetView.mas_safeAreaLayoutGuideBottom).offset(-16);
     }];
@@ -147,7 +148,8 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
 
     self.sheetView.backgroundColor = tintBg;
     self.statusIconContainer.backgroundColor = accent;
-    self.primaryButton.backgroundColor = accent;
+    self.primaryDepthButton.depthColor = nil;
+    self.primaryDepthButton.faceColor = accent;
 
     self.statusIconLabel.text = (self.style == YTAnswerResultBottomSheetStyleCorrect) ? @"✓" : @"✕";
     if (self.style == YTAnswerResultBottomSheetStyleWrong) {
@@ -172,7 +174,7 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
         self.highlightLabel.textColor = accent;
         self.highlightLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
 
-        self.primaryButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
+        self.primaryDepthButton.actionButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
     } else {
         // 正确态 UI 规格（按截图）
         // - 左上绿 icon：28*28
@@ -193,7 +195,7 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
         self.highlightLabel.textColor = accent;
         self.highlightLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16] ?: [UIFont boldSystemFontOfSize:16];
 
-        self.primaryButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
+        self.primaryDepthButton.actionButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
     }
 }
 
@@ -237,7 +239,7 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
     self.highlightLabel.attributedText = hasHighlight ? highlight : [[NSAttributedString alloc] initWithString:@""];
     self.highlightLabel.hidden = !hasHighlight;
 
-    [self.primaryButton setTitle:buttonTitle ?: @"" forState:UIControlStateNormal];
+    [self.primaryDepthButton.actionButton setTitle:buttonTitle ?: @"" forState:UIControlStateNormal];
 
     // 当没有 message 时，让 highlight 紧贴标题区域；当没有 highlight 时，让按钮紧贴 message
     [self.messageLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
@@ -257,10 +259,10 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
         }
     }];
 
-    [self.primaryButton mas_remakeConstraints:^(MASConstraintMaker *make) {
+    [self.primaryDepthButton mas_remakeConstraints:^(MASConstraintMaker *make) {
         make.left.right.equalTo(self.sheetView).inset(16);
         make.top.equalTo(self.highlightLabel.mas_bottom).offset(14);
-        make.height.mas_equalTo(52);
+        make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
         make.bottom.equalTo(self.sheetView.mas_safeAreaLayoutGuideBottom).offset(-16);
     }];
 }
@@ -388,16 +390,13 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
     return _highlightLabel;
 }
 
-- (UIButton *)primaryButton {
-    if (!_primaryButton) {
-        _primaryButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        _primaryButton.layer.cornerRadius = 18;
-        _primaryButton.layer.masksToBounds = YES;
-        _primaryButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
-        [_primaryButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        [_primaryButton addTarget:self action:@selector(onPrimaryTap) forControlEvents:UIControlEventTouchUpInside];
+- (YTDepthPrimaryButton *)primaryDepthButton {
+    if (!_primaryDepthButton) {
+        _primaryDepthButton = [YTDepthPrimaryButton answerResultSheetPrimaryButton];
+        [_primaryDepthButton.actionButton addTarget:self action:@selector(onPrimaryTap) forControlEvents:UIControlEventTouchUpInside];
+        _primaryDepthButton.actionButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
     }
-    return _primaryButton;
+    return _primaryDepthButton;
 }
 
 @end
