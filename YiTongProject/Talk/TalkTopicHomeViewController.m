@@ -9,7 +9,8 @@
 #import "HeaderConfig.h"
 #import "UIViewController+BackButton.h"
 #import "TalkLearningFlowViewController.h"
-#import "YTMockUnitFactory.h"
+#import "YTLearningFlowBootstrap.h"
+#import "YTMockLearningFlowBootstrapService.h"
 
 /**
  话题主页（静态 UI + 难度入口）
@@ -412,17 +413,19 @@
     [[GlobalHUDManager shared] showOrUpdateMessage:NSLocalizedString(@"Processing...", @"")];
 
     __weak typeof(self) weakSelf = self;
-    [YTMockUnitFactory fetchUnitsForSceneId:@"scene_school" levelId:levelId completion:^(NSArray<YTUnit *> * _Nonnull units) {
+    [[YTMockLearningFlowBootstrapService shared] fetchBootstrapForSceneId:@"scene_school" levelId:levelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
         self.isRequestingUnits = NO;
         [[GlobalHUDManager shared] hide];
+        if (!bootstrap || error) return;
 
-        TalkLearningFlowViewController *vc = [[TalkLearningFlowViewController alloc] initWithSceneId:@"scene_school" levelId:levelId preloadedUnits:units];
+        TalkLearningFlowViewController *vc = [[TalkLearningFlowViewController alloc] initWithSceneId:@"scene_school"
+                                                                                              levelId:levelId
+                                                                                   preloadedBootstrap:bootstrap];
         vc.hidesBottomBarWhenPushed = YES;
         [self.navigationController pushViewController:vc animated:YES];
     }];
 }
 
 @end
-

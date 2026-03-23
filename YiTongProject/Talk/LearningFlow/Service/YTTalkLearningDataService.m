@@ -4,8 +4,6 @@
 //
 
 #import "YTTalkLearningDataService.h"
-#import "YTMockUnitFactory.h"
-#import "YTUnit.h"
 #import "YTLastPosition.h"
 #import "HeaderConfig.h"
 
@@ -70,29 +68,23 @@ static NSString *const kAnswerSnapshotsKeyPrefix = @"talk_answer_snapshots";
     [KUSER_DEFAULT removeObjectForKey:key];
 }
 
-- (void)fetchLearningDataForSceneId:(NSString *)sceneId
-                            levelId:(NSInteger)levelId
-                         completion:(YTTalkLearningDataCompletion)completion {
+- (void)fetchLearningProgressForSceneId:(NSString *)sceneId
+                                levelId:(NSInteger)levelId
+                             completion:(YTLearningProgressCompletion)completion {
     if (!completion) return;
-    // 模拟接口延迟 0.5s
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        // 从 mock 接口响应获取 units + lastPosition（lastPosition 在 buildMockAPIResponseForSceneId 中从本地取）
-        NSDictionary *mockResponse = [YTMockUnitFactory buildMockAPIResponseForSceneId:sceneId levelId:(YTLevelId)levelId];
-        NSArray<NSDictionary *> *unitsArray = mockResponse[@"units"];
-        if (![unitsArray isKindOfClass:[NSArray class]]) unitsArray = @[];
-        NSArray<YTUnit *> *units = [YTMockUnitFactory buildUnitsFromAPIResponse:unitsArray sceneId:sceneId levelId:(YTLevelId)levelId];
-        id lastPositionRaw = mockResponse[@"lastPosition"];
-        if ([lastPositionRaw isKindOfClass:[NSNull class]]) lastPositionRaw = nil;
-        YTLastPosition *lastPosition = [YTLastPosition fromDictionary:lastPositionRaw];
-        NSArray *arr = [KUSER_DEFAULT objectForKey:[self completedUnitsKeyForSceneId:sceneId levelId:levelId]];
-        NSMutableArray<NSString *> *completed = [NSMutableArray array];
-        if ([arr isKindOfClass:[NSArray class]]) {
-            for (id v in arr) {
-                if ([v isKindOfClass:[NSString class]]) [completed addObject:v];
-            }
+    NSString *lastPositionKey = [self lastPositionKeyForSceneId:sceneId levelId:levelId];
+    id lastPositionRaw = [KUSER_DEFAULT objectForKey:lastPositionKey];
+    if ([lastPositionRaw isKindOfClass:[NSNull class]]) lastPositionRaw = nil;
+    YTLastPosition *lastPosition = [YTLastPosition fromDictionary:lastPositionRaw];
+
+    NSArray *arr = [KUSER_DEFAULT objectForKey:[self completedUnitsKeyForSceneId:sceneId levelId:levelId]];
+    NSMutableArray<NSString *> *completed = [NSMutableArray array];
+    if ([arr isKindOfClass:[NSArray class]]) {
+        for (id v in arr) {
+            if ([v isKindOfClass:[NSString class]]) [completed addObject:v];
         }
-        completion(units, lastPosition, [completed copy], nil);
-    });
+    }
+    completion(lastPosition, [completed copy], nil);
 }
 
 - (void)saveCurrentPositionForSceneId:(NSString *)sceneId

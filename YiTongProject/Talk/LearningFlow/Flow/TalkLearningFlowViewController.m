@@ -10,8 +10,14 @@
 #import "UIViewController+BackButton.h"
 
 #import "YTLastPosition.h"
+#import "YTLearningFlowBootstrap.h"
+#import "YTLearningFlowBootstrapService.h"
 #import "YTDifficultyTheme.h"
 #import "YTMockUnitFactory.h"
+#import "YTMockLearningFlowBootstrapService.h"
+#import "YTLocalAnswerEvaluator.h"
+#import "YTLocalPronounceEvaluator.h"
+#import "YTLearningProgressStoring.h"
 #import "YTUnitViewFactory.h"
 #import "TalkEventTracker.h"
 #import "YTAnswerResultBottomSheet.h"
@@ -44,6 +50,7 @@ static NSArray<YTUnit *> *YTAppendLevelCompletionUnitIfNeeded(NSArray<YTUnit *> 
 @property (nonatomic, strong) YTDifficultyTheme *theme;
 
 @property (nonatomic, strong) NSArray<YTUnit *> *units;
+@property (nonatomic, strong, nullable) YTLearningFlowBootstrap *preloadedBootstrap;
 @property (nonatomic, assign) NSInteger currentIndex;
 @property (nonatomic, strong) NSMutableSet<NSString *> *completedUnitIds;
 /// 续学弹窗选「继续上次学习」时为 YES，才从本地/后台恢复已答对题目的答案；选「从头开始」为 NO
@@ -66,6 +73,10 @@ static NSArray<YTUnit *> *YTAppendLevelCompletionUnitIfNeeded(NSArray<YTUnit *> 
 @property (nonatomic, strong) UIButton *bottomToastButton;
 
 @property (nonatomic, strong) YTAnswerResultBottomSheet *answerResultSheet;
+@property (nonatomic, strong) id<YTLearningFlowBootstrapService> bootstrapService;
+@property (nonatomic, strong) id<YTPronounceEvaluating> pronounceEvaluator;
+@property (nonatomic, strong) id<YTAnswerEvaluating> answerEvaluator;
+@property (nonatomic, strong) id<YTLearningProgressStoring> progressStore;
 
 @end
 
@@ -137,6 +148,16 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     return [self initWithSceneId:sceneId levelId:levelId preloadedUnits:nil skipFetchUsePreloaded:NO];
 }
 
+- (instancetype)initWithSceneId:(NSString *)sceneId
+                        levelId:(YTLevelId)levelId
+             preloadedBootstrap:(YTLearningFlowBootstrap *)preloadedBootstrap {
+    self = [self initWithSceneId:sceneId levelId:levelId preloadedUnits:preloadedBootstrap.units skipFetchUsePreloaded:NO];
+    if (self) {
+        _preloadedBootstrap = preloadedBootstrap;
+    }
+    return self;
+}
+
 - (instancetype)initWithSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId preloadedUnits:(NSArray<YTUnit *> *)preloadedUnits {
     return [self initWithSceneId:sceneId levelId:levelId preloadedUnits:preloadedUnits skipFetchUsePreloaded:NO];
 }
@@ -150,6 +171,10 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
         _completedUnitIds = [NSMutableSet set];
         _units = preloadedUnits ?: @[];
         _skipFetchUsePreloaded = skip;
+        _bootstrapService = [YTMockLearningFlowBootstrapService shared];
+        _pronounceEvaluator = [YTLocalPronounceEvaluator shared];
+        _answerEvaluator = [YTLocalAnswerEvaluator shared];
+        _progressStore = [YTTalkLearningDataService shared];
     }
     return self;
 }
@@ -200,37 +225,21 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 }
 
 - (void)startFlow {
+    if (self.preloadedBootstrap) {
+        [self applyBootstrapAndStart:self.preloadedBootstrap];
+        return;
+    }
     if (self.skipFetchUsePreloaded && self.units.count > 0) {
         [self applyPreloadedUnitsAndStartFresh];
         return;
     }
     // 模拟接口：点击难度获取内容，返回 units + 上次学习位置 + 已完成列表
     __weak typeof(self) weakSelf = self;
-    [[YTTalkLearningDataService shared] fetchLearningDataForSceneId:self.sceneId levelId:self.levelId completion:^(NSArray<YTUnit *> *units, YTLastPosition * _Nullable lastPosition, NSArray<NSString *> *completedUnitIds, NSError * _Nullable error) {
+    [self.bootstrapService fetchBootstrapForSceneId:self.sceneId levelId:self.levelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
-        NSArray<YTUnit *> *raw = units ?: @[];
-        NSArray<YTUnit *> *withTransition = YTInsertPracticeTransitionUnitIfNeeded(raw, self.sceneId, self.levelId);
-        self.units = YTAppendLevelCompletionUnitIfNeeded(withTransition, self.sceneId, self.levelId);
-        [self.completedUnitIds removeAllObjects];
-        if (completedUnitIds.count > 0) {
-            [self.completedUnitIds addObjectsFromArray:completedUnitIds];
-        }
-        // 拉取到已完成列表后立刻刷新顶部进度（含续学弹窗未点「继续」时也要与本地一致）
-        [self updateProgressUI];
-        if (lastPosition) {
-            NSInteger idx = [self indexForLastPosition:lastPosition];
-            // 上次停留在第一题（index 0）不再弹续学窗，直接进入
-            if (idx <= 0) {
-                self.resumePrefillCorrectAnswers = NO;
-                [self showUnitAtIndex:0];
-            } else {
-                [self showResumePromptWithLastPosition:lastPosition];
-            }
-        } else {
-            self.resumePrefillCorrectAnswers = NO;
-            [self showUnitAtIndex:0];
-        }
+        if (!bootstrap) return;
+        [self applyBootstrapAndStart:bootstrap];
     }];
 }
 
@@ -240,6 +249,45 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     NSArray<YTUnit *> *withTransition = YTInsertPracticeTransitionUnitIfNeeded(raw, self.sceneId, self.levelId);
     self.units = YTAppendLevelCompletionUnitIfNeeded(withTransition, self.sceneId, self.levelId);
     [self restoreCompletedUnits];
+    [self startFreshFromBeginning];
+}
+
+- (void)applyBootstrapAndStart:(YTLearningFlowBootstrap *)bootstrap {
+    [self applyBootstrap:bootstrap];
+    [self routeEntryFromBootstrap:bootstrap];
+}
+
+- (void)applyBootstrap:(YTLearningFlowBootstrap *)bootstrap {
+    NSArray<YTUnit *> *raw = bootstrap.units ?: @[];
+    NSArray<YTUnit *> *withTransition = YTInsertPracticeTransitionUnitIfNeeded(raw, self.sceneId, self.levelId);
+    self.units = YTAppendLevelCompletionUnitIfNeeded(withTransition, self.sceneId, self.levelId);
+    [self.completedUnitIds removeAllObjects];
+    if (bootstrap.completedUnitIds.count > 0) {
+        [self.completedUnitIds addObjectsFromArray:bootstrap.completedUnitIds];
+    }
+
+    // 拉取到已完成列表后立刻刷新顶部进度（含续学弹窗未点「继续」时也要与本地一致）
+    [self updateProgressUI];
+}
+
+- (void)routeEntryFromBootstrap:(YTLearningFlowBootstrap *)bootstrap {
+    YTLastPosition *lastPosition = bootstrap.lastPosition;
+    if (!lastPosition) {
+        [self startFreshFromBeginning];
+        return;
+    }
+
+    NSInteger idx = [self indexForLastPosition:lastPosition];
+    // 上次停留在第一题（index 0）不再弹续学窗，直接进入
+    if (idx <= 0) {
+        [self startFreshFromBeginning];
+        return;
+    }
+
+    [self showResumePromptWithLastPosition:lastPosition];
+}
+
+- (void)startFreshFromBeginning {
     self.resumePrefillCorrectAnswers = NO;
     [self updateProgressUI];
     [self showUnitAtIndex:0];
@@ -359,8 +407,8 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Start from beginning", @"") style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         __strong typeof(weakSelf) self = weakSelf;
         self.resumePrefillCorrectAnswers = NO;
-        [[YTTalkLearningDataService shared] clearAnswerSnapshotsForSceneId:self.sceneId levelId:self.levelId];
-        [[YTTalkLearningDataService shared] clearLastPositionForSceneId:self.sceneId levelId:self.levelId];
+        [self.progressStore clearAnswerSnapshotsForSceneId:self.sceneId levelId:self.levelId];
+        [self.progressStore clearLastPositionForSceneId:self.sceneId levelId:self.levelId];
         [self.completedUnitIds removeAllObjects];
         [self persistCompletedUnits];
         [self resetLearnStateFlagsOnAllUnits];
@@ -401,7 +449,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     [self updateNavButtons];
 
     // 模拟接口：进入新步骤时调用，更新当前用户所在页面
-    [[YTTalkLearningDataService shared] saveCurrentPositionForSceneId:self.sceneId levelId:self.levelId unitId:u.unitId stepIndex:u.stepIndex unitType:u.unitType completion:nil];
+    [self.progressStore saveCurrentPositionForSceneId:self.sceneId levelId:self.levelId unitId:u.unitId stepIndex:u.stepIndex unitType:u.unitType completion:nil];
 
     [self markUnitEnter:u];
 }
@@ -541,14 +589,15 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
                                theme:self.theme
                                audio:[YTAudioMuxService shared]
                            recording:[YTRecordingService shared]
-                             scoring:[YTScoringService shared]];
+                  pronounceEvaluator:self.pronounceEvaluator
+                     answerEvaluator:self.answerEvaluator];
 
     // 续学「继续」或后台：恢复已答对题目的选项/句子（从头开始不会带 payload）
     NSDictionary *restorePayload = nil;
     if (u.answeredCorrectFromServer && u.serverAnswerPayload.count > 0) {
         restorePayload = u.serverAnswerPayload;
     } else if (self.resumePrefillCorrectAnswers) {
-        restorePayload = [[YTTalkLearningDataService shared] answerSnapshotPayloadForUnitId:u.unitId sceneId:self.sceneId levelId:self.levelId];
+        restorePayload = [self.progressStore answerSnapshotPayloadForUnitId:u.unitId sceneId:self.sceneId levelId:self.levelId];
     }
     if (restorePayload.count > 0) {
         __weak typeof(self) weakSelf = self;
@@ -598,8 +647,9 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
         if (kind == YTUnitPrimaryKindSubmit) {
             // 提交：展示对错反馈（错误时给出正确答案）；仅答对时计入进度
             BOOL correct = submitResult ? submitResult.isCorrect : YES;
-            if (correct && submitResult.restorableAnswerPayload.count > 0) {
-                [[YTTalkLearningDataService shared] saveCorrectAnswerSnapshotForUnitId:u.unitId sceneId:self.sceneId levelId:self.levelId payload:submitResult.restorableAnswerPayload];
+            NSDictionary *answerPayload = submitResult.answerPayload ?: submitResult.restorableAnswerPayload;
+            if (correct && answerPayload.count > 0) {
+                [self.progressStore saveCorrectAnswerSnapshotForUnitId:u.unitId sceneId:self.sceneId levelId:self.levelId payload:answerPayload];
             }
             // 先计入完成并刷新顶部进度，再弹出结果页（避免弹层盖住时误以为进度未变）
             if (correct) [self markUnitCompletedIfNeeded:u];
@@ -876,7 +926,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     if (self.units.count == 0) return;
     if (self.currentIndex < 0 || self.currentIndex >= self.units.count) return;
     YTUnit *u = self.units[self.currentIndex];
-    [[YTTalkLearningDataService shared] saveCurrentPositionForSceneId:self.sceneId levelId:self.levelId unitId:u.unitId stepIndex:u.stepIndex unitType:u.unitType completion:nil];
+    [self.progressStore saveCurrentPositionForSceneId:self.sceneId levelId:self.levelId unitId:u.unitId stepIndex:u.stepIndex unitType:u.unitType completion:nil];
 }
 
 #pragma mark - 埋点（MVP：先走 AnalyticsManager 的壳，后续完善）
@@ -1066,4 +1116,3 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 }
 
 @end
-

@@ -36,7 +36,6 @@ typedef NS_ENUM(NSInteger, YTLevelId) {
 /// 字段约定（MVP）：
 /// - 资源以本地 `imageName` 表达；音频以 `audioURLString` 表达（多数 mock 为空）
 /// - 选择题 `options` 使用字典数组表达：常用 key 为 id/text/imageName/audioURL
-/// - `correctOptionId` 在句子组装题里被 MVP 复用为“正确句子字符串”（后续可改为专用字段）
 @interface YTUnit : NSObject
 
 @property (nonatomic, copy) NSString *sceneId;
@@ -62,6 +61,8 @@ typedef NS_ENUM(NSInteger, YTLevelId) {
 /// exercise_* 专用（MVP：选项用字符串/图片名表达）
 @property (nonatomic, strong, nullable) NSArray<NSDictionary *> *options; // [{id,text,imageName,audioURL}]
 @property (nonatomic, copy, nullable) NSString *correctOptionId;
+/// 句子组装题专用：正确句子全文
+@property (nonatomic, copy, nullable) NSString *correctSentenceText;
 
 /// pronounce 可选：需要在题干中高亮并可点击的“词汇点”
 /// - 例：@"你是学生吗？" 里高亮 @"吗"

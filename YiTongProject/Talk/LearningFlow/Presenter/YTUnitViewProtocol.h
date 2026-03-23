@@ -9,9 +9,15 @@
 #import "YTDifficultyTheme.h"
 #import "YTAudioMuxService.h"
 #import "YTRecordingService.h"
-#import "YTScoringService.h"
+#import "YTPronounceEvaluating.h"
 
 NS_ASSUME_NONNULL_BEGIN
+
+@protocol YTAnswerEvaluating;
+@protocol YTPronounceEvaluating;
+
+FOUNDATION_EXPORT NSString * const YTAnswerPayloadKeySelectedOptionId;
+FOUNDATION_EXPORT NSString * const YTAnswerPayloadKeyOrderedTokenTexts;
 
 typedef NS_ENUM(NSInteger, YTUnitPrimaryKind) {
     YTUnitPrimaryKindSubmit = 0,
@@ -29,7 +35,9 @@ typedef NS_ENUM(NSInteger, YTUnitPrimaryKind) {
 @interface YTUnitSubmitResult : NSObject
 @property (nonatomic, assign) BOOL isCorrect;
 @property (nonatomic, copy, nullable) NSString *correctAnswerText;
-/// 仅答对时填充：用于续学「继续」时恢复选项/句子（本地持久化或对接后台同结构）
+/// 统一答案结构：后续对接真实接口时建议直接以该 payload 作为提交/恢复字段
+@property (nonatomic, copy, nullable) NSDictionary *answerPayload;
+/// 兼容旧字段：与 `answerPayload` 保持同值，后续可逐步下线
 @property (nonatomic, copy, nullable) NSDictionary *restorableAnswerPayload;
 @end
 
@@ -49,9 +57,10 @@ typedef void (^YTUnitPrimaryStateChanged)(YTUnitPrimaryState *state);
                     theme:(YTDifficultyTheme *)theme
                     audio:(YTAudioMuxService *)audio
                 recording:(YTRecordingService *)recording
-                  scoring:(YTScoringService *)scoring;
+       pronounceEvaluator:(id<YTPronounceEvaluating>)pronounceEvaluator
+          answerEvaluator:(id<YTAnswerEvaluating>)answerEvaluator;
 
-/// 续学「继续」或后台下发：恢复已答对题目的 UI（payload 与 `restorableAnswerPayload` 同结构）
+/// 续学「继续」或后台下发：恢复已答对题目的 UI（payload 与 `answerPayload` 同结构）
 - (void)applyRestoredAnswerSnapshot:(NSDictionary *)snapshot;
 
 /// 容器点击底部主按钮时调用；不同 kind 会走不同逻辑
@@ -73,4 +82,3 @@ typedef void (^YTUnitPrimaryStateChanged)(YTUnitPrimaryState *state);
 @end
 
 NS_ASSUME_NONNULL_END
-

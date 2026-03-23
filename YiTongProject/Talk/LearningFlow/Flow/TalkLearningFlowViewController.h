@@ -8,6 +8,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class YTLearningFlowBootstrap;
+
 @interface TalkLearningFlowViewController : BaseViewController
 
 /**
@@ -22,6 +24,11 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (instancetype)initWithSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId;
 
+/// 预加载 bootstrap（内容 + 进度），用于入口页先拿完整启动快照后再进入学习流
+- (instancetype)initWithSceneId:(NSString *)sceneId
+                        levelId:(YTLevelId)levelId
+             preloadedBootstrap:(YTLearningFlowBootstrap * _Nullable)preloadedBootstrap;
+
 /**
  *  预加载 units（用于模拟接口拉取完成后再进入学习流）
  *  @param preloadedUnits 若传入非空，则进入后直接使用，不再重复构建 mock 数据
@@ -34,4 +41,3 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
-
