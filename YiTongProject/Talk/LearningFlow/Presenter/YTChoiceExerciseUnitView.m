@@ -29,6 +29,7 @@
 @property (nonatomic, copy, nullable) NSString *selectedOptionId;
 @property (nonatomic, strong) NSMutableArray<UIButton *> *optionButtons;
 @property (nonatomic, assign) BOOL hasAutoPlayed;
+@property (nonatomic, assign) BOOL isAudioPlaying;
 @end
 
 @implementation YTChoiceExerciseUnitViewLegacyInternal
@@ -62,11 +63,6 @@
         _audioButton.backgroundColor = [UIColor colorWithWhite:0.95 alpha:1];
         _audioButton.layer.cornerRadius = 18;
         _audioButton.layer.masksToBounds = YES;
-        UIImage *voicePlay = [UIImage imageNamed:@"talk_voice_play"];
-        if (voicePlay) {
-            voicePlay = [voicePlay imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-        }
-        [_audioButton setImage:voicePlay forState:UIControlStateNormal];
         _audioButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
         [_audioButton addTarget:self action:@selector(onPlayAudio) forControlEvents:UIControlEventTouchUpInside];
         [card addSubview:_audioButton];
@@ -119,6 +115,7 @@
     [super configureWithUnit:unit theme:theme audio:audio recording:recording pronounceEvaluator:pronounceEvaluator answerEvaluator:answerEvaluator];
     self.selectedOptionId = nil;
     self.hasAutoPlayed = NO;
+    self.isAudioPlaying = NO;
     [self.optionButtons removeAllObjects];
 
     self.primaryState.kind = YTUnitPrimaryKindSubmit;
@@ -131,6 +128,7 @@
     }
 
     if (unit.unitType == YTUnitTypeExerciseListenChooseImage) {
+        [self updateAudioButtonStyleForListenChooseImage:YES];
         self.titleLabel.text = NSLocalizedString(@"Choose the matching image", @"");
         self.audioButton.hidden = NO;
         self.pinyinLabel.hidden = NO;
@@ -144,6 +142,7 @@
         [self buildImageGridOptions];
         [self autoPlayIfNeeded];
     } else {
+        [self updateAudioButtonStyleForListenChooseImage:NO];
         self.titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
         self.titleLabel.adjustsFontSizeToFitWidth = YES;
         self.titleLabel.minimumScaleFactor = 0.85;
@@ -181,13 +180,74 @@
 - (void)autoPlayIfNeeded {
     if (self.hasAutoPlayed) return;
     self.hasAutoPlayed = YES;
-    if (self.unit.audioURLString.length == 0) return;
-    [self.audio playURLString:self.unit.audioURLString completion:nil];
+    NSString *audioURLString = [self audioURLStringForPlayButton];
+    if (audioURLString.length == 0) return;
+    [self updateAudioButtonPlaying:YES];
+    __weak typeof(self) weakSelf = self;
+    [self.audio playURLString:audioURLString completion:^(__unused BOOL success, __unused NSError * _Nullable error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        [self updateAudioButtonPlaying:NO];
+    }];
 }
 
 - (void)onPlayAudio {
-    if (self.unit.audioURLString.length == 0) return;
-    [self.audio playURLString:self.unit.audioURLString completion:nil];
+    NSString *audioURLString = [self audioURLStringForPlayButton];
+    if (audioURLString.length == 0) return;
+    [self updateAudioButtonPlaying:YES];
+    __weak typeof(self) weakSelf = self;
+    [self.audio playURLString:audioURLString completion:^(__unused BOOL success, __unused NSError * _Nullable error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        [self updateAudioButtonPlaying:NO];
+    }];
+}
+
+- (NSString *)audioURLStringForPlayButton {
+    // 临时联调：听音选图固定播放本地录音文件 a2_LetterRecording.m4a
+    if (self.unit.unitType == YTUnitTypeExerciseListenChooseImage) {
+        NSString *path = [[NSBundle mainBundle] pathForResource:@"a2_LetterRecording" ofType:@"m4a"];
+        if (path.length > 0) {
+            return [NSURL fileURLWithPath:path].absoluteString ?: @"";
+        }
+    }
+    return self.unit.audioURLString ?: @"";
+}
+
+- (void)updateAudioButtonStyleForListenChooseImage:(BOOL)isListenChooseImage {
+    if (isListenChooseImage) {
+        self.audioButton.backgroundColor = [theAppDelegate.window colorWithHexString:@"#1F1F39" alpha:1];
+        self.audioButton.layer.cornerRadius = 23.0;
+        [self.audioButton mas_updateConstraints:^(MASConstraintMaker *make) {
+            make.width.height.mas_equalTo(46);
+        }];
+        self.audioButton.imageEdgeInsets = UIEdgeInsetsMake(12, 12, 12, 12); // 46-22
+        [self updateAudioButtonPlaying:self.isAudioPlaying];
+        return;
+    }
+
+    self.audioButton.backgroundColor = [UIColor colorWithWhite:0.95 alpha:1];
+    self.audioButton.layer.cornerRadius = 18.0;
+    [self.audioButton mas_updateConstraints:^(MASConstraintMaker *make) {
+        make.width.height.mas_equalTo(36);
+    }];
+    self.audioButton.imageEdgeInsets = UIEdgeInsetsZero;
+
+    UIImage *voicePlay = [UIImage imageNamed:@"talk_voice_play"];
+    if (voicePlay) {
+        voicePlay = [voicePlay imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    }
+    [self.audioButton setImage:voicePlay forState:UIControlStateNormal];
+}
+
+- (void)updateAudioButtonPlaying:(BOOL)isPlaying {
+    self.isAudioPlaying = isPlaying;
+    NSString *iconName = isPlaying ? @"talk_vioce_other_playing" : @"talk_vioce_other_start";
+    UIImage *icon = [UIImage imageNamed:iconName];
+    if (icon) {
+        icon = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    }
+    [self.audioButton setImage:icon forState:UIControlStateNormal];
 }
 
 - (void)buildImageGridOptions {

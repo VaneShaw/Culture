@@ -738,6 +738,14 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
         [self transitionToNextDifficultyLevelSeamlessly];
         return;
     }
+    // 困难难度完成后回到 Tab 的场景对话首页（而非仅退一层到上级页）
+    if (onLevelCompletePage && self.levelId == YTLevelIdAdvanced) {
+        if (theAppDelegate.tabBarController_startApp) {
+            theAppDelegate.tabBarController_startApp.selectedIndex = 1;
+        }
+        [self.navigationController popToRootViewControllerAnimated:YES];
+        return;
+    }
     [self.navigationController popViewControllerAnimated:YES];
 }
 

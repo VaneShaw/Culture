@@ -38,39 +38,6 @@
 		3D437D372EE80D0900EFBEE1 /* MembershipTransferView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D437D362EE80D0900EFBEE1 /* MembershipTransferView.m */; };
 		3D437D3A2EE8144400EFBEE1 /* SubscriptionSetViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D437D392EE8144400EFBEE1 /* SubscriptionSetViewController.m */; };
 		3D46C9052F512F800090B431 /* TalkViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D46C9012F512F800090B431 /* TalkViewController.m */; };
-		3DCE4D4B2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D4A2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m */; };
-		3DCE4D512F7B22A100A1B2C3 /* TalkTopicHomeViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D502F7B22A100A1B2C3 /* TalkTopicHomeViewController.m */; };
-		6A7E0D898A2A4C9AA1B3C10F /* TalkLearningFlowViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D808A2A4C9AA1B3C106 /* TalkLearningFlowViewController.m */; };
-		6A7E0D8A8A2A4C9AA1B3C110 /* YTMockUnitFactory.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D828A2A4C9AA1B3C108 /* YTMockUnitFactory.m */; };
-		6A7E0D8B8A2A4C9AA1B3C111 /* YTUnit.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D848A2A4C9AA1B3C10A /* YTUnit.m */; };
-		6A7E0D8C8A2A4C9AA1B3C112 /* YTLastPosition.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D868A2A4C9AA1B3C10C /* YTLastPosition.m */; };
-		A1F0B0012F70000100B00100 /* YTLearningFlowBootstrap.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0002F70000100B00100 /* YTLearningFlowBootstrap.m */; };
-		A1F0B0022F70000200B00100 /* YTMockLearningFlowResponseBuilder.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0042F70000200B00100 /* YTMockLearningFlowResponseBuilder.m */; };
-		A1F0B0032F70000200B00100 /* YTUnitMapper.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0062F70000200B00100 /* YTUnitMapper.m */; };
-		A1F0B0092F70000300B00100 /* YTMockLearningFlowBootstrapService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B00B2F70000300B00100 /* YTMockLearningFlowBootstrapService.m */; };
-		A1F0B00E2F70000400B00100 /* YTLocalAnswerEvaluator.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0112F70000400B00100 /* YTLocalAnswerEvaluator.m */; };
-		A1F0B0132F70000500B00100 /* YTLocalPronounceEvaluator.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0162F70000500B00100 /* YTLocalPronounceEvaluator.m */; };
-		A1F0B0182F70000700B00100 /* YTPronounceUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B01B2F70000700B00100 /* YTPronounceUnitView.m */; };
-		A1F0B01C2F70000800B00100 /* YTInternalUnitViewSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B01D2F70000800B00100 /* YTInternalUnitViewSupport.m */; };
-		A1F0B0202F70000900B00100 /* YTChoiceExerciseUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0222F70000900B00100 /* YTChoiceExerciseUnitView.m */; };
-		A1F0B0242F70000A00B00100 /* YTFillBlankUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0262F70000A00B00100 /* YTFillBlankUnitView.m */; };
-		A1F0B0272F70000B00B00100 /* YTListenResponseUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0292F70000B00B00100 /* YTListenResponseUnitView.m */; };
-		A1F0B03A2F70000C00B00100 /* YTBuildSentenceUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B03C2F70000C00B00100 /* YTBuildSentenceUnitView.m */; };
-		A1F0B03D2F70000D00B00100 /* YTCompleteDialogueUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B03F2F70000D00B00100 /* YTCompleteDialogueUnitView.m */; };
-		A1F0B0402F70000E00B00100 /* YTPracticeTransitionUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0422F70000E00B00100 /* YTPracticeTransitionUnitView.m */; };
-		A1F0B0432F70000F00B00100 /* YTLevelCompletionUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0452F70000F00B00100 /* YTLevelCompletionUnitView.m */; };
-		6A7E0D8D8A2A4C9AA1B3C113 /* YTDifficultyTheme.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D888A2A4C9AA1B3C10E /* YTDifficultyTheme.m */; };
-		6A7E0D958A2A4C9AA1B3C11B /* YTAudioMuxService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D908A2A4C9AA1B3C116 /* YTAudioMuxService.m */; };
-		6A7E0D968A2A4C9AA1B3C11C /* YTRecordingService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */; };
-		6A7E0D978A2A4C9AA1B3C11D /* YTScoringService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */; };
-		6A7E0D9A8A2A4C9AA1B3C142 /* YTTalkLearningDataService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */; };
-		6A7E0D9C8A2A4C9AA1B3C122 /* YTUnitViewFactory.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */; };
-		6A7E0DA08A2A4C9AA1B3C126 /* TalkEventTracker.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */; };
-		6A7E0DA38A2A4C9AA1B3C129 /* YTAnswerResultBottomSheet.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */; };
-		6A7E0DA78A2A4C9AA1B3C12D /* YTDepthPrimaryButton.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */; };
-		6A7E0DA8BA2A4C9AA1B3C131 /* YTTipAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */; };
-		6A7E0DA8EA2A4C9AA1B3C134 /* YTResumeLearningAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */; };
-		3DCE4D5B2F7B22A100A1B2CD /* YTTopicLevelProgressIndicator.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D5A2F7B22A100A1B2CC /* YTTopicLevelProgressIndicator.m */; };
 		3D47D59B2EE65953003DC597 /* ReceiptSyncManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D47D59A2EE65953003DC597 /* ReceiptSyncManager.m */; };
 		3D47D59E2EE6CB72003DC597 /* DateHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D47D59D2EE6CB72003DC597 /* DateHelper.m */; };
 		3D4830A52E7BE27A00E6BFAD /* NoNetworkView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D4830A42E7BE27A00E6BFAD /* NoNetworkView.m */; };
@@ -118,6 +85,7 @@
 		3D9BE3A22E5C549200AF5233 /* MessageView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D9BE3A12E5C549200AF5233 /* MessageView.m */; };
 		3D9BE3A52E5C652A00AF5233 /* NetworkMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D9BE3A42E5C652A00AF5233 /* NetworkMonitor.m */; };
 		3D9C66842E5DA527007EC4D0 /* AccountDeletionView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D9C66832E5DA527007EC4D0 /* AccountDeletionView.m */; };
+		3DA50C352F72361200BDDF97 /* a2_LetterRecording.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 3DA50C342F72361200BDDF97 /* a2_LetterRecording.m4a */; };
 		3DA6F95D2E67CD8800A1EE33 /* AgreementConsentView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DA6F95C2E67CD8800A1EE33 /* AgreementConsentView.m */; };
 		3DA8B6A52EDE713F007B7E9C /* MembershipAgreementView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DA8B6A42EDE713F007B7E9C /* MembershipAgreementView.m */; };
 		3DA8B6A82EDE8880007B7E9C /* StoryLockCoverView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DA8B6A72EDE8880007B7E9C /* StoryLockCoverView.m */; };
@@ -142,6 +110,9 @@
 		3DCBA2B62E615002000167A2 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3DCBA2B42E615002000167A2 /* Localizable.strings */; };
 		3DCBA2BC2E615663000167A2 /* LanguageViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCBA2BB2E615663000167A2 /* LanguageViewController.m */; };
 		3DCE4D492F557F9900EB0869 /* TalkTableViewCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D482F557F9900EB0869 /* TalkTableViewCell.m */; };
+		3DCE4D4B2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D4A2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m */; };
+		3DCE4D512F7B22A100A1B2C3 /* TalkTopicHomeViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D502F7B22A100A1B2C3 /* TalkTopicHomeViewController.m */; };
+		3DCE4D5B2F7B22A100A1B2CD /* YTTopicLevelProgressIndicator.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D5A2F7B22A100A1B2CC /* YTTopicLevelProgressIndicator.m */; };
 		3DD025A82EA08D47005A8F33 /* VideoManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD025A72EA08D47005A8F33 /* VideoManager.m */; };
 		3DD2A0E92ED94072006FBB02 /* PaymentFooterView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD2A0E82ED94072006FBB02 /* PaymentFooterView.m */; };
 		3DD38A752E73BA8900D7B6D1 /* NSArray+JSON.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD38A742E73BA8900D7B6D1 /* NSArray+JSON.m */; };
@@ -209,6 +180,36 @@
 		42E3C66B2E3F9B9E00D309FC /* QuizResultViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 42E3C66A2E3F9B9E00D309FC /* QuizResultViewController.m */; };
 		42F2C63D2E2A1F2F0040966A /* SpeakResultsView.m in Sources */ = {isa = PBXBuildFile; fileRef = 42F2C63C2E2A1F2F0040966A /* SpeakResultsView.m */; };
 		42FB742A2E0E3AFF00C9330B /* LoginFirstView.m in Sources */ = {isa = PBXBuildFile; fileRef = 42FB74292E0E3AFF00C9330B /* LoginFirstView.m */; };
+		6A7E0D898A2A4C9AA1B3C10F /* TalkLearningFlowViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D808A2A4C9AA1B3C106 /* TalkLearningFlowViewController.m */; };
+		6A7E0D8A8A2A4C9AA1B3C110 /* YTMockUnitFactory.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D828A2A4C9AA1B3C108 /* YTMockUnitFactory.m */; };
+		6A7E0D8B8A2A4C9AA1B3C111 /* YTUnit.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D848A2A4C9AA1B3C10A /* YTUnit.m */; };
+		6A7E0D8C8A2A4C9AA1B3C112 /* YTLastPosition.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D868A2A4C9AA1B3C10C /* YTLastPosition.m */; };
+		6A7E0D8D8A2A4C9AA1B3C113 /* YTDifficultyTheme.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D888A2A4C9AA1B3C10E /* YTDifficultyTheme.m */; };
+		6A7E0D958A2A4C9AA1B3C11B /* YTAudioMuxService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D908A2A4C9AA1B3C116 /* YTAudioMuxService.m */; };
+		6A7E0D968A2A4C9AA1B3C11C /* YTRecordingService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */; };
+		6A7E0D978A2A4C9AA1B3C11D /* YTScoringService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */; };
+		6A7E0D9A8A2A4C9AA1B3C142 /* YTTalkLearningDataService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */; };
+		6A7E0D9C8A2A4C9AA1B3C122 /* YTUnitViewFactory.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */; };
+		6A7E0DA08A2A4C9AA1B3C126 /* TalkEventTracker.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */; };
+		6A7E0DA38A2A4C9AA1B3C129 /* YTAnswerResultBottomSheet.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */; };
+		6A7E0DA78A2A4C9AA1B3C12D /* YTDepthPrimaryButton.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */; };
+		6A7E0DA8BA2A4C9AA1B3C131 /* YTTipAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */; };
+		6A7E0DA8EA2A4C9AA1B3C134 /* YTResumeLearningAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */; };
+		A1F0B0012F70000100B00100 /* YTLearningFlowBootstrap.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0002F70000100B00100 /* YTLearningFlowBootstrap.m */; };
+		A1F0B0022F70000200B00100 /* YTMockLearningFlowResponseBuilder.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0042F70000200B00100 /* YTMockLearningFlowResponseBuilder.m */; };
+		A1F0B0032F70000200B00100 /* YTUnitMapper.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0062F70000200B00100 /* YTUnitMapper.m */; };
+		A1F0B0092F70000300B00100 /* YTMockLearningFlowBootstrapService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B00B2F70000300B00100 /* YTMockLearningFlowBootstrapService.m */; };
+		A1F0B00E2F70000400B00100 /* YTLocalAnswerEvaluator.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0112F70000400B00100 /* YTLocalAnswerEvaluator.m */; };
+		A1F0B0132F70000500B00100 /* YTLocalPronounceEvaluator.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0162F70000500B00100 /* YTLocalPronounceEvaluator.m */; };
+		A1F0B0182F70000700B00100 /* YTPronounceUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B01B2F70000700B00100 /* YTPronounceUnitView.m */; };
+		A1F0B01C2F70000800B00100 /* YTInternalUnitViewSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B01D2F70000800B00100 /* YTInternalUnitViewSupport.m */; };
+		A1F0B0202F70000900B00100 /* YTChoiceExerciseUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0222F70000900B00100 /* YTChoiceExerciseUnitView.m */; };
+		A1F0B0242F70000A00B00100 /* YTFillBlankUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0262F70000A00B00100 /* YTFillBlankUnitView.m */; };
+		A1F0B0272F70000B00B00100 /* YTListenResponseUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0292F70000B00B00100 /* YTListenResponseUnitView.m */; };
+		A1F0B03A2F70000C00B00100 /* YTBuildSentenceUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B03C2F70000C00B00100 /* YTBuildSentenceUnitView.m */; };
+		A1F0B03D2F70000D00B00100 /* YTCompleteDialogueUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B03F2F70000D00B00100 /* YTCompleteDialogueUnitView.m */; };
+		A1F0B0402F70000E00B00100 /* YTPracticeTransitionUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0422F70000E00B00100 /* YTPracticeTransitionUnitView.m */; };
+		A1F0B0432F70000F00B00100 /* YTLevelCompletionUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0452F70000F00B00100 /* YTLevelCompletionUnitView.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -290,77 +291,6 @@
 		3D437D392EE8144400EFBEE1 /* SubscriptionSetViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SubscriptionSetViewController.m; sourceTree = "<group>"; };
 		3D46C9002F512F800090B431 /* TalkViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkViewController.h; sourceTree = "<group>"; };
 		3D46C9012F512F800090B431 /* TalkViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkViewController.m; sourceTree = "<group>"; };
-		3DCE4D492F7A2D0B00A1B2C3 /* TalkSegmentListViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkSegmentListViewController.h; sourceTree = "<group>"; };
-		3DCE4D4A2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkSegmentListViewController.m; sourceTree = "<group>"; };
-		3DCE4D4F2F7B22A100A1B2C3 /* TalkTopicHomeViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkTopicHomeViewController.h; sourceTree = "<group>"; };
-		3DCE4D502F7B22A100A1B2C3 /* TalkTopicHomeViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkTopicHomeViewController.m; sourceTree = "<group>"; };
-		6A7E0D7F8A2A4C9AA1B3C105 /* TalkLearningFlowViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkLearningFlowViewController.h; sourceTree = "<group>"; };
-		6A7E0D808A2A4C9AA1B3C106 /* TalkLearningFlowViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkLearningFlowViewController.m; sourceTree = "<group>"; };
-		6A7E0D818A2A4C9AA1B3C107 /* YTMockUnitFactory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTMockUnitFactory.h; sourceTree = "<group>"; };
-		6A7E0D828A2A4C9AA1B3C108 /* YTMockUnitFactory.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTMockUnitFactory.m; sourceTree = "<group>"; };
-		6A7E0D838A2A4C9AA1B3C109 /* YTUnit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnit.h; sourceTree = "<group>"; };
-		6A7E0D848A2A4C9AA1B3C10A /* YTUnit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnit.m; sourceTree = "<group>"; };
-		6A7E0D858A2A4C9AA1B3C10B /* YTLastPosition.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLastPosition.h; sourceTree = "<group>"; };
-		6A7E0D868A2A4C9AA1B3C10C /* YTLastPosition.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLastPosition.m; sourceTree = "<group>"; };
-		A1F0AFFF2F70000100B00100 /* YTLearningFlowBootstrap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLearningFlowBootstrap.h; sourceTree = "<group>"; };
-		A1F0B0002F70000100B00100 /* YTLearningFlowBootstrap.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLearningFlowBootstrap.m; sourceTree = "<group>"; };
-		A1F0B0052F70000200B00100 /* YTUnitMapper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitMapper.h; sourceTree = "<group>"; };
-		A1F0B0062F70000200B00100 /* YTUnitMapper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnitMapper.m; sourceTree = "<group>"; };
-		A1F0B0032F70000100B00100 /* YTMockLearningFlowResponseBuilder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTMockLearningFlowResponseBuilder.h; sourceTree = "<group>"; };
-		A1F0B0042F70000200B00100 /* YTMockLearningFlowResponseBuilder.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTMockLearningFlowResponseBuilder.m; sourceTree = "<group>"; };
-		A1F0B0082F70000300B00100 /* YTLearningFlowBootstrapService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLearningFlowBootstrapService.h; sourceTree = "<group>"; };
-		A1F0B00A2F70000300B00100 /* YTMockLearningFlowBootstrapService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTMockLearningFlowBootstrapService.h; sourceTree = "<group>"; };
-		A1F0B00B2F70000300B00100 /* YTMockLearningFlowBootstrapService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTMockLearningFlowBootstrapService.m; sourceTree = "<group>"; };
-		A1F0B00F2F70000400B00100 /* YTAnswerEvaluating.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAnswerEvaluating.h; sourceTree = "<group>"; };
-		A1F0B0102F70000400B00100 /* YTLocalAnswerEvaluator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLocalAnswerEvaluator.h; sourceTree = "<group>"; };
-		A1F0B0112F70000400B00100 /* YTLocalAnswerEvaluator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLocalAnswerEvaluator.m; sourceTree = "<group>"; };
-		A1F0B0142F70000500B00100 /* YTPronounceEvaluating.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTPronounceEvaluating.h; sourceTree = "<group>"; };
-		A1F0B0152F70000500B00100 /* YTLocalPronounceEvaluator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLocalPronounceEvaluator.h; sourceTree = "<group>"; };
-		A1F0B0162F70000500B00100 /* YTLocalPronounceEvaluator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLocalPronounceEvaluator.m; sourceTree = "<group>"; };
-		A1F0B0172F70000600B00100 /* YTLearningProgressStoring.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLearningProgressStoring.h; sourceTree = "<group>"; };
-		A1F0B0192F70000700B00100 /* YTInternalUnitViewSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTInternalUnitViewSupport.h; sourceTree = "<group>"; };
-		A1F0B01A2F70000700B00100 /* YTPronounceUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTPronounceUnitView.h; sourceTree = "<group>"; };
-		A1F0B01B2F70000700B00100 /* YTPronounceUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTPronounceUnitView.m; sourceTree = "<group>"; };
-		A1F0B01D2F70000800B00100 /* YTInternalUnitViewSupport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTInternalUnitViewSupport.m; sourceTree = "<group>"; };
-		A1F0B0212F70000900B00100 /* YTChoiceExerciseUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTChoiceExerciseUnitView.h; sourceTree = "<group>"; };
-		A1F0B0222F70000900B00100 /* YTChoiceExerciseUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTChoiceExerciseUnitView.m; sourceTree = "<group>"; };
-		A1F0B0252F70000A00B00100 /* YTFillBlankUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTFillBlankUnitView.h; sourceTree = "<group>"; };
-		A1F0B0262F70000A00B00100 /* YTFillBlankUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTFillBlankUnitView.m; sourceTree = "<group>"; };
-		A1F0B0282F70000B00B00100 /* YTListenResponseUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTListenResponseUnitView.h; sourceTree = "<group>"; };
-		A1F0B0292F70000B00B00100 /* YTListenResponseUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTListenResponseUnitView.m; sourceTree = "<group>"; };
-		A1F0B03B2F70000C00B00100 /* YTBuildSentenceUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTBuildSentenceUnitView.h; sourceTree = "<group>"; };
-		A1F0B03C2F70000C00B00100 /* YTBuildSentenceUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTBuildSentenceUnitView.m; sourceTree = "<group>"; };
-		A1F0B03E2F70000D00B00100 /* YTCompleteDialogueUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTCompleteDialogueUnitView.h; sourceTree = "<group>"; };
-		A1F0B03F2F70000D00B00100 /* YTCompleteDialogueUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTCompleteDialogueUnitView.m; sourceTree = "<group>"; };
-		A1F0B0412F70000E00B00100 /* YTPracticeTransitionUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTPracticeTransitionUnitView.h; sourceTree = "<group>"; };
-		A1F0B0422F70000E00B00100 /* YTPracticeTransitionUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTPracticeTransitionUnitView.m; sourceTree = "<group>"; };
-		A1F0B0442F70000F00B00100 /* YTLevelCompletionUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLevelCompletionUnitView.h; sourceTree = "<group>"; };
-		A1F0B0452F70000F00B00100 /* YTLevelCompletionUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLevelCompletionUnitView.m; sourceTree = "<group>"; };
-		6A7E0D878A2A4C9AA1B3C10D /* YTDifficultyTheme.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDifficultyTheme.h; sourceTree = "<group>"; };
-		6A7E0D888A2A4C9AA1B3C10E /* YTDifficultyTheme.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDifficultyTheme.m; sourceTree = "<group>"; };
-		6A7E0D8F8A2A4C9AA1B3C115 /* YTAudioMuxService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAudioMuxService.h; sourceTree = "<group>"; };
-		6A7E0D908A2A4C9AA1B3C116 /* YTAudioMuxService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAudioMuxService.m; sourceTree = "<group>"; };
-		6A7E0D918A2A4C9AA1B3C117 /* YTRecordingService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTRecordingService.h; sourceTree = "<group>"; };
-		6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTRecordingService.m; sourceTree = "<group>"; };
-		6A7E0D938A2A4C9AA1B3C119 /* YTScoringService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTScoringService.h; sourceTree = "<group>"; };
-		6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTScoringService.m; sourceTree = "<group>"; };
-		6A7E0D9A8A2A4C9AA1B3C140 /* YTTalkLearningDataService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkLearningDataService.h; sourceTree = "<group>"; };
-		6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkLearningDataService.m; sourceTree = "<group>"; };
-		6A7E0D9D8A2A4C9AA1B3C123 /* TalkEventTracker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkEventTracker.h; sourceTree = "<group>"; };
-		6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkEventTracker.m; sourceTree = "<group>"; };
-		6A7E0D998A2A4C9AA1B3C11F /* YTUnitViewProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitViewProtocol.h; sourceTree = "<group>"; };
-		6A7E0D9A8A2A4C9AA1B3C120 /* YTUnitViewFactory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitViewFactory.h; sourceTree = "<group>"; };
-		6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnitViewFactory.m; sourceTree = "<group>"; };
-		6A7E0DA18A2A4C9AA1B3C127 /* YTAnswerResultBottomSheet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAnswerResultBottomSheet.h; sourceTree = "<group>"; };
-		6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAnswerResultBottomSheet.m; sourceTree = "<group>"; };
-		6A7E0DA58A2A4C9AA1B3C12B /* YTDepthPrimaryButton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDepthPrimaryButton.h; sourceTree = "<group>"; };
-		6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDepthPrimaryButton.m; sourceTree = "<group>"; };
-		6A7E0DA888A2A4C9AA1B3C12E /* YTTipAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTipAlertView.h; sourceTree = "<group>"; };
-		6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTipAlertView.m; sourceTree = "<group>"; };
-		6A7E0DA8CA2A4C9AA1B3C132 /* YTResumeLearningAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTResumeLearningAlertView.h; sourceTree = "<group>"; };
-		6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTResumeLearningAlertView.m; sourceTree = "<group>"; };
-		3DCE4D592F7B22A100A1B2CB /* YTTopicLevelProgressIndicator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTopicLevelProgressIndicator.h; sourceTree = "<group>"; };
-		3DCE4D5A2F7B22A100A1B2CC /* YTTopicLevelProgressIndicator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTopicLevelProgressIndicator.m; sourceTree = "<group>"; };
 		3D47D5992EE65953003DC597 /* ReceiptSyncManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ReceiptSyncManager.h; sourceTree = "<group>"; };
 		3D47D59A2EE65953003DC597 /* ReceiptSyncManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ReceiptSyncManager.m; sourceTree = "<group>"; };
 		3D47D59C2EE6CB72003DC597 /* DateHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DateHelper.h; sourceTree = "<group>"; };
@@ -451,6 +381,7 @@
 		3D9BE3A42E5C652A00AF5233 /* NetworkMonitor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NetworkMonitor.m; sourceTree = "<group>"; };
 		3D9C66822E5DA527007EC4D0 /* AccountDeletionView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AccountDeletionView.h; sourceTree = "<group>"; };
 		3D9C66832E5DA527007EC4D0 /* AccountDeletionView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AccountDeletionView.m; sourceTree = "<group>"; };
+		3DA50C342F72361200BDDF97 /* a2_LetterRecording.m4a */ = {isa = PBXFileReference; lastKnownFileType = file; path = a2_LetterRecording.m4a; sourceTree = "<group>"; };
 		3DA6F95B2E67CD8800A1EE33 /* AgreementConsentView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AgreementConsentView.h; sourceTree = "<group>"; };
 		3DA6F95C2E67CD8800A1EE33 /* AgreementConsentView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AgreementConsentView.m; sourceTree = "<group>"; };
 		3DA8B6A32EDE713F007B7E9C /* MembershipAgreementView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MembershipAgreementView.h; sourceTree = "<group>"; };
@@ -501,6 +432,12 @@
 		3DCBA2BB2E615663000167A2 /* LanguageViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LanguageViewController.m; sourceTree = "<group>"; };
 		3DCE4D472F557F9900EB0869 /* TalkTableViewCell.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkTableViewCell.h; sourceTree = "<group>"; };
 		3DCE4D482F557F9900EB0869 /* TalkTableViewCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkTableViewCell.m; sourceTree = "<group>"; };
+		3DCE4D492F7A2D0B00A1B2C3 /* TalkSegmentListViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkSegmentListViewController.h; sourceTree = "<group>"; };
+		3DCE4D4A2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkSegmentListViewController.m; sourceTree = "<group>"; };
+		3DCE4D4F2F7B22A100A1B2C3 /* TalkTopicHomeViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkTopicHomeViewController.h; sourceTree = "<group>"; };
+		3DCE4D502F7B22A100A1B2C3 /* TalkTopicHomeViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkTopicHomeViewController.m; sourceTree = "<group>"; };
+		3DCE4D592F7B22A100A1B2CB /* YTTopicLevelProgressIndicator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTopicLevelProgressIndicator.h; sourceTree = "<group>"; };
+		3DCE4D5A2F7B22A100A1B2CC /* YTTopicLevelProgressIndicator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTopicLevelProgressIndicator.m; sourceTree = "<group>"; };
 		3DD025A62EA08D47005A8F33 /* VideoManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VideoManager.h; sourceTree = "<group>"; };
 		3DD025A72EA08D47005A8F33 /* VideoManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = VideoManager.m; sourceTree = "<group>"; };
 		3DD2A0E72ED94072006FBB02 /* PaymentFooterView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PaymentFooterView.h; sourceTree = "<group>"; };
@@ -632,6 +569,71 @@
 		42F2C63C2E2A1F2F0040966A /* SpeakResultsView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SpeakResultsView.m; sourceTree = "<group>"; };
 		42FB74282E0E3AFF00C9330B /* LoginFirstView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LoginFirstView.h; sourceTree = "<group>"; };
 		42FB74292E0E3AFF00C9330B /* LoginFirstView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LoginFirstView.m; sourceTree = "<group>"; };
+		6A7E0D7F8A2A4C9AA1B3C105 /* TalkLearningFlowViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkLearningFlowViewController.h; sourceTree = "<group>"; };
+		6A7E0D808A2A4C9AA1B3C106 /* TalkLearningFlowViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkLearningFlowViewController.m; sourceTree = "<group>"; };
+		6A7E0D818A2A4C9AA1B3C107 /* YTMockUnitFactory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTMockUnitFactory.h; sourceTree = "<group>"; };
+		6A7E0D828A2A4C9AA1B3C108 /* YTMockUnitFactory.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTMockUnitFactory.m; sourceTree = "<group>"; };
+		6A7E0D838A2A4C9AA1B3C109 /* YTUnit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnit.h; sourceTree = "<group>"; };
+		6A7E0D848A2A4C9AA1B3C10A /* YTUnit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnit.m; sourceTree = "<group>"; };
+		6A7E0D858A2A4C9AA1B3C10B /* YTLastPosition.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLastPosition.h; sourceTree = "<group>"; };
+		6A7E0D868A2A4C9AA1B3C10C /* YTLastPosition.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLastPosition.m; sourceTree = "<group>"; };
+		6A7E0D878A2A4C9AA1B3C10D /* YTDifficultyTheme.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDifficultyTheme.h; sourceTree = "<group>"; };
+		6A7E0D888A2A4C9AA1B3C10E /* YTDifficultyTheme.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDifficultyTheme.m; sourceTree = "<group>"; };
+		6A7E0D8F8A2A4C9AA1B3C115 /* YTAudioMuxService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAudioMuxService.h; sourceTree = "<group>"; };
+		6A7E0D908A2A4C9AA1B3C116 /* YTAudioMuxService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAudioMuxService.m; sourceTree = "<group>"; };
+		6A7E0D918A2A4C9AA1B3C117 /* YTRecordingService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTRecordingService.h; sourceTree = "<group>"; };
+		6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTRecordingService.m; sourceTree = "<group>"; };
+		6A7E0D938A2A4C9AA1B3C119 /* YTScoringService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTScoringService.h; sourceTree = "<group>"; };
+		6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTScoringService.m; sourceTree = "<group>"; };
+		6A7E0D998A2A4C9AA1B3C11F /* YTUnitViewProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitViewProtocol.h; sourceTree = "<group>"; };
+		6A7E0D9A8A2A4C9AA1B3C120 /* YTUnitViewFactory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitViewFactory.h; sourceTree = "<group>"; };
+		6A7E0D9A8A2A4C9AA1B3C140 /* YTTalkLearningDataService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkLearningDataService.h; sourceTree = "<group>"; };
+		6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkLearningDataService.m; sourceTree = "<group>"; };
+		6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnitViewFactory.m; sourceTree = "<group>"; };
+		6A7E0D9D8A2A4C9AA1B3C123 /* TalkEventTracker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkEventTracker.h; sourceTree = "<group>"; };
+		6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkEventTracker.m; sourceTree = "<group>"; };
+		6A7E0DA18A2A4C9AA1B3C127 /* YTAnswerResultBottomSheet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAnswerResultBottomSheet.h; sourceTree = "<group>"; };
+		6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAnswerResultBottomSheet.m; sourceTree = "<group>"; };
+		6A7E0DA58A2A4C9AA1B3C12B /* YTDepthPrimaryButton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDepthPrimaryButton.h; sourceTree = "<group>"; };
+		6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDepthPrimaryButton.m; sourceTree = "<group>"; };
+		6A7E0DA888A2A4C9AA1B3C12E /* YTTipAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTipAlertView.h; sourceTree = "<group>"; };
+		6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTipAlertView.m; sourceTree = "<group>"; };
+		6A7E0DA8CA2A4C9AA1B3C132 /* YTResumeLearningAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTResumeLearningAlertView.h; sourceTree = "<group>"; };
+		6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTResumeLearningAlertView.m; sourceTree = "<group>"; };
+		A1F0AFFF2F70000100B00100 /* YTLearningFlowBootstrap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLearningFlowBootstrap.h; sourceTree = "<group>"; };
+		A1F0B0002F70000100B00100 /* YTLearningFlowBootstrap.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLearningFlowBootstrap.m; sourceTree = "<group>"; };
+		A1F0B0032F70000100B00100 /* YTMockLearningFlowResponseBuilder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTMockLearningFlowResponseBuilder.h; sourceTree = "<group>"; };
+		A1F0B0042F70000200B00100 /* YTMockLearningFlowResponseBuilder.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTMockLearningFlowResponseBuilder.m; sourceTree = "<group>"; };
+		A1F0B0052F70000200B00100 /* YTUnitMapper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitMapper.h; sourceTree = "<group>"; };
+		A1F0B0062F70000200B00100 /* YTUnitMapper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnitMapper.m; sourceTree = "<group>"; };
+		A1F0B0082F70000300B00100 /* YTLearningFlowBootstrapService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLearningFlowBootstrapService.h; sourceTree = "<group>"; };
+		A1F0B00A2F70000300B00100 /* YTMockLearningFlowBootstrapService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTMockLearningFlowBootstrapService.h; sourceTree = "<group>"; };
+		A1F0B00B2F70000300B00100 /* YTMockLearningFlowBootstrapService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTMockLearningFlowBootstrapService.m; sourceTree = "<group>"; };
+		A1F0B00F2F70000400B00100 /* YTAnswerEvaluating.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAnswerEvaluating.h; sourceTree = "<group>"; };
+		A1F0B0102F70000400B00100 /* YTLocalAnswerEvaluator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLocalAnswerEvaluator.h; sourceTree = "<group>"; };
+		A1F0B0112F70000400B00100 /* YTLocalAnswerEvaluator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLocalAnswerEvaluator.m; sourceTree = "<group>"; };
+		A1F0B0142F70000500B00100 /* YTPronounceEvaluating.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTPronounceEvaluating.h; sourceTree = "<group>"; };
+		A1F0B0152F70000500B00100 /* YTLocalPronounceEvaluator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLocalPronounceEvaluator.h; sourceTree = "<group>"; };
+		A1F0B0162F70000500B00100 /* YTLocalPronounceEvaluator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLocalPronounceEvaluator.m; sourceTree = "<group>"; };
+		A1F0B0172F70000600B00100 /* YTLearningProgressStoring.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLearningProgressStoring.h; sourceTree = "<group>"; };
+		A1F0B0192F70000700B00100 /* YTInternalUnitViewSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTInternalUnitViewSupport.h; sourceTree = "<group>"; };
+		A1F0B01A2F70000700B00100 /* YTPronounceUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTPronounceUnitView.h; sourceTree = "<group>"; };
+		A1F0B01B2F70000700B00100 /* YTPronounceUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTPronounceUnitView.m; sourceTree = "<group>"; };
+		A1F0B01D2F70000800B00100 /* YTInternalUnitViewSupport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTInternalUnitViewSupport.m; sourceTree = "<group>"; };
+		A1F0B0212F70000900B00100 /* YTChoiceExerciseUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTChoiceExerciseUnitView.h; sourceTree = "<group>"; };
+		A1F0B0222F70000900B00100 /* YTChoiceExerciseUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTChoiceExerciseUnitView.m; sourceTree = "<group>"; };
+		A1F0B0252F70000A00B00100 /* YTFillBlankUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTFillBlankUnitView.h; sourceTree = "<group>"; };
+		A1F0B0262F70000A00B00100 /* YTFillBlankUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTFillBlankUnitView.m; sourceTree = "<group>"; };
+		A1F0B0282F70000B00B00100 /* YTListenResponseUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTListenResponseUnitView.h; sourceTree = "<group>"; };
+		A1F0B0292F70000B00B00100 /* YTListenResponseUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTListenResponseUnitView.m; sourceTree = "<group>"; };
+		A1F0B03B2F70000C00B00100 /* YTBuildSentenceUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTBuildSentenceUnitView.h; sourceTree = "<group>"; };
+		A1F0B03C2F70000C00B00100 /* YTBuildSentenceUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTBuildSentenceUnitView.m; sourceTree = "<group>"; };
+		A1F0B03E2F70000D00B00100 /* YTCompleteDialogueUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTCompleteDialogueUnitView.h; sourceTree = "<group>"; };
+		A1F0B03F2F70000D00B00100 /* YTCompleteDialogueUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTCompleteDialogueUnitView.m; sourceTree = "<group>"; };
+		A1F0B0412F70000E00B00100 /* YTPracticeTransitionUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTPracticeTransitionUnitView.h; sourceTree = "<group>"; };
+		A1F0B0422F70000E00B00100 /* YTPracticeTransitionUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTPracticeTransitionUnitView.m; sourceTree = "<group>"; };
+		A1F0B0442F70000F00B00100 /* YTLevelCompletionUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLevelCompletionUnitView.h; sourceTree = "<group>"; };
+		A1F0B0452F70000F00B00100 /* YTLevelCompletionUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLevelCompletionUnitView.m; sourceTree = "<group>"; };
 		B997D1A5141D600A2E8E4BC5 /* Pods-YiTongProject.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-YiTongProject.release.xcconfig"; path = "Target Support Files/Pods-YiTongProject/Pods-YiTongProject.release.xcconfig"; sourceTree = "<group>"; };
 		C49A377DA1266100B7CFCAD3 /* libPods-YiTongProject.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-YiTongProject.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FAF63196269D63FE047EBAE3 /* Pods-YiTongProject.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-YiTongProject.debug.xcconfig"; path = "Target Support Files/Pods-YiTongProject/Pods-YiTongProject.debug.xcconfig"; sourceTree = "<group>"; };
@@ -821,6 +823,7 @@
 		3D6DB2BF2F501FA40003DD9C /* Talk */ = {
 			isa = PBXGroup;
 			children = (
+				3DA50C342F72361200BDDF97 /* a2_LetterRecording.m4a */,
 				3DD8F82F2F52BEA2009E70CE /* View */,
 				6A7E0D7B8A2A4C9AA1B3C101 /* LearningFlow */,
 				3D46C9002F512F800090B431 /* TalkViewController.h */,
@@ -831,128 +834,6 @@
 				3DCE4D502F7B22A100A1B2C3 /* TalkTopicHomeViewController.m */,
 			);
 			path = Talk;
-			sourceTree = "<group>";
-		};
-		6A7E0D7B8A2A4C9AA1B3C101 /* LearningFlow */ = {
-			isa = PBXGroup;
-			children = (
-				6A7E0D7C8A2A4C9AA1B3C102 /* Flow */,
-				6A7E0D7D8A2A4C9AA1B3C103 /* Model */,
-				6A7E0D7E8A2A4C9AA1B3C104 /* Theme */,
-				6A7E0D8E8A2A4C9AA1B3C114 /* Service */,
-				6A7E0D988A2A4C9AA1B3C11E /* Presenter */,
-				6A7E0DA48A2A4C9AA1B3C12A /* View */,
-			);
-			path = LearningFlow;
-			sourceTree = "<group>";
-		};
-		6A7E0D7C8A2A4C9AA1B3C102 /* Flow */ = {
-			isa = PBXGroup;
-			children = (
-				6A7E0D7F8A2A4C9AA1B3C105 /* TalkLearningFlowViewController.h */,
-				6A7E0D808A2A4C9AA1B3C106 /* TalkLearningFlowViewController.m */,
-				6A7E0D818A2A4C9AA1B3C107 /* YTMockUnitFactory.h */,
-				6A7E0D828A2A4C9AA1B3C108 /* YTMockUnitFactory.m */,
-			);
-			path = Flow;
-			sourceTree = "<group>";
-		};
-		6A7E0D7D8A2A4C9AA1B3C103 /* Model */ = {
-			isa = PBXGroup;
-			children = (
-				6A7E0D838A2A4C9AA1B3C109 /* YTUnit.h */,
-				6A7E0D848A2A4C9AA1B3C10A /* YTUnit.m */,
-				6A7E0D858A2A4C9AA1B3C10B /* YTLastPosition.h */,
-				6A7E0D868A2A4C9AA1B3C10C /* YTLastPosition.m */,
-				A1F0AFFF2F70000100B00100 /* YTLearningFlowBootstrap.h */,
-				A1F0B0002F70000100B00100 /* YTLearningFlowBootstrap.m */,
-			);
-			path = Model;
-			sourceTree = "<group>";
-		};
-		6A7E0D7E8A2A4C9AA1B3C104 /* Theme */ = {
-			isa = PBXGroup;
-			children = (
-				6A7E0D878A2A4C9AA1B3C10D /* YTDifficultyTheme.h */,
-				6A7E0D888A2A4C9AA1B3C10E /* YTDifficultyTheme.m */,
-			);
-			path = Theme;
-			sourceTree = "<group>";
-		};
-		6A7E0D8E8A2A4C9AA1B3C114 /* Service */ = {
-			isa = PBXGroup;
-			children = (
-				6A7E0D9D8A2A4C9AA1B3C123 /* TalkEventTracker.h */,
-				6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */,
-				A1F0B00F2F70000400B00100 /* YTAnswerEvaluating.h */,
-				A1F0B0082F70000300B00100 /* YTLearningFlowBootstrapService.h */,
-				A1F0B0172F70000600B00100 /* YTLearningProgressStoring.h */,
-				A1F0B0102F70000400B00100 /* YTLocalAnswerEvaluator.h */,
-				A1F0B0112F70000400B00100 /* YTLocalAnswerEvaluator.m */,
-				A1F0B0152F70000500B00100 /* YTLocalPronounceEvaluator.h */,
-				A1F0B0162F70000500B00100 /* YTLocalPronounceEvaluator.m */,
-				A1F0B00A2F70000300B00100 /* YTMockLearningFlowBootstrapService.h */,
-				A1F0B00B2F70000300B00100 /* YTMockLearningFlowBootstrapService.m */,
-				A1F0B0032F70000100B00100 /* YTMockLearningFlowResponseBuilder.h */,
-				A1F0B0042F70000200B00100 /* YTMockLearningFlowResponseBuilder.m */,
-				A1F0B0142F70000500B00100 /* YTPronounceEvaluating.h */,
-				A1F0B0052F70000200B00100 /* YTUnitMapper.h */,
-				A1F0B0062F70000200B00100 /* YTUnitMapper.m */,
-				6A7E0D8F8A2A4C9AA1B3C115 /* YTAudioMuxService.h */,
-				6A7E0D908A2A4C9AA1B3C116 /* YTAudioMuxService.m */,
-				6A7E0D918A2A4C9AA1B3C117 /* YTRecordingService.h */,
-				6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */,
-				6A7E0D938A2A4C9AA1B3C119 /* YTScoringService.h */,
-				6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */,
-				6A7E0D9A8A2A4C9AA1B3C140 /* YTTalkLearningDataService.h */,
-				6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */,
-			);
-			path = Service;
-			sourceTree = "<group>";
-		};
-		6A7E0D988A2A4C9AA1B3C11E /* Presenter */ = {
-			isa = PBXGroup;
-			children = (
-				6A7E0D998A2A4C9AA1B3C11F /* YTUnitViewProtocol.h */,
-				6A7E0D9A8A2A4C9AA1B3C120 /* YTUnitViewFactory.h */,
-				6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */,
-				A1F0B0192F70000700B00100 /* YTInternalUnitViewSupport.h */,
-				A1F0B01D2F70000800B00100 /* YTInternalUnitViewSupport.m */,
-				A1F0B0212F70000900B00100 /* YTChoiceExerciseUnitView.h */,
-				A1F0B0222F70000900B00100 /* YTChoiceExerciseUnitView.m */,
-				A1F0B0252F70000A00B00100 /* YTFillBlankUnitView.h */,
-				A1F0B0262F70000A00B00100 /* YTFillBlankUnitView.m */,
-				A1F0B0282F70000B00B00100 /* YTListenResponseUnitView.h */,
-				A1F0B0292F70000B00B00100 /* YTListenResponseUnitView.m */,
-				A1F0B01A2F70000700B00100 /* YTPronounceUnitView.h */,
-				A1F0B01B2F70000700B00100 /* YTPronounceUnitView.m */,
-				A1F0B03B2F70000C00B00100 /* YTBuildSentenceUnitView.h */,
-				A1F0B03C2F70000C00B00100 /* YTBuildSentenceUnitView.m */,
-				A1F0B03E2F70000D00B00100 /* YTCompleteDialogueUnitView.h */,
-				A1F0B03F2F70000D00B00100 /* YTCompleteDialogueUnitView.m */,
-				A1F0B0412F70000E00B00100 /* YTPracticeTransitionUnitView.h */,
-				A1F0B0422F70000E00B00100 /* YTPracticeTransitionUnitView.m */,
-				A1F0B0442F70000F00B00100 /* YTLevelCompletionUnitView.h */,
-				A1F0B0452F70000F00B00100 /* YTLevelCompletionUnitView.m */,
-			);
-			path = Presenter;
-			sourceTree = "<group>";
-		};
-		6A7E0DA48A2A4C9AA1B3C12A /* View */ = {
-			isa = PBXGroup;
-			children = (
-				6A7E0DA18A2A4C9AA1B3C127 /* YTAnswerResultBottomSheet.h */,
-				6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */,
-				6A7E0DA58A2A4C9AA1B3C12B /* YTDepthPrimaryButton.h */,
-				6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */,
-				6A7E0DA888A2A4C9AA1B3C12E /* YTTipAlertView.h */,
-				6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */,
-				6A7E0DA8CA2A4C9AA1B3C132 /* YTResumeLearningAlertView.h */,
-				6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */,
-				3DCE4D592F7B22A100A1B2CB /* YTTopicLevelProgressIndicator.h */,
-				3DCE4D5A2F7B22A100A1B2CC /* YTTopicLevelProgressIndicator.m */,
-			);
-			path = View;
 			sourceTree = "<group>";
 		};
 		3D7121D02ED827A40038E925 /* View */ = {
@@ -1429,6 +1310,128 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		6A7E0D7B8A2A4C9AA1B3C101 /* LearningFlow */ = {
+			isa = PBXGroup;
+			children = (
+				6A7E0D7C8A2A4C9AA1B3C102 /* Flow */,
+				6A7E0D7D8A2A4C9AA1B3C103 /* Model */,
+				6A7E0D7E8A2A4C9AA1B3C104 /* Theme */,
+				6A7E0D8E8A2A4C9AA1B3C114 /* Service */,
+				6A7E0D988A2A4C9AA1B3C11E /* Presenter */,
+				6A7E0DA48A2A4C9AA1B3C12A /* View */,
+			);
+			path = LearningFlow;
+			sourceTree = "<group>";
+		};
+		6A7E0D7C8A2A4C9AA1B3C102 /* Flow */ = {
+			isa = PBXGroup;
+			children = (
+				6A7E0D7F8A2A4C9AA1B3C105 /* TalkLearningFlowViewController.h */,
+				6A7E0D808A2A4C9AA1B3C106 /* TalkLearningFlowViewController.m */,
+				6A7E0D818A2A4C9AA1B3C107 /* YTMockUnitFactory.h */,
+				6A7E0D828A2A4C9AA1B3C108 /* YTMockUnitFactory.m */,
+			);
+			path = Flow;
+			sourceTree = "<group>";
+		};
+		6A7E0D7D8A2A4C9AA1B3C103 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				6A7E0D838A2A4C9AA1B3C109 /* YTUnit.h */,
+				6A7E0D848A2A4C9AA1B3C10A /* YTUnit.m */,
+				6A7E0D858A2A4C9AA1B3C10B /* YTLastPosition.h */,
+				6A7E0D868A2A4C9AA1B3C10C /* YTLastPosition.m */,
+				A1F0AFFF2F70000100B00100 /* YTLearningFlowBootstrap.h */,
+				A1F0B0002F70000100B00100 /* YTLearningFlowBootstrap.m */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		6A7E0D7E8A2A4C9AA1B3C104 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				6A7E0D878A2A4C9AA1B3C10D /* YTDifficultyTheme.h */,
+				6A7E0D888A2A4C9AA1B3C10E /* YTDifficultyTheme.m */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		6A7E0D8E8A2A4C9AA1B3C114 /* Service */ = {
+			isa = PBXGroup;
+			children = (
+				6A7E0D9D8A2A4C9AA1B3C123 /* TalkEventTracker.h */,
+				6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */,
+				A1F0B00F2F70000400B00100 /* YTAnswerEvaluating.h */,
+				A1F0B0082F70000300B00100 /* YTLearningFlowBootstrapService.h */,
+				A1F0B0172F70000600B00100 /* YTLearningProgressStoring.h */,
+				A1F0B0102F70000400B00100 /* YTLocalAnswerEvaluator.h */,
+				A1F0B0112F70000400B00100 /* YTLocalAnswerEvaluator.m */,
+				A1F0B0152F70000500B00100 /* YTLocalPronounceEvaluator.h */,
+				A1F0B0162F70000500B00100 /* YTLocalPronounceEvaluator.m */,
+				A1F0B00A2F70000300B00100 /* YTMockLearningFlowBootstrapService.h */,
+				A1F0B00B2F70000300B00100 /* YTMockLearningFlowBootstrapService.m */,
+				A1F0B0032F70000100B00100 /* YTMockLearningFlowResponseBuilder.h */,
+				A1F0B0042F70000200B00100 /* YTMockLearningFlowResponseBuilder.m */,
+				A1F0B0142F70000500B00100 /* YTPronounceEvaluating.h */,
+				A1F0B0052F70000200B00100 /* YTUnitMapper.h */,
+				A1F0B0062F70000200B00100 /* YTUnitMapper.m */,
+				6A7E0D8F8A2A4C9AA1B3C115 /* YTAudioMuxService.h */,
+				6A7E0D908A2A4C9AA1B3C116 /* YTAudioMuxService.m */,
+				6A7E0D918A2A4C9AA1B3C117 /* YTRecordingService.h */,
+				6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */,
+				6A7E0D938A2A4C9AA1B3C119 /* YTScoringService.h */,
+				6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */,
+				6A7E0D9A8A2A4C9AA1B3C140 /* YTTalkLearningDataService.h */,
+				6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */,
+			);
+			path = Service;
+			sourceTree = "<group>";
+		};
+		6A7E0D988A2A4C9AA1B3C11E /* Presenter */ = {
+			isa = PBXGroup;
+			children = (
+				6A7E0D998A2A4C9AA1B3C11F /* YTUnitViewProtocol.h */,
+				6A7E0D9A8A2A4C9AA1B3C120 /* YTUnitViewFactory.h */,
+				6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */,
+				A1F0B0192F70000700B00100 /* YTInternalUnitViewSupport.h */,
+				A1F0B01D2F70000800B00100 /* YTInternalUnitViewSupport.m */,
+				A1F0B0212F70000900B00100 /* YTChoiceExerciseUnitView.h */,
+				A1F0B0222F70000900B00100 /* YTChoiceExerciseUnitView.m */,
+				A1F0B0252F70000A00B00100 /* YTFillBlankUnitView.h */,
+				A1F0B0262F70000A00B00100 /* YTFillBlankUnitView.m */,
+				A1F0B0282F70000B00B00100 /* YTListenResponseUnitView.h */,
+				A1F0B0292F70000B00B00100 /* YTListenResponseUnitView.m */,
+				A1F0B01A2F70000700B00100 /* YTPronounceUnitView.h */,
+				A1F0B01B2F70000700B00100 /* YTPronounceUnitView.m */,
+				A1F0B03B2F70000C00B00100 /* YTBuildSentenceUnitView.h */,
+				A1F0B03C2F70000C00B00100 /* YTBuildSentenceUnitView.m */,
+				A1F0B03E2F70000D00B00100 /* YTCompleteDialogueUnitView.h */,
+				A1F0B03F2F70000D00B00100 /* YTCompleteDialogueUnitView.m */,
+				A1F0B0412F70000E00B00100 /* YTPracticeTransitionUnitView.h */,
+				A1F0B0422F70000E00B00100 /* YTPracticeTransitionUnitView.m */,
+				A1F0B0442F70000F00B00100 /* YTLevelCompletionUnitView.h */,
+				A1F0B0452F70000F00B00100 /* YTLevelCompletionUnitView.m */,
+			);
+			path = Presenter;
+			sourceTree = "<group>";
+		};
+		6A7E0DA48A2A4C9AA1B3C12A /* View */ = {
+			isa = PBXGroup;
+			children = (
+				6A7E0DA18A2A4C9AA1B3C127 /* YTAnswerResultBottomSheet.h */,
+				6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */,
+				6A7E0DA58A2A4C9AA1B3C12B /* YTDepthPrimaryButton.h */,
+				6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */,
+				6A7E0DA888A2A4C9AA1B3C12E /* YTTipAlertView.h */,
+				6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */,
+				6A7E0DA8CA2A4C9AA1B3C132 /* YTResumeLearningAlertView.h */,
+				6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */,
+				3DCE4D592F7B22A100A1B2CB /* YTTopicLevelProgressIndicator.h */,
+				3DCE4D5A2F7B22A100A1B2CC /* YTTopicLevelProgressIndicator.m */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
 		ABA93DBD1AD53EB4874632E6 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -1551,6 +1554,7 @@
 				3D84924F2E44A1A20006F1DF /* fireworks_withe.gif in Resources */,
 				3D6239A12EC464BE00332A80 /* fzktjw.ttf in Resources */,
 				3DCBA2B62E615002000167A2 /* Localizable.strings in Resources */,
+				3DA50C352F72361200BDDF97 /* a2_LetterRecording.m4a in Resources */,
 				3D8492512E44A1A60006F1DF /* chick_white.gif in Resources */,
 				3D83A83B2EA0E980002BE217 /* GoogleService-Info.plist in Resources */,
 				425518442E0BD7EA007764C7 /* Assets.xcassets in Resources */,
@@ -1583,9 +1587,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1622,9 +1630,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
