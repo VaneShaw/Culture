@@ -24,6 +24,7 @@
 #import "YTResumeLearningAlertView.h"
 #import "YTTalkLearningDataService.h"
 #import "YTDepthPrimaryButton.h"
+#import "YTRecordingService.h"
 
 /**
  场景对话 - 学习流容器（核心页）
@@ -273,25 +274,25 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     [self.view addSubview:self.nextButton];
     [self.view addSubview:self.primaryDepthButton];
 
+    // 中间主按钮：深色 depthView（「底色」层）的底与整个控件底一致；左右箭头底与该底齐平，高度与主按钮整高一致
+    [self.primaryDepthButton mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(self.prevButton.mas_right).offset(12);
+        make.right.equalTo(self.nextButton.mas_left).offset(-12);
+        make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-18);
+        make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
+    }];
     [self.prevButton mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.view).offset(20);
-        make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-18);
+        make.bottom.equalTo(self.primaryDepthButton.mas_bottom);
         make.width.mas_equalTo(82);
         make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
     }];
     [self.nextButton mas_makeConstraints:^(MASConstraintMaker *make) {
         make.right.equalTo(self.view).offset(-20);
-        make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-18);
+        make.bottom.equalTo(self.primaryDepthButton.mas_bottom);
         make.width.mas_equalTo(82);
         make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
     }];
-    [self.primaryDepthButton mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.prevButton.mas_right).offset(12);
-        make.right.equalTo(self.nextButton.mas_left).offset(-12);
-        make.top.equalTo(self.prevButton.mas_top);
-        make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
-    }];
-    // 左右箭头按钮的“整体胶囊高度”与主按钮 totalHeight 对齐
     CGFloat sideH = self.primaryDepthButton.totalHeight;
     self.prevButton.layer.cornerRadius = sideH / 2.0;
     self.nextButton.layer.cornerRadius = sideH / 2.0;
@@ -389,6 +390,11 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     self.currentIndex = index;
 
     YTUnit *u = self.units[self.currentIndex];
+    // 词汇/发音题需录音：进入该步即触发麦克风授权（已允许/已拒绝时系统不再弹窗，仅回调结果）
+    if (u.unitType == YTUnitTypePronounce) {
+        [[YTRecordingService shared] requestMicPermission:^(__unused YTMicPermissionState state) {
+        }];
+    }
     [self updateProgressUI];
     [self mountUnitViewForUnit:u];
     [self updateBottomBarLayoutForCurrentUnit];
@@ -481,6 +487,10 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 }
 
 - (void)mountUnitViewForUnit:(YTUnit *)u {
+    // 先断开旧 Presenter 的主按钮回调，避免跟读评分等异步晚到后改写过载后的主按钮（如过渡页被盖成「正确」）
+    if (self.unitView) {
+        self.unitView.onPrimaryStateChanged = nil;
+    }
     // 清理旧内容
     for (UIView *v in self.contentContainer.subviews) {
         [v removeFromSuperview];

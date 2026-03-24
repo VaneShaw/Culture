@@ -253,6 +253,8 @@
 "Talk_Home_Tab_AllScenes" = "全部场景";
 "Talk_Home_Tab_HotScenes" = "热门场景";
 "Talk_Home_Tab_NewScenes" = "最新场景";
+"Talk_Home_Tab_NearbyScenes" = "附近场景";
+"Talk_Home_Tab_RecommendedScenes" = "推荐场景";
 "Talk_TopicHome_Title" = "校园场景导航";
 "Talk_TopicHome_Subtitle" = "校园真实场景对话";
 "Talk_PracticeTransition_Title_Beginner" = "词汇学习完成";
@@ -420,6 +422,7 @@
 "Scoring failed; please try again later." = "评分失败，可稍后再试";
 "Score %ld (completed)" = "得分 %ld（完成）";
 "Score %ld (retry)" = "得分 %ld（可再试）";
+"Play my recording (debug)" = "播放我的录音（调试）";
 "Please choose an option" = "请选择一个选项";
 "Please complete the sentence" = "请完成句子";
 

@@ -29,6 +29,8 @@
 "Talk_Home_Tab_AllScenes" = "전체";
 "Talk_Home_Tab_HotScenes" = "인기";
 "Talk_Home_Tab_NewScenes" = "최신";
+"Talk_Home_Tab_NearbyScenes" = "근처";
+"Talk_Home_Tab_RecommendedScenes" = "추천";
 
 
  */

@@ -49,6 +49,11 @@
 @property (nonatomic, strong) UIView *frontContentView;
 @property (nonatomic, strong) UIView *grammarContentView;
 @property (nonatomic, assign) BOOL showingGrammar;
+/// 最近一次成功 `stopRecording` 得到的本地文件 URL 字符串（`fileURL.absoluteString`），供调试回放
+@property (nonatomic, copy, nullable) NSString *lastRecordingFileURLString;
+#if DEBUG
+@property (nonatomic, strong) UIButton *debugPlayMyRecordingButton;
+#endif
 @end
 
 @implementation YTPronounceUnitViewLegacyInternal
@@ -131,8 +136,12 @@ static NSInteger const kMediaVideoHostTag = 9102;
         _playButton.backgroundColor = [UIColor colorWithWhite:0.95 alpha:1];
         _playButton.layer.cornerRadius = 14;
         _playButton.layer.masksToBounds = YES;
-        [_playButton setTitle:@"🔈" forState:UIControlStateNormal];
-        [_playButton setTitleColor:BLACK_COLOR_1F forState:UIControlStateNormal];
+        _playButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
+        UIImage *voicePlay = [UIImage imageNamed:@"talk_voice_play"];
+        if (voicePlay) {
+            voicePlay = [voicePlay imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+        }
+        [_playButton setImage:voicePlay forState:UIControlStateNormal];
         [_playButton addTarget:self action:@selector(onPlay) forControlEvents:UIControlEventTouchUpInside];
         [self.frontContentView addSubview:_playButton];
 
@@ -231,6 +240,44 @@ static NSInteger const kMediaVideoHostTag = 9102;
     return _mediaPlayPauseButton;
 }
 
+#if DEBUG
+
+- (UIButton *)debugPlayMyRecordingButton {
+    if (!_debugPlayMyRecordingButton) {
+        _debugPlayMyRecordingButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        [_debugPlayMyRecordingButton setTitle:NSLocalizedString(@"Play my recording (debug)", @"") forState:UIControlStateNormal];
+        _debugPlayMyRecordingButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
+        _debugPlayMyRecordingButton.tintColor = BLACK_COLOR_1F;
+        _debugPlayMyRecordingButton.backgroundColor = [UIColor colorWithWhite:0.92 alpha:1];
+        _debugPlayMyRecordingButton.layer.cornerRadius = 8;
+        _debugPlayMyRecordingButton.contentEdgeInsets = UIEdgeInsetsMake(6, 10, 6, 10);
+        [_debugPlayMyRecordingButton addTarget:self action:@selector(onDebugPlayMyRecording) forControlEvents:UIControlEventTouchUpInside];
+        _debugPlayMyRecordingButton.hidden = YES;
+        [self.frontContentView addSubview:_debugPlayMyRecordingButton];
+        [_debugPlayMyRecordingButton mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.frontContentView).offset(8);
+            make.right.equalTo(self.frontContentView).offset(-12);
+        }];
+    }
+    return _debugPlayMyRecordingButton;
+}
+
+- (void)debugUpdatePlayMyRecordingButtonVisibility {
+    BOOL show = (self.lastRecordingFileURLString.length > 0);
+    self.debugPlayMyRecordingButton.hidden = !show;
+}
+
+- (void)onDebugPlayMyRecording {
+    if (self.lastRecordingFileURLString.length == 0) {
+        return;
+    }
+    [self.audio stop];
+    [self.audio playURLString:self.lastRecordingFileURLString completion:^(__unused BOOL success, __unused NSError *_Nullable error) {
+    }];
+}
+
+#endif
+
 -(void)configureWithUnit:(YTUnit *)unit theme:(YTDifficultyTheme *)theme audio:(YTAudioMuxService *)audio recording:(YTRecordingService *)recording pronounceEvaluator:(id<YTPronounceEvaluating>)pronounceEvaluator answerEvaluator:(id<YTAnswerEvaluating>)answerEvaluator {
     [super configureWithUnit:unit theme:theme audio:audio recording:recording pronounceEvaluator:pronounceEvaluator answerEvaluator:answerEvaluator];
 
@@ -239,6 +286,12 @@ static NSInteger const kMediaVideoHostTag = 9102;
     self.isScoring = NO;
     self.shouldOpenMicSettings = NO;
     self.showingGrammar = NO;
+    self.lastRecordingFileURLString = nil;
+#if DEBUG
+    if (self.debugPlayMyRecordingButton) {
+        self.debugPlayMyRecordingButton.hidden = YES;
+    }
+#endif
     if (self.grammarContentView.superview) {
         [self.grammarContentView removeFromSuperview];
     }
@@ -1086,6 +1139,11 @@ static NSInteger const kMediaVideoHostTag = 9102;
         if (completion) completion(nil, nil);
         return;
     }
+    // 已达标且主按钮已切 Continue：点击应交给容器 goNext，勿再进入开始录音分支
+    if (self.completeSignalSatisfied && ![self.recording isRecording]) {
+        if (completion) completion(nil, nil);
+        return;
+    }
 
     // 若上一轮因权限被拒绝而进入“去设置”状态：
     // - 不要自动跳设置（避免出现“明明已允许却仍被误判然后强跳”的体验）
@@ -1156,6 +1214,11 @@ static NSInteger const kMediaVideoHostTag = 9102;
             return;
         }
 
+        self.lastRecordingFileURLString = fileURL.absoluteString;
+#if DEBUG
+        [self debugUpdatePlayMyRecordingButtonVisibility];
+#endif
+
         NSString *expected = self.unit.titleCN.length ? self.unit.titleCN : (self.unit.titlePinyin ?: @"");
         [self.pronounceEvaluator evaluateRecordingAtURL:fileURL expectedText:expected completion:^(YTScoreResult * _Nullable result, NSError * _Nullable error2) {
             self.isScoring = NO;
@@ -1170,6 +1233,8 @@ static NSInteger const kMediaVideoHostTag = 9102;
 
             if (result.verdict == YTScoreVerdictCorrect) {
                 self.completeSignalSatisfied = YES;
+                // 达标后主按钮走 Continue：容器才会 goNext；保留 Record 会导致 tag 仍为 Record、点击只会再进录音态
+                self.primaryState.kind = YTUnitPrimaryKindContinue;
                 self.primaryState.title = @"Correct";
                 self.primaryState.enabled = YES;
                 NSString *fmt = NSLocalizedString(@"Score %ld (completed)", @"");

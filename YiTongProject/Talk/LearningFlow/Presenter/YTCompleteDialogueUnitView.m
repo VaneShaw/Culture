@@ -79,12 +79,12 @@
         _questionPlayButton.backgroundColor = [UIColor colorWithWhite:0.90 alpha:1];
         _questionPlayButton.layer.cornerRadius = 14;
         _questionPlayButton.layer.masksToBounds = YES;
-        UIImage *spk = nil;
-        if (@available(iOS 13.0, *)) {
-            spk = [UIImage systemImageNamed:@"speaker.wave.2.fill"];
+        UIImage *voicePlay = [UIImage imageNamed:@"talk_voice_play"];
+        if (voicePlay) {
+            voicePlay = [voicePlay imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
         }
-        [_questionPlayButton setImage:spk forState:UIControlStateNormal];
-        _questionPlayButton.tintColor = [UIColor colorWithWhite:0.25 alpha:1];
+        [_questionPlayButton setImage:voicePlay forState:UIControlStateNormal];
+        _questionPlayButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
         [_questionPlayButton addTarget:self action:@selector(onPlayQuestionAudio) forControlEvents:UIControlEventTouchUpInside];
         [_questionBubble addSubview:_questionPlayButton];
         [_questionPlayButton mas_makeConstraints:^(MASConstraintMaker *make) {

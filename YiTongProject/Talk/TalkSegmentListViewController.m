@@ -10,12 +10,23 @@
 #import "TalkTopicHomeViewController.h"
 #import <MJRefresh/MJRefresh.h>
 
+@interface YTTalkSceneListItemModel : NSObject
+@property (nonatomic, copy) NSString *title;
+@property (nonatomic, copy) NSString *subtitle;
+@property (nonatomic, copy) NSString *imageName;
+@property (nonatomic, assign) YTTalkSceneCellStatus status;
+@end
+
+@implementation YTTalkSceneListItemModel
+@end
+
 @interface TalkSegmentListViewController ()
 
 @property (nonatomic, strong) UITableView *tableView;
-@property (nonatomic, strong) NSMutableArray *dataSource;
+@property (nonatomic, strong) NSMutableArray<YTTalkSceneListItemModel *> *dataSource;
 @property (nonatomic, copy) NSString *type;
 @property (nonatomic, copy) void (^scrollCallback)(UIScrollView *scrollView);
+@property (nonatomic, assign) BOOL isRequesting;
 
 @end
 
@@ -26,6 +37,7 @@
     if (self) {
         _type = [type copy];
         _dataSource = [NSMutableArray array];
+        _isRequesting = NO;
     }
     return self;
 }
@@ -57,14 +69,87 @@
 #pragma mark - 数据
 
 - (void)reloadData {
-    // TODO: 根据 self.type 请求不同分类的数据
-    // 这里先简单模拟数据
-    [self.dataSource removeAllObjects];
-    for (NSInteger i = 0; i < 10; i++) {
-        [self.dataSource addObject:[NSString stringWithFormat:@"%@_row_%ld", self.type, (long)i]];
+    // 这里模拟接口请求：未来替换真实接口时，只需要替换 yt_fetchSceneCardsWithType
+    [self yt_fetchSceneCardsWithType:self.type completion:^(NSArray<YTTalkSceneListItemModel *> *models) {
+        self.dataSource = [models mutableCopy] ?: [NSMutableArray array];
+        [self.tableView reloadData];
+        [self.tableView.mj_header endRefreshing];
+    }];
+}
+
+#pragma mark - 数据获取（模拟接口）
+
+- (void)yt_fetchSceneCardsWithType:(NSString *)type completion:(void (^)(NSArray<YTTalkSceneListItemModel *> *models))completion {
+    if (self.isRequesting) {
+        if (completion) completion(@[]);
+        return;
     }
-    [self.tableView reloadData];
-    [self.tableView.mj_header endRefreshing];
+    self.isRequesting = YES;
+
+    // TODO: 对接真实接口时：把本地 yt_localModelsForType 替换为网络请求回调即可
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.7 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        NSArray<YTTalkSceneListItemModel *> *models = [self yt_localModelsForType:type];
+        self.isRequesting = NO;
+        if (completion) completion(models ?: @[]);
+    });
+}
+
+- (NSArray<YTTalkSceneListItemModel *> *)yt_localModelsForType:(NSString *)type {
+    // 本地数据源：用于接口对接前的 UI 验证
+    // NOTE: imageName 目前仅使用工程内存在的占位资源 take_img0 / take_img1
+    NSMutableArray<YTTalkSceneListItemModel *> *arr = [NSMutableArray array];
+
+    NSArray<NSDictionary *> *items = nil;
+    if ([type isEqualToString:@"hot"]) {
+        items = @[
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
+            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
+            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusCompleted)},
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
+            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)}
+        ];
+    } else if ([type isEqualToString:@"new"]) {
+        items = @[
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
+            @{@"title":@"At Library", @"subtitle":@"Mastering Library\nStudy & Talk", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
+            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nReal-life Dialogue", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusCompleted)},
+            @{@"title":@"At Library", @"subtitle":@"Mastering Library\nStudy & Talk", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusInProgress)}
+        ];
+    } else if ([type isEqualToString:@"nearby"]) {
+        items = @[
+            @{@"title":@"At Park", @"subtitle":@"Talking nearby with confidence", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
+            @{@"title":@"At Cafe", @"subtitle":@"Small talk in everyday life", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
+            @{@"title":@"At Bookstore", @"subtitle":@"Ask about books & suggestions", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusCompleted)},
+            @{@"title":@"At Park", @"subtitle":@"Practice common phrases", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)}
+        ];
+    } else if ([type isEqualToString:@"recommended"]) {
+        items = @[
+            @{@"title":@"Recommended", @"subtitle":@"Start with what fits you best", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
+            @{@"title":@"Quick Win", @"subtitle":@"Short lessons, fast improvement", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
+            @{@"title":@"Keep Growing", @"subtitle":@"Next steps for better fluency", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusCompleted)},
+            @{@"title":@"Recommended", @"subtitle":@"More scenes, more practice", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusInProgress)}
+        ];
+    } else {
+        items = @[
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
+            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
+            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusCompleted)},
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusNotStarted)},
+            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusInProgress)},
+            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusCompleted)}
+        ];
+    }
+
+    for (NSDictionary *dic in items) {
+        YTTalkSceneListItemModel *m = [[YTTalkSceneListItemModel alloc] init];
+        m.title = dic[@"title"] ?: @"";
+        m.subtitle = dic[@"subtitle"] ?: @"";
+        m.imageName = dic[@"image"] ?: @"";
+        m.status = (YTTalkSceneCellStatus)[dic[@"status"] integerValue];
+        [arr addObject:m];
+    }
+
+    return arr;
 }
 
 #pragma mark - JXPagerViewListViewDelegate
@@ -105,26 +190,13 @@
     if (!cell) {
         cell = [[TalkTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"TalkCell"];
     }
-    
-    NSInteger row = indexPath.row;
-    YTTalkSceneCellStatus status = (YTTalkSceneCellStatus)(row % 3);
-    
-    // MVP：先用静态文案+两张占位图做 UI 验证，后续再接真实数据模型
-    NSString *title = @"At School";
-    NSString *subtitle = @"Mastering School\nCommunication Skills";
-    NSString *imageName = @"take_img0";
-    
-    if ([self.type isEqualToString:@"hot"]) {
-        title = @"At Home";
-        subtitle = @"Mastering Home\nCommunication Skills";
-        imageName = @"take_img1";
-    } else if ([self.type isEqualToString:@"new"]) {
-        title = @"At Restaurant";
-        subtitle = @"Mastering Dining\nCommunication Skills";
-        imageName = @"take_img1";
+
+    if (indexPath.row < 0 || indexPath.row >= self.dataSource.count) {
+        return cell;
     }
-    
-    [cell configureWithTitle:title subtitle:subtitle imageName:imageName status:status];
+
+    YTTalkSceneListItemModel *m = self.dataSource[indexPath.row];
+    [cell configureWithTitle:m.title subtitle:m.subtitle imageName:m.imageName status:m.status];
     return cell;
 }
 

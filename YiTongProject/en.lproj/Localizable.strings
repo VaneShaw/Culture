@@ -48,6 +48,8 @@ Tap to start recording and say this sound out loud
 "Talk_Home_Tab_AllScenes" = "All Scenes";
 "Talk_Home_Tab_HotScenes" = "Hot Scenes";
 "Talk_Home_Tab_NewScenes" = "New Scenes";
+"Talk_Home_Tab_NearbyScenes" = "Nearby Scenes";
+"Talk_Home_Tab_RecommendedScenes" = "Recommended Scenes";
 "Talk_TopicHome_Title" = "Navigate Campus";
 "Talk_TopicHome_Subtitle" = "Real-life school situations";
 "Talk_PracticeTransition_Title_Beginner" = "Vocabulary Completed";
@@ -110,6 +112,7 @@ Tap to start recording and say this sound out loud
 "Scoring failed; please try again later." = "Scoring failed; please try again later.";
 "Score %ld (completed)" = "Score %ld (completed)";
 "Score %ld (retry)" = "Score %ld (retry)";
+"Play my recording (debug)" = "Play my recording (debug)";
 "Please choose an option" = "Please choose an option";
 "Please complete the sentence" = "Please complete the sentence";
 

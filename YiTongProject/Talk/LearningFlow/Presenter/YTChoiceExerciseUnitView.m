@@ -62,12 +62,12 @@
         _audioButton.backgroundColor = [UIColor colorWithWhite:0.95 alpha:1];
         _audioButton.layer.cornerRadius = 18;
         _audioButton.layer.masksToBounds = YES;
-        UIImage *spk = nil;
-        if (@available(iOS 13.0, *)) {
-            spk = [UIImage systemImageNamed:@"speaker.wave.2.fill"];
+        UIImage *voicePlay = [UIImage imageNamed:@"talk_voice_play"];
+        if (voicePlay) {
+            voicePlay = [voicePlay imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
         }
-        [_audioButton setImage:spk forState:UIControlStateNormal];
-        _audioButton.tintColor = BLACK_COLOR_1F;
+        [_audioButton setImage:voicePlay forState:UIControlStateNormal];
+        _audioButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
         [_audioButton addTarget:self action:@selector(onPlayAudio) forControlEvents:UIControlEventTouchUpInside];
         [card addSubview:_audioButton];
 

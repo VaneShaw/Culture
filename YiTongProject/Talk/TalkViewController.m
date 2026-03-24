@@ -29,6 +29,10 @@
 @property (nonatomic, assign) BOOL isObservingContentOffset;
 @property (nonatomic, assign) NSInteger currentSegmentIndex;
 @property (nonatomic, assign) NSInteger lastAppliedSegmentIndex;
+
+@property (nonatomic, strong) UIScrollView *segmentScrollView;
+@property (nonatomic, strong) UIView *segmentContentView;
+@property (nonatomic, assign) BOOL isPagerSetup;
 @end
  
  @implementation TalkViewController
@@ -50,29 +54,14 @@
  - (void)viewDidLoad {
      [super viewDidLoad];
      self.view.backgroundColor = [UIColor whiteColor];
-     
-    // segment 文案先走国际化，后续可改为接口下发
-    self.segmentTitles = @[
-        NSLocalizedString(@"Talk_Home_Tab_AllScenes", @""),
-        NSLocalizedString(@"Talk_Home_Tab_HotScenes", @""),
-        NSLocalizedString(@"Talk_Home_Tab_NewScenes", @"")
-    ];
-    self.segmentTypes  = @[@"all", @"hot", @"new"];
-     self.segButtons = [NSMutableArray array];
-     
-     CGFloat statusBarH = [PublicTool getStatusBarHeight];
-     CGFloat tabBarHeight = self.tabBarController.tabBar.bounds.size.height;
-     CGFloat screenH = UIScreen.mainScreen.bounds.size.height;
-     
-    self.pagerView = [[JXPagerListRefreshView alloc] initWithDelegate:self];
-    self.pagerView.frame = CGRectMake(0, statusBarH, SCREEN_WIDTH, screenH - statusBarH - tabBarHeight);
-    self.pagerView.mainTableView.gestureDelegate = self;
-    if (@available(iOS 11.0, *)) {
-        self.pagerView.mainTableView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
-    }
-    [self.view addSubview:self.pagerView];
-    
-    [self startObserveListContainerContentOffsetIfNeeded];
+
+    self.segmentTitles = @[];
+    self.segmentTypes = @[];
+    self.segButtons = [NSMutableArray array];
+    self.currentSegmentIndex = 0;
+    self.lastAppliedSegmentIndex = NSNotFound;
+
+    [self yt_fetchSegmentTabsWithCompletion];
  }
 
 - (void)dealloc {
@@ -80,6 +69,48 @@
     [self stopObserveListContainerContentOffsetIfNeeded];
 }
  
+- (void)yt_fetchSegmentTabsWithCompletion {
+    // 模拟后端返回：可能 1/3/5 个 tab
+    NSArray<NSNumber *> *possibleCounts = @[@1, @3, @5];
+    NSInteger count = possibleCounts[arc4random_uniform((uint32_t)possibleCounts.count)].integerValue;
+
+    NSArray<NSString *> *allTypes = @[@"all", @"hot", @"new", @"nearby", @"recommended"];
+    NSArray<NSString *> *allTitles = @[
+        NSLocalizedString(@"Talk_Home_Tab_AllScenes", @""),
+        NSLocalizedString(@"Talk_Home_Tab_HotScenes", @""),
+        NSLocalizedString(@"Talk_Home_Tab_NewScenes", @""),
+        NSLocalizedString(@"Talk_Home_Tab_NearbyScenes", @""),
+        NSLocalizedString(@"Talk_Home_Tab_RecommendedScenes", @"")
+    ];
+
+    if (count <= 0) count = 1;
+    if (count > allTypes.count) count = allTypes.count;
+
+    self.segmentTypes = [allTypes subarrayWithRange:NSMakeRange(0, count)];
+    self.segmentTitles = [allTitles subarrayWithRange:NSMakeRange(0, count)];
+
+    [self yt_setupPagerViewIfNeeded];
+}
+
+- (void)yt_setupPagerViewIfNeeded {
+    if (self.isPagerSetup) return;
+    self.isPagerSetup = YES;
+
+    CGFloat statusBarH = [PublicTool getStatusBarHeight];
+    CGFloat tabBarHeight = self.tabBarController.tabBar.bounds.size.height;
+    CGFloat screenH = UIScreen.mainScreen.bounds.size.height;
+
+    self.pagerView = [[JXPagerListRefreshView alloc] initWithDelegate:self];
+    self.pagerView.frame = CGRectMake(0, statusBarH, SCREEN_WIDTH, screenH - statusBarH - tabBarHeight);
+    self.pagerView.mainTableView.gestureDelegate = self;
+    if (@available(iOS 11.0, *)) {
+        self.pagerView.mainTableView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    }
+    [self.view addSubview:self.pagerView];
+
+    [self startObserveListContainerContentOffsetIfNeeded];
+}
+
 #pragma mark - JXPagerViewDelegate
  
 - (UIView *)tableHeaderViewInPagerView:(JXPagerView *)pagerView {
@@ -98,42 +129,71 @@
 }
 
 - (UIView *)viewForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
-     CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
-     UIView *segment = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenW, 58)];
-     self.segmentBar = segment;
-     
-     NSInteger count = self.segmentTitles.count;
-     if (count == 0) {
-         return segment;
-     }
-    CGFloat btnW = screenW / count;
+    CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
     CGFloat headerH = 58;
+    UIView *segment = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenW, headerH)];
+    self.segmentBar = segment;
+
+    // 可横向滑动的 tab
+    self.segmentScrollView = [[UIScrollView alloc] initWithFrame:segment.bounds];
+    self.segmentScrollView.showsHorizontalScrollIndicator = NO;
+    self.segmentScrollView.bounces = NO;
+    self.segmentScrollView.scrollEnabled = YES;
+    [segment addSubview:self.segmentScrollView];
+
+    self.segmentContentView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenW, headerH)];
+    [self.segmentScrollView addSubview:self.segmentContentView];
+
+    NSInteger count = self.segmentTitles.count;
+    if (count == 0) return segment;
+
     CGFloat btnH = 30;
     CGFloat btnTop = (headerH - btnH) / 2.0;
-     
-     [self.segButtons removeAllObjects];
-     for (NSInteger i = 0; i < count; i++) {
-         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-        btn.frame = CGRectMake(btnW * i, btnTop, btnW, btnH);
-         [btn setTitle:self.segmentTitles[i] forState:UIControlStateNormal];
-         [btn setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
-         btn.tag = i;
-         [btn addTarget:self action:@selector(segTap:) forControlEvents:UIControlEventTouchUpInside];
-         [segment addSubview:btn];
-         [self.segButtons addObject:btn];
-     }
-     
+    CGFloat x = 0;
+
+    [self.segButtons removeAllObjects];
+    UIFont *btnFont = [UIFont fontWithName:FONT_NAME_Regular size:16];
+
+    for (NSInteger i = 0; i < count; i++) {
+        UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+        NSString *title = self.segmentTitles[i] ?: @"";
+        CGSize textSize = [title boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, btnH)
+                                              options:NSStringDrawingUsesLineFragmentOrigin
+                                           attributes:@{NSFontAttributeName: btnFont}
+                                              context:nil].size;
+
+        CGFloat textW = ceil(textSize.width);
+        // 左右 padding 24（原本 16），扩大按钮之间的留白
+        CGFloat btnW = MAX(80, textW + 48);
+
+        btn.frame = CGRectMake(x, btnTop, btnW, btnH);
+        x += btnW;
+
+        [btn setTitle:title forState:UIControlStateNormal];
+        btn.tag = i;
+        [btn setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+        [btn addTarget:self action:@selector(segTap:) forControlEvents:UIControlEventTouchUpInside];
+        [self.segmentContentView addSubview:btn];
+        [self.segButtons addObject:btn];
+    }
+
+    // 内容宽度跟随按钮总宽度变化，超过页面宽度时可滑动
+    self.segmentContentView.frame = CGRectMake(0, 0, x, headerH);
+    self.segmentScrollView.contentSize = CGSizeMake(x, headerH);
+
+    // 指示器（跟随按钮中心）
     CGFloat indicatorW = 22;
     CGFloat indicatorH = 2;
-    CGFloat indicatorTop = headerH - 6; // 放在按钮下方附近
-    self.indicatorView = [[UIView alloc] initWithFrame:CGRectMake((btnW - indicatorW)/2, indicatorTop, indicatorW, indicatorH)];
-     self.indicatorView.backgroundColor = [UIColor blackColor];
-     [segment addSubview:self.indicatorView];
+    CGFloat indicatorTop = headerH - 6;
+    self.indicatorView = [[UIView alloc] initWithFrame:CGRectMake(0, indicatorTop, indicatorW, indicatorH)];
+    self.indicatorView.backgroundColor = [UIColor blackColor];
+    [self.segmentContentView addSubview:self.indicatorView];
 
     self.currentSegmentIndex = 0;
     self.lastAppliedSegmentIndex = NSNotFound;
     [self yt_updateSegmentButtonsForIndex:self.currentSegmentIndex];
-     
+    [self updateIndicatorForIndex:self.currentSegmentIndex];
+
     return segment;
 }
 
@@ -452,13 +512,30 @@
  }
  
  - (void)updateIndicatorForIndex:(NSInteger)index {
-     if (self.segmentTitles.count == 0) return;
-     CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
-     CGFloat btnW = screenW / self.segmentTitles.count;
-     CGRect frame = self.indicatorView.frame;
-     frame.origin.x = index * btnW + (btnW - 22) / 2.0;
-     self.indicatorView.frame = frame;
+    if (self.segButtons.count == 0) return;
+    if (index < 0 || index >= self.segButtons.count) return;
+    UIButton *btn = self.segButtons[index];
+    CGFloat indicatorW = self.indicatorView.frame.size.width;
+    CGFloat centerX = CGRectGetMidX(btn.frame);
+    CGRect frame = self.indicatorView.frame;
+    frame.origin.x = centerX - indicatorW / 2.0;
+    self.indicatorView.frame = frame;
+    [self yt_scrollSegmentToSelectedIndex:index];
  }
+
+- (void)yt_scrollSegmentToSelectedIndex:(NSInteger)index {
+    if (!self.segmentScrollView) return;
+    if (!self.segmentContentView) return;
+    if (index < 0 || index >= self.segButtons.count) return;
+    if (self.segmentContentView.bounds.size.width <= CGRectGetWidth(self.segmentScrollView.bounds)) {
+        return; // 无需滚动
+    }
+    UIButton *btn = self.segButtons[index];
+    CGFloat desiredX = CGRectGetMidX(btn.frame) - CGRectGetWidth(self.segmentScrollView.bounds) / 2.0;
+    CGFloat maxX = MAX(0, self.segmentContentView.bounds.size.width - CGRectGetWidth(self.segmentScrollView.bounds));
+    desiredX = MAX(0, MIN(desiredX, maxX));
+    [self.segmentScrollView setContentOffset:CGPointMake(desiredX, 0) animated:YES];
+}
 
 #pragma mark - underline 跟随分页滑动
 
@@ -499,17 +576,26 @@
     CGFloat pageW = scrollView.bounds.size.width;
     if (pageW <= 0) return;
     
-    CGFloat progress = scrollView.contentOffset.x / pageW; // 0~(count-1) 连续值
-    CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
-    CGFloat btnW = screenW / self.segmentTitles.count;
-    
+    CGFloat progress = scrollView.contentOffset.x / pageW; // 连续值 0~(count-1)
+    if (self.segButtons.count == 0) return;
+
+    NSInteger leftIndex = (NSInteger)floor(progress);
+    NSInteger rightIndex = MIN(leftIndex + 1, self.segButtons.count - 1);
+    CGFloat t = progress - leftIndex;
+    t = MAX(0, MIN(1, t));
+
+    CGFloat indicatorW = self.indicatorView.frame.size.width;
+    CGFloat leftCenterX = CGRectGetMidX(self.segButtons[leftIndex].frame);
+    CGFloat rightCenterX = CGRectGetMidX(self.segButtons[rightIndex].frame);
+    CGFloat indicatorCenterX = leftCenterX + (rightCenterX - leftCenterX) * t;
+
     CGRect frame = self.indicatorView.frame;
-    frame.origin.x = progress * btnW + (btnW - frame.size.width) / 2.0;
+    frame.origin.x = indicatorCenterX - indicatorW / 2.0;
     self.indicatorView.frame = frame;
 
     // 根据滚动位置应用“当前页”文字颜色
     NSInteger appliedIndex = (NSInteger)llround(progress);
-    appliedIndex = MAX(0, MIN(appliedIndex, self.segmentTitles.count - 1));
+    appliedIndex = MAX(0, MIN(appliedIndex, self.segButtons.count - 1));
     if (appliedIndex != self.lastAppliedSegmentIndex) {
         self.lastAppliedSegmentIndex = appliedIndex;
         [self yt_updateSegmentButtonsForIndex:appliedIndex];

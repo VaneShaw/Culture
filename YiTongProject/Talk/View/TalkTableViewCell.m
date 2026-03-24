@@ -6,6 +6,7 @@
 //
 
 #import "TalkTableViewCell.h"
+#import <QuartzCore/QuartzCore.h>
 @interface TalkTableViewCell()
 
 @property (strong, nonatomic) UIImageView *cellView;
@@ -15,6 +16,17 @@
 @property (strong, nonatomic) UILabel *lblSubtitle;
 @property (strong, nonatomic) UILabel *actionLabel;
 @property (assign, nonatomic) YTTalkSceneCellStatus cellStatus;
+
+// 右侧 30x30 角标：未开始=箭头；进行中=百分比；完成=✅
+@property (strong, nonatomic) UIView *cornerProgressView;
+@property (strong, nonatomic) UIImageView *cornerProgressIconView;
+@property (strong, nonatomic) UILabel *cornerProgressLabel;
+
+@property (strong, nonatomic) UIImageView *actionCapsuleImageView;
+@property (strong, nonatomic) UIView *actionProgressClipView;
+@property (strong, nonatomic) CAGradientLayer *actionGradientLayer;
+@property (strong, nonatomic) CALayer *actionCapsuleMaskLayer;
+@property (assign, nonatomic) CGRect actionCapsuleBaseFrame;
 
 
 @end
@@ -44,7 +56,10 @@
         CGFloat cardW = SCREEN_WIDTH - 2 * Distance＿M;
         CGFloat imageW = 120.0;
         CGFloat imageH = 140.0;
-        CGFloat rightPadding = 16.0;
+        // 纯色底图 bottomStatusView 相对图片向右偏移 6（offsetX）
+        // 目标：纯色底图距离 cellView 右边 20
+        // 因此图片 rightPadding 需要 = 20 + 6 = 26
+        CGFloat rightPadding = 26.0;
         CGFloat x = cardW - rightPadding - imageW;
         CGFloat y = 20.0; // imageview 相对容器顶部 20
         _imgView.frame = CGRectMake(x, y, imageW, imageH);
@@ -99,20 +114,66 @@
         self.lblSubtitle.numberOfLines = 2;
         [_cellView addSubview:self.lblSubtitle];
 
-        // 底部学习按钮底图
-        // learning 进度条（胶囊底图）底边距容器底部 32
+        // learning 进度条（胶囊不规则底图）底边距容器底部 32
         // cellView 高度 190，进度条高度 38 -> y = 190 - 32 - 38 = 120
-        UIImageView *imgDetails = [[UIImageView alloc] initWithFrame:CGRectMake(18, 120, 144, 38)];
-        imgDetails.image = [UIImage imageNamed:@"union_blakc"];
-        [_cellView addSubview:imgDetails];
+        CGRect capsuleFrame = CGRectMake(18, 120, 144, 38);
+        self.actionCapsuleBaseFrame = capsuleFrame;
 
-        // “learning” 文案（覆盖在 union_blakc 上）
+        // 用“胶囊底图 alpha”作为 mask，让渐变只在底图形状范围内显示（凹进去的位置也不会溢出）
+        UIImage *capsuleImg = [UIImage imageNamed:@"union_blakc"];
+
+        self.actionProgressClipView = [[UIView alloc] initWithFrame:capsuleFrame];
+        self.actionProgressClipView.clipsToBounds = YES;
+        self.actionProgressClipView.hidden = YES;
+        [_cellView addSubview:self.actionProgressClipView];
+
+        self.actionGradientLayer = [CAGradientLayer layer];
+        self.actionGradientLayer.frame = CGRectMake(0, 0, capsuleFrame.size.width, capsuleFrame.size.height);
+        self.actionGradientLayer.startPoint = CGPointMake(0, 0.5);
+        self.actionGradientLayer.endPoint = CGPointMake(1, 0.5);
+
+        // 覆盖遮挡方案：不使用 mask 裁剪渐变。
+        // 渐变先铺满到当前进度宽度矩形，然后由 union_blakc 切图作为遮挡层叠在上面。
+        [self.actionProgressClipView.layer addSublayer:self.actionGradientLayer];
+
+        // 胶囊底图本体（用于显示不规则描边/细节）
+        self.actionCapsuleImageView = [[UIImageView alloc] initWithFrame:capsuleFrame];
+        self.actionCapsuleImageView.image = capsuleImg;
+        self.actionCapsuleImageView.contentMode = UIViewContentModeScaleToFill;
+        [_cellView addSubview:self.actionCapsuleImageView];
+
+        // 右侧角标（30x30）放到胶囊图片内部：右侧距离胶囊右边 4
+        CGFloat cornerSize = 30.0;
+        CGRect capsuleRect = capsuleFrame;
+        CGFloat cornerX = CGRectGetMaxX(capsuleRect) - cornerSize - 4.0;
+        CGFloat cornerY = capsuleRect.origin.y + (capsuleRect.size.height - cornerSize) / 2.0;
+        // 在胶囊内部显示，X/Y 不做额外越界裁剪
+
+        self.cornerProgressView = [[UIView alloc] initWithFrame:CGRectMake(cornerX, cornerY, cornerSize, cornerSize)];
+        self.cornerProgressView.backgroundColor = [UIColor clearColor];
+        [_cellView addSubview:self.cornerProgressView];
+
+        self.cornerProgressIconView = [[UIImageView alloc] initWithFrame:self.cornerProgressView.bounds];
+        self.cornerProgressIconView.contentMode = UIViewContentModeScaleAspectFit;
+        self.cornerProgressIconView.hidden = NO;
+        self.cornerProgressIconView.image = [UIImage imageNamed:@"talk_corner_arrow"];
+        [self.cornerProgressView addSubview:self.cornerProgressIconView];
+
+        self.cornerProgressLabel = [[UILabel alloc] initWithFrame:self.cornerProgressView.bounds];
+        self.cornerProgressLabel.textAlignment = NSTextAlignmentCenter;
+        self.cornerProgressLabel.numberOfLines = 1;
+        self.cornerProgressLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:13];
+        self.cornerProgressLabel.textColor = [theAppDelegate.window colorWithHexString:@"#1F1F39" alpha:1];
+        self.cornerProgressLabel.hidden = YES;
+        [self.cornerProgressView addSubview:self.cornerProgressLabel];
+
+        // “learning” 文案（覆盖在胶囊底图上）
         self.actionLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 110, 38)];
         self.actionLabel.textAlignment = NSTextAlignmentCenter;
         self.actionLabel.textColor = BLACK_COLOR_1F;
         self.actionLabel.font = [UIFont fontWithName:FONT_NAME_Medium size:16];
         self.actionLabel.text = @"learning";
-        [imgDetails addSubview:self.actionLabel];
+        [self.actionCapsuleImageView addSubview:self.actionLabel];
     }
     return _cellView;
 }
@@ -137,6 +198,21 @@
     self.actionLabel.text = @"learning";
     self.cellStatus = YTTalkSceneCellStatusNotStarted;
     self.bottomStatusView.backgroundColor = [self yt_colorForStatus:self.cellStatus];
+    if (self.cornerProgressIconView) {
+        self.cornerProgressIconView.image = [UIImage imageNamed:@"talk_corner_arrow"];
+        self.cornerProgressIconView.hidden = NO;
+    }
+    if (self.cornerProgressLabel) {
+        self.cornerProgressLabel.hidden = YES;
+        self.cornerProgressLabel.text = @"";
+    }
+    // 重置胶囊渐变进度
+    if (self.actionProgressClipView && !CGRectEqualToRect(self.actionProgressClipView.frame, self.actionCapsuleBaseFrame)) {
+        self.actionProgressClipView.frame = self.actionCapsuleBaseFrame;
+    }
+    if (self.actionProgressClipView) {
+        self.actionProgressClipView.hidden = YES;
+    }
 }
 
 - (void)configureWithTitle:(NSString *)title
@@ -153,6 +229,63 @@
         self.imgView.image = nil;
     }
     self.actionLabel.text = NSLocalizedString(@"learning", @"");
+
+    [self yt_updateCapsuleProgressForStatus:status];
+    [self yt_updateCornerProgressForStatus:status];
+}
+
+- (void)yt_updateCornerProgressForStatus:(YTTalkSceneCellStatus)status {
+    if (!self.cornerProgressView) return;
+
+    switch (status) {
+        case YTTalkSceneCellStatusNotStarted: {
+            self.cornerProgressIconView.image = [UIImage imageNamed:@"talk_corner_arrow"];
+            self.cornerProgressIconView.hidden = NO;
+            self.cornerProgressLabel.hidden = YES;
+        } break;
+        case YTTalkSceneCellStatusInProgress: {
+            self.cornerProgressIconView.hidden = YES;
+            self.cornerProgressLabel.hidden = NO;
+            self.cornerProgressLabel.text = @"60%";
+            self.cornerProgressLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:12];
+            self.cornerProgressLabel.textColor = [theAppDelegate.window colorWithHexString:@"#1F1F39" alpha:1];
+        } break;
+        case YTTalkSceneCellStatusCompleted: {
+            self.cornerProgressIconView.image = [UIImage imageNamed:@"talk_corner_check"];
+            self.cornerProgressIconView.hidden = NO;
+            self.cornerProgressLabel.hidden = YES;
+        } break;
+    }
+}
+
+- (CGFloat)yt_progressRatioForStatus:(YTTalkSceneCellStatus)status {
+    switch (status) {
+        case YTTalkSceneCellStatusNotStarted:
+            return 0.0;
+        case YTTalkSceneCellStatusInProgress:
+            return 0.6;
+        case YTTalkSceneCellStatusCompleted:
+            return 1.0;
+    }
+}
+
+- (void)yt_updateCapsuleProgressForStatus:(YTTalkSceneCellStatus)status {
+    if (!self.actionProgressClipView || !self.actionGradientLayer || !self.actionCapsuleBaseFrame.size.width) return;
+
+    CGFloat ratio = [self yt_progressRatioForStatus:status];
+    BOOL shouldShow = ratio > 0.001;
+    self.actionProgressClipView.hidden = !shouldShow;
+
+    CGRect clipFrame = self.actionCapsuleBaseFrame;
+    clipFrame.size.width = self.actionCapsuleBaseFrame.size.width * ratio;
+    self.actionProgressClipView.frame = clipFrame;
+    // 关键：让渐变按照“当前进度宽度”重新铺满
+    self.actionGradientLayer.frame = self.actionProgressClipView.bounds;
+
+    // 渐变：从 imageView 后面的“纯色背景色”（按状态取色）到白色
+    UIColor *startColor = [self yt_colorForStatus:status];
+    UIColor *endColor = [UIColor whiteColor];
+    self.actionGradientLayer.colors = @[(id)startColor.CGColor, (id)endColor.CGColor];
 }
 - (void)awakeFromNib {
     [super awakeFromNib];
