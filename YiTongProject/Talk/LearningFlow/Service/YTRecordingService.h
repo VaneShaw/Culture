@@ -34,6 +34,9 @@ typedef void (^YTRecordStopCallback)(NSURL * _Nullable fileURL, NSError * _Nulla
 - (void)startRecordingWithIdentifier:(NSString *)identifier completion:(YTRecordStartCallback)completion;
 - (void)stopRecordingWithCompletion:(YTRecordStopCallback)completion;
 
+/// 当前麦克风输入电平，约 0~1（仅在 `isRecording == YES` 时有意义；内部会调用 `updateMeters`）。
+- (CGFloat)currentMeterNormalizedLevel;
+
 @end
 
 NS_ASSUME_NONNULL_END

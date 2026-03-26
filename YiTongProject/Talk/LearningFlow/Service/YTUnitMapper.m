@@ -5,18 +5,54 @@
 
 #import "YTUnitMapper.h"
 
+static NSString * _Nullable YTStringOrNil(id obj) {
+    return [obj isKindOfClass:[NSString class]] ? (NSString *)obj : nil;
+}
+
+/// 过渡/完成页：`display.title` / `display.subtitle` 约定为 string；若为历史 object（zh/en/pinyin）则合并为一条展示文案
+static void YTMapPlainTitleAndSubtitle(YTUnit *u, NSDictionary *display, BOOL isTransition) {
+    id titleObj = display[@"title"];
+    if ([titleObj isKindOfClass:[NSString class]]) {
+        u.titleCN = (NSString *)titleObj;
+        u.titleEN = nil;
+        u.titlePinyin = nil;
+    } else if ([titleObj isKindOfClass:[NSDictionary class]]) {
+        NSDictionary *t = (NSDictionary *)titleObj;
+        NSString *plain = YTStringOrNil(t[@"zh"]) ?: YTStringOrNil(t[@"en"]) ?: YTStringOrNil(t[@"pinyin"]);
+        u.titleCN = plain;
+        u.titleEN = nil;
+        u.titlePinyin = nil;
+    }
+    id subObj = display[@"subtitle"];
+    NSString *subPlain = nil;
+    if ([subObj isKindOfClass:[NSString class]]) {
+        subPlain = (NSString *)subObj;
+    } else if ([subObj isKindOfClass:[NSDictionary class]]) {
+        NSDictionary *s = (NSDictionary *)subObj;
+        subPlain = YTStringOrNil(s[@"zh"]) ?: YTStringOrNil(s[@"en"]) ?: YTStringOrNil(s[@"pinyin"]);
+    }
+    if (isTransition) {
+        u.transitionSubtitle = subPlain;
+    } else {
+        u.completionSubtitle = subPlain;
+    }
+}
+
 @implementation YTUnitMapper
 
 + (NSArray<YTUnit *> *)mapUnitsFromResponse:(NSArray<NSDictionary *> *)response
                                     sceneId:(NSString *)sceneId
                                     levelId:(YTLevelId)levelId {
     NSMutableArray<YTUnit *> *units = [NSMutableArray array];
-    for (NSDictionary *payload in response) {
-        if (![payload isKindOfClass:[NSDictionary class]]) continue;
+    for (NSInteger i = 0; i < response.count; i++) {
+        id payloadObj = response[i];
+        if (![payloadObj isKindOfClass:[NSDictionary class]]) continue;
+        NSDictionary *payload = (NSDictionary *)payloadObj;
 
-        NSString *unitTypeStr = payload[@"unitType"];
+        id unitTypeVal = payload[@"unitType"];
         NSString *unitId = payload[@"unitId"] ?: @"";
-        NSInteger stepIndex = [payload[@"stepIndex"] integerValue];
+        // stepIndex 不再依赖接口返回，统一按数组顺序生成
+        NSInteger stepIndex = i;
 
         YTUnit *u = [[YTUnit alloc] init];
         u.sceneId = sceneId;
@@ -27,8 +63,18 @@
         NSDictionary *display = payload[@"display"];
         if (![display isKindOfClass:[NSDictionary class]]) display = @{};
 
-        if ([unitTypeStr isEqualToString:@"pronounce"]) {
-            u.unitType = YTUnitTypePronounce;
+        // unitType 协议：统一使用 int（与 iOS YTUnitType 数值一致）
+        if (![unitTypeVal isKindOfClass:[NSNumber class]]) {
+            // 后端契约要求 unitType 一定是数字；如果不是就跳过该 unit
+            continue;
+        }
+        NSInteger unitTypeInt = [unitTypeVal integerValue];
+        if (unitTypeInt < (NSInteger)YTUnitTypePronounce || unitTypeInt > (NSInteger)YTUnitTypeLevelCompletion) {
+            continue;
+        }
+        u.unitType = (YTUnitType)unitTypeInt;
+
+        if (u.unitType == YTUnitTypePronounce) {
             NSDictionary *title = display[@"title"] ?: @{};
             if ([title isKindOfClass:[NSDictionary class]]) {
                 u.titleCN = title[@"zh"];
@@ -58,8 +104,6 @@
                 u.highlightTexts = texts;
             }
 
-            u.grammarText = display[@"grammarText"];
-
             NSDictionary *grammarPage = display[@"grammarPage"] ?: @{};
             if ([grammarPage isKindOfClass:[NSDictionary class]]) {
                 u.grammarPageNavTitle = grammarPage[@"navTitle"];
@@ -73,23 +117,8 @@
                 u.grammarPageArrowText = grammarPage[@"arrowText"];
                 u.grammarPageExamples = grammarPage[@"examples"];
             }
-        } else if ([unitTypeStr hasPrefix:@"exercise_"]) {
-            if ([unitTypeStr isEqualToString:@"exercise_listen_choose_image"]) {
-                u.unitType = YTUnitTypeExerciseListenChooseImage;
-            } else if ([unitTypeStr isEqualToString:@"exercise_look_choose_word"]) {
-                u.unitType = YTUnitTypeExerciseLookChooseWord;
-            } else if ([unitTypeStr isEqualToString:@"exercise_choose_word_fill_blank"]) {
-                u.unitType = YTUnitTypeExerciseChooseWordFillBlank;
-            } else if ([unitTypeStr isEqualToString:@"exercise_listen_choose_response"]) {
-                u.unitType = YTUnitTypeExerciseListenChooseResponse;
-            } else if ([unitTypeStr isEqualToString:@"exercise_build_sentence"]) {
-                u.unitType = YTUnitTypeExerciseBuildSentence;
-            } else if ([unitTypeStr isEqualToString:@"exercise_complete_dialogue"]) {
-                u.unitType = YTUnitTypeExerciseCompleteDialogue;
-            } else {
-                u.unitType = YTUnitTypeExerciseListenChooseImage;
-            }
-
+        } else if (u.unitType >= YTUnitTypeExerciseListenChooseImage &&
+                   u.unitType <= YTUnitTypeExerciseCompleteDialogue) {
             NSDictionary *title = display[@"title"] ?: @{};
             if ([title isKindOfClass:[NSDictionary class]]) {
                 u.titleCN = title[@"zh"];
@@ -127,6 +156,40 @@
             NSDictionary *audio = display[@"audio"] ?: @{};
             if ([audio isKindOfClass:[NSDictionary class]]) {
                 u.audioURLString = audio[@"referenceUrl"];
+            }
+        } else if (u.unitType == YTUnitTypePracticeTransition) {
+            YTMapPlainTitleAndSubtitle(u, display, YES);
+            NSArray *secs = display[@"sections"];
+            if ([secs isKindOfClass:[NSArray class]]) {
+                NSMutableArray<NSDictionary *> *out = [NSMutableArray array];
+                for (id item in secs) {
+                    if (![item isKindOfClass:[NSDictionary class]]) continue;
+                    NSDictionary *d = (NSDictionary *)item;
+                    NSString *cap = d[@"caption"] ?: d[@"label"];
+                    NSString *body = d[@"body"];
+                    if (cap.length || body.length) {
+                        [out addObject:@{ @"caption": cap ?: @"", @"body": body ?: @"" }];
+                    }
+                }
+                if (out.count) u.transitionSections = [out copy];
+            }
+        } else if (u.unitType == YTUnitTypeLevelCompletion) {
+            YTMapPlainTitleAndSubtitle(u, display, NO);
+            id scoreObj = display[@"scoreText"];
+            if ([scoreObj isKindOfClass:[NSString class]]) {
+                u.completionScoreText = (NSString *)scoreObj;
+            }
+        }
+
+        NSDictionary *progress = payload[@"progress"];
+        if ([progress isKindOfClass:[NSDictionary class]]) {
+            id ac = progress[@"answeredCorrect"];
+            if ([ac isKindOfClass:[NSNumber class]]) {
+                u.answeredCorrectFromServer = [ac boolValue];
+            }
+            id ap = progress[@"answerPayload"];
+            if ([ap isKindOfClass:[NSDictionary class]] && [(NSDictionary *)ap count] > 0) {
+                u.serverAnswerPayload = [ap copy];
             }
         }
 

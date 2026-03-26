@@ -4,6 +4,7 @@
 //
 
 #import "YTPracticeTransitionUnitView.h"
+#import "YTUnit.h"
 #import "YTInternalUnitViewSupport.h"
 #import "YTAnswerEvaluating.h"
 #import "YTPronounceEvaluating.h"
@@ -18,6 +19,55 @@ static UIColor *YTPracticeTransitionCardBackground(YTDifficultyTheme *theme) {
     }
     const CGFloat k = 0.94;
     return [UIColor colorWithRed:MIN(1.f, r * k) green:MIN(1.f, g * k) blue:MIN(1.f, b * k) alpha:a];
+}
+
+static NSString *YTTransitionSectionCaption(NSDictionary *sec) {
+    if (![sec isKindOfClass:[NSDictionary class]]) return @"";
+    id cap = sec[@"caption"] ?: sec[@"label"];
+    return [cap isKindOfClass:[NSString class]] ? (NSString *)cap : @"";
+}
+
+static NSString *YTTransitionSectionBody(NSDictionary *sec) {
+    if (![sec isKindOfClass:[NSDictionary class]]) return @"";
+    id body = sec[@"body"];
+    return [body isKindOfClass:[NSString class]] ? (NSString *)body : @"";
+}
+
+/// 初级 / 中等 / 困难 对应工程内切图资源名
+static NSString *YTPracticeTransitionBadgeAssetName(YTLevelId levelId) {
+    switch (levelId) {
+        case YTLevelIdBeginner:
+            return @"talk_voice_beginner_complete";
+        case YTLevelIdIntermediate:
+            return @"talk_voice_simple_complete";
+        case YTLevelIdAdvanced:
+            return @"talk_voice_difficult_complete";
+    }
+}
+
+static void YTApplyPracticeTransitionBadge(UIImageView *iv, YTLevelId levelId, YTDifficultyTheme *theme) {
+    UIImage *img = [UIImage imageNamed:YTPracticeTransitionBadgeAssetName(levelId)];
+    iv.tintColor = nil;
+    if (img) {
+        iv.image = img;
+        return;
+    }
+    UIImage *fallback = [UIImage imageNamed:@"talk_practice_transition_badge"];
+    if (fallback) {
+        iv.image = fallback;
+        return;
+    }
+    if (@available(iOS 13.0, *)) {
+        NSString *sym = @"checkmark.seal.fill";
+        if (levelId == YTLevelIdIntermediate) {
+            sym = @"questionmark.circle.fill";
+        } else if (levelId == YTLevelIdAdvanced) {
+            sym = @"star.circle.fill";
+        }
+        UIImage *simg = [UIImage systemImageNamed:sym];
+        iv.image = [simg imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        iv.tintColor = theme.primaryColor;
+    }
 }
 
 @interface YTPracticeTransitionUnitView ()
@@ -152,13 +202,7 @@ static UIColor *YTPracticeTransitionCardBackground(YTDifficultyTheme *theme) {
 
     self.cardView.backgroundColor = YTPracticeTransitionCardBackground(theme);
 
-    NSString *title = NSLocalizedString(@"Talk_PracticeTransition_Title_Beginner", @"");
-    if (unit.levelId == YTLevelIdIntermediate) {
-        title = NSLocalizedString(@"Talk_PracticeTransition_Title_Intermediate", @"");
-    } else if (unit.levelId == YTLevelIdAdvanced) {
-        title = NSLocalizedString(@"Talk_PracticeTransition_Title_Advanced", @"");
-    }
-    self.titleLabel.text = title;
+    self.titleLabel.text = [unit yt_resolvedTitleDisplayText];
 
     UIColor *captionTint = theme.primaryColor;
     CGFloat cr = 0, cg = 0, cb = 0, ca = 1;
@@ -170,60 +214,28 @@ static UIColor *YTPracticeTransitionCardBackground(YTDifficultyTheme *theme) {
         self.advSection2Caption.textColor = self.advSection1Caption.textColor;
     }
 
-    CGFloat tailGap = (unit.levelId == YTLevelIdAdvanced) ? 18 : 10;
+    BOOL useAdvancedStack = (unit.transitionSections.count >= 2);
+    CGFloat tailGap = useAdvancedStack ? 18 : 10;
     [self.tailStack mas_updateConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.titleLabel.mas_bottom).offset(tailGap);
     }];
 
-    if (unit.levelId == YTLevelIdAdvanced) {
+    if (useAdvancedStack) {
         self.subtitleLabel.hidden = YES;
         self.advancedStack.hidden = NO;
-        self.advSection1Caption.text = NSLocalizedString(@"Talk_PracticeTransition_AdvSec1_Label", @"");
-        self.advSection1Body.text = NSLocalizedString(@"Talk_PracticeTransition_AdvSec1_Body", @"");
-        self.advSection2Caption.text = NSLocalizedString(@"Talk_PracticeTransition_AdvSec2_Label", @"");
-        self.advSection2Body.text = NSLocalizedString(@"Talk_PracticeTransition_AdvSec2_Body", @"");
-
-        UIImage *img = nil;
-        if (@available(iOS 13.0, *)) {
-            img = [UIImage systemImageNamed:@"star.circle.fill"];
-            self.badgeImageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-            self.badgeImageView.tintColor = theme.primaryColor;
-        }
-        if (!self.badgeImageView.image) {
-            img = [UIImage imageNamed:@"talk_practice_transition_badge"];
-            self.badgeImageView.image = img;
-            self.badgeImageView.tintColor = nil;
-        }
+        NSDictionary *s0 = unit.transitionSections[0];
+        NSDictionary *s1 = unit.transitionSections[1];
+        self.advSection1Caption.text = YTTransitionSectionCaption(s0);
+        self.advSection1Body.text = YTTransitionSectionBody(s0);
+        self.advSection2Caption.text = YTTransitionSectionCaption(s1);
+        self.advSection2Body.text = YTTransitionSectionBody(s1);
     } else {
         self.subtitleLabel.hidden = NO;
         self.advancedStack.hidden = YES;
-        if (unit.levelId == YTLevelIdIntermediate) {
-            self.subtitleLabel.text = NSLocalizedString(@"Talk_PracticeTransition_Subtitle_Intermediate", @"");
-            UIImage *img = nil;
-            if (@available(iOS 13.0, *)) {
-                UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:96 weight:UIImageSymbolWeightRegular];
-                img = [UIImage systemImageNamed:@"questionmark.circle.fill" withConfiguration:cfg];
-                self.badgeImageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-                self.badgeImageView.tintColor = theme.primaryColor;
-            }
-            if (!self.badgeImageView.image) {
-                img = [UIImage imageNamed:@"talk_practice_transition_badge"];
-                self.badgeImageView.image = img;
-                self.badgeImageView.tintColor = nil;
-            }
-        } else {
-            self.subtitleLabel.text = NSLocalizedString(@"Talk_PracticeTransition_Subtitle", @"");
-            UIImage *badge = [UIImage imageNamed:@"talk_practice_transition_badge"];
-            if (!badge && @available(iOS 13.0, *)) {
-                badge = [UIImage systemImageNamed:@"checkmark.seal.fill"];
-                self.badgeImageView.image = [badge imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-                self.badgeImageView.tintColor = theme.primaryColor;
-            } else {
-                self.badgeImageView.image = badge;
-                self.badgeImageView.tintColor = nil;
-            }
-        }
+        self.subtitleLabel.text = unit.transitionSubtitle ?: @"";
     }
+
+    YTApplyPracticeTransitionBadge(self.badgeImageView, unit.levelId, theme);
 
     self.primaryState.kind = YTUnitPrimaryKindContinue;
     self.primaryState.title = @"Talk_Continue";

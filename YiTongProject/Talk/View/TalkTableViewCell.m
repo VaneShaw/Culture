@@ -7,6 +7,7 @@
 
 #import "TalkTableViewCell.h"
 #import <QuartzCore/QuartzCore.h>
+#import <SDWebImage/UIImageView+WebCache.h>
 @interface TalkTableViewCell()
 
 @property (strong, nonatomic) UIImageView *cellView;
@@ -16,6 +17,9 @@
 @property (strong, nonatomic) UILabel *lblSubtitle;
 @property (strong, nonatomic) UILabel *actionLabel;
 @property (assign, nonatomic) YTTalkSceneCellStatus cellStatus;
+
+// 进度百分比：0 表示未开始，100 表示完成，其他为进行中（用于直接展示与进度条比例）
+@property (assign, nonatomic) CGFloat progressPercent;
 
 // 右侧 30x30 角标：未开始=箭头；进行中=百分比；完成=✅
 @property (strong, nonatomic) UIView *cornerProgressView;
@@ -190,6 +194,18 @@
     return [theAppDelegate.window colorWithHexString:@"#E3C89D" alpha:1];
 }
 
+- (YTTalkSceneCellStatus)yt_statusForProgressPercent:(CGFloat)progressPercent {
+    if (progressPercent <= 0.0) return YTTalkSceneCellStatusNotStarted;
+    if (progressPercent >= 100.0) return YTTalkSceneCellStatusCompleted;
+    return YTTalkSceneCellStatusInProgress;
+}
+
+- (CGFloat)yt_progressRatioForPercent:(CGFloat)progressPercent {
+    CGFloat ratio = progressPercent / 100.0;
+    ratio = MAX(0.0, MIN(1.0, ratio));
+    return ratio;
+}
+
 - (void)prepareForReuse {
     [super prepareForReuse];
     self.lblTitle.text = @"";
@@ -197,6 +213,7 @@
     self.imgView.image = nil;
     self.actionLabel.text = @"learning";
     self.cellStatus = YTTalkSceneCellStatusNotStarted;
+    self.progressPercent = 0.0;
     self.bottomStatusView.backgroundColor = [self yt_colorForStatus:self.cellStatus];
     if (self.cornerProgressIconView) {
         self.cornerProgressIconView.image = [UIImage imageNamed:@"talk_corner_arrow"];
@@ -217,27 +234,32 @@
 
 - (void)configureWithTitle:(NSString *)title
                   subtitle:(NSString *)subtitle
-                 imageName:(NSString *)imageName
-                     status:(YTTalkSceneCellStatus)status {
+                  imageUrl:(NSString *)imageUrl
+           progressPercent:(NSInteger)progressPercent {
     self.lblTitle.text = title ?: @"";
     self.lblSubtitle.text = subtitle ?: @"";
-    self.cellStatus = status;
-    self.bottomStatusView.backgroundColor = [self yt_colorForStatus:status];
-    if (imageName.length > 0) {
-        self.imgView.image = [UIImage imageNamed:imageName];
+
+    self.progressPercent = MAX(0, MIN(100, (CGFloat)progressPercent));
+    self.cellStatus = [self yt_statusForProgressPercent:self.progressPercent];
+    self.bottomStatusView.backgroundColor = [self yt_colorForStatus:self.cellStatus];
+
+    UIImage *placeholder = [UIImage imageNamed:@"take_img0"];
+    if (imageUrl.length > 0) {
+        [self.imgView sd_setImageWithURL:[NSURL URLWithString:imageUrl] placeholderImage:placeholder];
     } else {
-        self.imgView.image = nil;
+        self.imgView.image = placeholder;
     }
+
     self.actionLabel.text = NSLocalizedString(@"learning", @"");
 
-    [self yt_updateCapsuleProgressForStatus:status];
-    [self yt_updateCornerProgressForStatus:status];
+    [self yt_updateCapsuleProgress];
+    [self yt_updateCornerProgress];
 }
 
-- (void)yt_updateCornerProgressForStatus:(YTTalkSceneCellStatus)status {
+- (void)yt_updateCornerProgress {
     if (!self.cornerProgressView) return;
 
-    switch (status) {
+    switch (self.cellStatus) {
         case YTTalkSceneCellStatusNotStarted: {
             self.cornerProgressIconView.image = [UIImage imageNamed:@"talk_corner_arrow"];
             self.cornerProgressIconView.hidden = NO;
@@ -246,7 +268,8 @@
         case YTTalkSceneCellStatusInProgress: {
             self.cornerProgressIconView.hidden = YES;
             self.cornerProgressLabel.hidden = NO;
-            self.cornerProgressLabel.text = @"60%";
+            NSInteger percentInt = (NSInteger)llround(self.progressPercent);
+            self.cornerProgressLabel.text = [NSString stringWithFormat:@"%ld%%", (long)percentInt];
             self.cornerProgressLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:12];
             self.cornerProgressLabel.textColor = [theAppDelegate.window colorWithHexString:@"#1F1F39" alpha:1];
         } break;
@@ -258,21 +281,10 @@
     }
 }
 
-- (CGFloat)yt_progressRatioForStatus:(YTTalkSceneCellStatus)status {
-    switch (status) {
-        case YTTalkSceneCellStatusNotStarted:
-            return 0.0;
-        case YTTalkSceneCellStatusInProgress:
-            return 0.6;
-        case YTTalkSceneCellStatusCompleted:
-            return 1.0;
-    }
-}
-
-- (void)yt_updateCapsuleProgressForStatus:(YTTalkSceneCellStatus)status {
+- (void)yt_updateCapsuleProgress {
     if (!self.actionProgressClipView || !self.actionGradientLayer || !self.actionCapsuleBaseFrame.size.width) return;
 
-    CGFloat ratio = [self yt_progressRatioForStatus:status];
+    CGFloat ratio = [self yt_progressRatioForPercent:self.progressPercent];
     BOOL shouldShow = ratio > 0.001;
     self.actionProgressClipView.hidden = !shouldShow;
 
@@ -283,7 +295,7 @@
     self.actionGradientLayer.frame = self.actionProgressClipView.bounds;
 
     // 渐变：从 imageView 后面的“纯色背景色”（按状态取色）到白色
-    UIColor *startColor = [self yt_colorForStatus:status];
+    UIColor *startColor = [self yt_colorForStatus:self.cellStatus];
     UIColor *endColor = [UIColor whiteColor];
     self.actionGradientLayer.colors = @[(id)startColor.CGColor, (id)endColor.CGColor];
 }

@@ -5,6 +5,60 @@
 
 #import "YTInternalUnitViewSupport.h"
 #import "YTAnswerEvaluating.h"
+#import "YTUnit.h"
+
+static NSArray<NSString *> *YTOrderedTokenTextsByGreedyMatch(NSString *sentence, NSArray<NSDictionary *> *options) {
+    if (sentence.length == 0) return nil;
+    NSMutableArray<NSString *> *candidates = [NSMutableArray array];
+    for (NSDictionary *opt in options) {
+        if (![opt isKindOfClass:[NSDictionary class]]) continue;
+        NSString *t = opt[@"text"];
+        if ([t isKindOfClass:[NSString class]] && t.length > 0) {
+            [candidates addObject:t];
+        }
+    }
+    if (candidates.count == 0) return nil;
+    [candidates sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+        if (a.length > b.length) return NSOrderedAscending;
+        if (a.length < b.length) return NSOrderedDescending;
+        return [a compare:b];
+    }];
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    NSUInteger pos = 0;
+    NSUInteger len = sentence.length;
+    while (pos < len) {
+        BOOL matched = NO;
+        for (NSString *tok in candidates) {
+            if (pos + tok.length > len) continue;
+            if ([[sentence substringWithRange:NSMakeRange(pos, tok.length)] isEqualToString:tok]) {
+                [out addObject:tok];
+                pos += tok.length;
+                matched = YES;
+                break;
+            }
+        }
+        if (!matched) return nil;
+    }
+    return [out copy];
+}
+
+NSDictionary *YTRestoreAnswerPayloadFromUnit(YTUnit *unit) {
+    if (!unit) return nil;
+    switch (unit.unitType) {
+        case YTUnitTypeExerciseListenChooseImage:
+        case YTUnitTypeExerciseLookChooseWord:
+        case YTUnitTypeExerciseChooseWordFillBlank:
+        case YTUnitTypeExerciseListenChooseResponse:
+        case YTUnitTypeExerciseCompleteDialogue:
+            return YTAnswerPayloadForSelectedOptionId(unit.correctOptionId);
+        case YTUnitTypeExerciseBuildSentence: {
+            NSArray *ordered = YTOrderedTokenTextsByGreedyMatch(unit.correctSentenceText ?: @"", unit.options ?: @[]);
+            return YTAnswerPayloadForOrderedTokenTexts(ordered);
+        }
+        default:
+            return nil;
+    }
+}
 
 NSDictionary *YTAnswerPayloadForSelectedOptionId(NSString *selectedOptionId) {
     if (selectedOptionId.length == 0) return nil;

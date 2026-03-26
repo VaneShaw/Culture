@@ -13,8 +13,8 @@
 @interface YTTalkSceneListItemModel : NSObject
 @property (nonatomic, copy) NSString *title;
 @property (nonatomic, copy) NSString *subtitle;
-@property (nonatomic, copy) NSString *imageName;
-@property (nonatomic, assign) YTTalkSceneCellStatus status;
+@property (nonatomic, copy) NSString *imageUrl;
+@property (nonatomic, assign) NSInteger progressPercent;
 @end
 
 @implementation YTTalkSceneListItemModel
@@ -96,47 +96,47 @@
 
 - (NSArray<YTTalkSceneListItemModel *> *)yt_localModelsForType:(NSString *)type {
     // 本地数据源：用于接口对接前的 UI 验证
-    // NOTE: imageName 目前仅使用工程内存在的占位资源 take_img0 / take_img1
+    // NOTE: imageUrl 使用网络占位地址（实际接入时替换为后端下发）
     NSMutableArray<YTTalkSceneListItemModel *> *arr = [NSMutableArray array];
 
     NSArray<NSDictionary *> *items = nil;
     if ([type isEqualToString:@"hot"]) {
         items = @[
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
-            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
-            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusCompleted)},
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
-            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)}
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_0/300/200", @"progressPercent":@(0)},
+            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_1/300/200", @"progressPercent":@(60)},
+            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_2/300/200", @"progressPercent":@(100)},
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_3/300/200", @"progressPercent":@(60)},
+            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_4/300/200", @"progressPercent":@(0)}
         ];
     } else if ([type isEqualToString:@"new"]) {
         items = @[
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
-            @{@"title":@"At Library", @"subtitle":@"Mastering Library\nStudy & Talk", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
-            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nReal-life Dialogue", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusCompleted)},
-            @{@"title":@"At Library", @"subtitle":@"Mastering Library\nStudy & Talk", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusInProgress)}
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_new_0/300/200", @"progressPercent":@(60)},
+            @{@"title":@"At Library", @"subtitle":@"Mastering Library\nStudy & Talk", @"imageUrl":@"https://picsum.photos/seed/talk_list_new_1/300/200", @"progressPercent":@(0)},
+            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nReal-life Dialogue", @"imageUrl":@"https://picsum.photos/seed/talk_list_new_2/300/200", @"progressPercent":@(100)},
+            @{@"title":@"At Library", @"subtitle":@"Mastering Library\nStudy & Talk", @"imageUrl":@"https://picsum.photos/seed/talk_list_new_3/300/200", @"progressPercent":@(60)}
         ];
     } else if ([type isEqualToString:@"nearby"]) {
         items = @[
-            @{@"title":@"At Park", @"subtitle":@"Talking nearby with confidence", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
-            @{@"title":@"At Cafe", @"subtitle":@"Small talk in everyday life", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
-            @{@"title":@"At Bookstore", @"subtitle":@"Ask about books & suggestions", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusCompleted)},
-            @{@"title":@"At Park", @"subtitle":@"Practice common phrases", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)}
+            @{@"title":@"At Park", @"subtitle":@"Talking nearby with confidence", @"imageUrl":@"https://picsum.photos/seed/talk_list_nearby_0/300/200", @"progressPercent":@(0)},
+            @{@"title":@"At Cafe", @"subtitle":@"Small talk in everyday life", @"imageUrl":@"https://picsum.photos/seed/talk_list_nearby_1/300/200", @"progressPercent":@(60)},
+            @{@"title":@"At Bookstore", @"subtitle":@"Ask about books & suggestions", @"imageUrl":@"https://picsum.photos/seed/talk_list_nearby_2/300/200", @"progressPercent":@(100)},
+            @{@"title":@"At Park", @"subtitle":@"Practice common phrases", @"imageUrl":@"https://picsum.photos/seed/talk_list_nearby_3/300/200", @"progressPercent":@(60)}
         ];
     } else if ([type isEqualToString:@"recommended"]) {
         items = @[
-            @{@"title":@"Recommended", @"subtitle":@"Start with what fits you best", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
-            @{@"title":@"Quick Win", @"subtitle":@"Short lessons, fast improvement", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
-            @{@"title":@"Keep Growing", @"subtitle":@"Next steps for better fluency", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusCompleted)},
-            @{@"title":@"Recommended", @"subtitle":@"More scenes, more practice", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusInProgress)}
+            @{@"title":@"Recommended", @"subtitle":@"Start with what fits you best", @"imageUrl":@"https://picsum.photos/seed/talk_list_rec_0/300/200", @"progressPercent":@(60)},
+            @{@"title":@"Quick Win", @"subtitle":@"Short lessons, fast improvement", @"imageUrl":@"https://picsum.photos/seed/talk_list_rec_1/300/200", @"progressPercent":@(0)},
+            @{@"title":@"Keep Growing", @"subtitle":@"Next steps for better fluency", @"imageUrl":@"https://picsum.photos/seed/talk_list_rec_2/300/200", @"progressPercent":@(100)},
+            @{@"title":@"Recommended", @"subtitle":@"More scenes, more practice", @"imageUrl":@"https://picsum.photos/seed/talk_list_rec_3/300/200", @"progressPercent":@(60)}
         ];
     } else {
         items = @[
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusNotStarted)},
-            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusInProgress)},
-            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusCompleted)},
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusNotStarted)},
-            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"image":@"take_img0", @"status":@(YTTalkSceneCellStatusInProgress)},
-            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"image":@"take_img1", @"status":@(YTTalkSceneCellStatusCompleted)}
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_0/300/200", @"progressPercent":@(0)},
+            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_1/300/200", @"progressPercent":@(60)},
+            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_2/300/200", @"progressPercent":@(100)},
+            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_3/300/200", @"progressPercent":@(0)},
+            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_4/300/200", @"progressPercent":@(60)},
+            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_5/300/200", @"progressPercent":@(100)}
         ];
     }
 
@@ -144,8 +144,8 @@
         YTTalkSceneListItemModel *m = [[YTTalkSceneListItemModel alloc] init];
         m.title = dic[@"title"] ?: @"";
         m.subtitle = dic[@"subtitle"] ?: @"";
-        m.imageName = dic[@"image"] ?: @"";
-        m.status = (YTTalkSceneCellStatus)[dic[@"status"] integerValue];
+        m.imageUrl = dic[@"imageUrl"] ?: @"";
+        m.progressPercent = [dic[@"progressPercent"] integerValue];
         [arr addObject:m];
     }
 
@@ -196,7 +196,7 @@
     }
 
     YTTalkSceneListItemModel *m = self.dataSource[indexPath.row];
-    [cell configureWithTitle:m.title subtitle:m.subtitle imageName:m.imageName status:m.status];
+    [cell configureWithTitle:m.title subtitle:m.subtitle imageUrl:m.imageUrl progressPercent:m.progressPercent];
     return cell;
 }
 

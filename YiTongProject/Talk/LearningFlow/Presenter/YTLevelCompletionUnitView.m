@@ -8,6 +8,11 @@
 #import "YTAnswerEvaluating.h"
 #import "YTPronounceEvaluating.h"
 #import "HeaderConfig.h"
+#import <QuartzCore/QuartzCore.h>
+
+static const CGFloat kYTBadgeAreaSize = 214.0;
+static const CGFloat kYTBadgeForegroundW = 120.0;
+static const CGFloat kYTBadgeForegroundH = 135.0;
 
 static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
     UIColor *pc = theme.primaryColor;
@@ -23,6 +28,9 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
 @property (nonatomic, strong) UIView *cardView;
 @property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, strong) UIView *scrollContentView;
+/// 徽章区域：与原先单张背景图同尺寸，内叠放光晕 + 徽章
+@property (nonatomic, strong) UIView *badgeContainerView;
+@property (nonatomic, strong) UIImageView *badgeGlowImageView;
 @property (nonatomic, strong) UIImageView *badgeImageView;
 @property (nonatomic, strong) UILabel *scoreLabel;
 @property (nonatomic, strong) UILabel *headlineLabel;
@@ -73,13 +81,31 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
             make.width.equalTo(self.scrollView);
         }];
 
-        _badgeImageView = [[UIImageView alloc] init];
-        _badgeImageView.contentMode = UIViewContentModeScaleAspectFit;
-        [_scrollContentView addSubview:_badgeImageView];
-        [_badgeImageView mas_makeConstraints:^(MASConstraintMaker *make) {
+        _badgeContainerView = [[UIView alloc] init];
+        _badgeContainerView.backgroundColor = [UIColor clearColor];
+        [_scrollContentView addSubview:_badgeContainerView];
+        [_badgeContainerView mas_makeConstraints:^(MASConstraintMaker *make) {
             make.top.equalTo(self.scrollContentView).offset(35);
             make.centerX.equalTo(self.scrollContentView);
-            make.width.height.mas_equalTo(214);
+            make.width.height.mas_equalTo(kYTBadgeAreaSize);
+        }];
+
+        _badgeGlowImageView = [[UIImageView alloc] init];
+        _badgeGlowImageView.contentMode = UIViewContentModeScaleAspectFit;
+        _badgeGlowImageView.image = [UIImage imageNamed:@"talk_animated_light"];
+        [_badgeContainerView addSubview:_badgeGlowImageView];
+        [_badgeGlowImageView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.center.equalTo(self.badgeContainerView);
+            make.width.height.mas_equalTo(kYTBadgeAreaSize);
+        }];
+
+        _badgeImageView = [[UIImageView alloc] init];
+        _badgeImageView.contentMode = UIViewContentModeScaleAspectFit;
+        [_badgeContainerView addSubview:_badgeImageView];
+        [_badgeImageView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.center.equalTo(self.badgeContainerView);
+            make.width.mas_equalTo(kYTBadgeForegroundW);
+            make.height.mas_equalTo(kYTBadgeForegroundH);
         }];
 
         _scoreLabel = [[UILabel alloc] init];
@@ -88,7 +114,7 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
         _scoreLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:90] ?: [UIFont systemFontOfSize:90 weight:UIFontWeightBold];
         [_scrollContentView addSubview:_scoreLabel];
         [_scoreLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(self.badgeImageView.mas_bottom).offset(20);
+            make.top.equalTo(self.badgeContainerView.mas_bottom).offset(20);
             make.centerX.equalTo(self.scrollContentView);
         }];
 
@@ -119,6 +145,22 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
     return self;
 }
 
+- (void)yt_startBadgeGlowRotationIfNeeded {
+    UIImage *glow = self.badgeGlowImageView.image;
+    if (!glow) {
+        return;
+    }
+    CALayer *layer = self.badgeGlowImageView.layer;
+    [layer removeAnimationForKey:@"yt_badge_glow_rotation"];
+    CABasicAnimation *rot = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
+    rot.fromValue = @(0);
+    rot.toValue = @(M_PI * 2.0);
+    rot.duration = 18.0;
+    rot.repeatCount = HUGE_VALF;
+    rot.removedOnCompletion = NO;
+    [layer addAnimation:rot forKey:@"yt_badge_glow_rotation"];
+}
+
 - (void)configureWithUnit:(YTUnit *)unit
                     theme:(YTDifficultyTheme *)theme
                     audio:(YTAudioMuxService *)audio
@@ -134,9 +176,9 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
     BOOL isBeginner = (unit.levelId == YTLevelIdBeginner);
     self.scoreLabel.hidden = !isBeginner;
     if (isBeginner) {
-        self.scoreLabel.text = NSLocalizedString(@"Talk_LevelComplete_Beginner_Score", @"");
+        self.scoreLabel.text = unit.completionScoreText ?: @"";
         [self.scoreLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(self.badgeImageView.mas_bottom).offset(20);
+            make.top.equalTo(self.badgeContainerView.mas_bottom).offset(20);
             make.centerX.equalTo(self.scrollContentView);
         }];
         [self.headlineLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
@@ -145,30 +187,21 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
         }];
     } else {
         [self.scoreLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(self.badgeImageView.mas_bottom).offset(0);
+            make.top.equalTo(self.badgeContainerView.mas_bottom).offset(0);
             make.centerX.equalTo(self.scrollContentView);
             make.height.mas_equalTo(0);
         }];
         [self.headlineLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(self.badgeImageView.mas_bottom).offset(24);
+            make.top.equalTo(self.badgeContainerView.mas_bottom).offset(24);
             make.left.right.equalTo(self.scrollContentView).inset(16);
         }];
     }
 
-    if (unit.levelId == YTLevelIdBeginner) {
-        self.headlineLabel.text = NSLocalizedString(@"Talk_LevelComplete_Beginner_Headline", @"");
-        self.subtitleLabel.text = NSLocalizedString(@"Talk_LevelComplete_Beginner_Subtitle", @"");
-    } else if (unit.levelId == YTLevelIdIntermediate) {
-        self.headlineLabel.text = NSLocalizedString(@"Talk_LevelComplete_Intermediate_Headline", @"");
-        self.subtitleLabel.text = NSLocalizedString(@"Talk_LevelComplete_Intermediate_Subtitle", @"");
-    } else {
-        self.headlineLabel.text = NSLocalizedString(@"Talk_LevelComplete_Advanced_Headline", @"");
-        self.subtitleLabel.text = NSLocalizedString(@"Talk_LevelComplete_Advanced_Subtitle", @"");
-    }
+    self.headlineLabel.text = [unit yt_resolvedTitleDisplayText];
+    self.subtitleLabel.text = unit.completionSubtitle ?: @"";
 
     UIImage *img = [UIImage imageNamed:[self yt_badgeImageNameForLevel:unit.levelId]];
     if (!img) {
-        // 兼容旧资源名，避免素材未同步时出现空白
         img = [UIImage imageNamed:@"talk_level_complete_badge"];
     }
     if (!img && @available(iOS 13.0, *)) {
@@ -187,13 +220,19 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
     }
 
     self.primaryState.kind = YTUnitPrimaryKindContinue;
-    if (unit.levelId == YTLevelIdAdvanced) {
-        self.primaryState.title = @"Talk_LevelComplete_Primary_Explore";
-    } else {
-        self.primaryState.title = @"Talk_LevelComplete_Primary_MoveNext";
-    }
+    self.primaryState.title = (unit.levelId == YTLevelIdAdvanced) ? @"Talk_LevelComplete_Primary_Explore" : @"Talk_LevelComplete_Primary_MoveNext";
     self.primaryState.enabled = YES;
     [self emitPrimaryState];
+
+    // Presenter 是 NSObject：`configure` 早于容器把 `rootView` 挂上，下一 runloop 再启动画
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        [self yt_startBadgeGlowRotationIfNeeded];
+    });
 }
 
 @end

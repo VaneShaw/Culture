@@ -32,6 +32,9 @@ FOUNDATION_EXPORT NSDictionary * _Nullable YTAnswerPayloadForOrderedTokenTexts(N
 FOUNDATION_EXPORT NSString * _Nullable YTSelectedOptionIdFromPayload(NSDictionary * _Nullable payload);
 FOUNDATION_EXPORT NSArray<NSString *> * _Nullable YTOrderedTokenTextsFromPayload(NSDictionary * _Nullable payload);
 
+/// 续学：无 `progress.answerPayload` 时，由本题标答（`correctOptionId` / `correctSentenceText` + `options`）推导与提交答案相同的 payload 结构
+FOUNDATION_EXPORT NSDictionary * _Nullable YTRestoreAnswerPayloadFromUnit(YTUnit * _Nullable unit);
+
 /// 第一阶段拆分：先把发音题 Presenter 的公开类名独立出去，内部实现仍复用旧代码。
 @interface YTPronounceUnitViewLegacyInternal : YTBaseUnitView
 @end

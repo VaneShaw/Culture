@@ -13,6 +13,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSDictionary *)buildResponseForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId;
 
+/// 与工厂插入的「练习前过渡」unit 一致，供 `YTMockUnitFactory` 映射为 `YTUnit`
++ (NSDictionary *)practiceTransitionUnitPayloadForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId;
+/// 与工厂追加的「本难度完成」unit 一致
++ (NSDictionary *)levelCompletionUnitPayloadForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId;
+
 @end
 
 NS_ASSUME_NONNULL_END

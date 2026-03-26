@@ -7,52 +7,6 @@
 #import "YTMockLearningFlowResponseBuilder.h"
 #import "YTUnitMapper.h"
 
-static NSArray<YTUnit *> *YTInsertPracticeTransitionUnitIfNeeded(NSArray<YTUnit *> *units, NSString *sceneId, YTLevelId levelId) {
-    if (units.count == 0) return units;
-    for (YTUnit *u in units) {
-        if (u.unitType == YTUnitTypePracticeTransition) return units;
-    }
-    NSInteger firstExerciseIndex = NSNotFound;
-    for (NSInteger i = 0; i < units.count; i++) {
-        if (units[i].unitType != YTUnitTypePronounce) {
-            firstExerciseIndex = i;
-            break;
-        }
-    }
-    if (firstExerciseIndex == NSNotFound || firstExerciseIndex == 0) return units;
-
-    YTUnit *t = [[YTUnit alloc] init];
-    t.sceneId = sceneId;
-    t.levelId = levelId;
-    t.unitType = YTUnitTypePracticeTransition;
-    t.unitId = [NSString stringWithFormat:@"%@_%ld_practice_transition", sceneId ?: @"scene", (long)levelId];
-
-    NSMutableArray<YTUnit *> *m = [units mutableCopy];
-    [m insertObject:t atIndex:firstExerciseIndex];
-    for (NSInteger i = 0; i < m.count; i++) {
-        m[i].stepIndex = i;
-    }
-    return [m copy];
-}
-
-static NSArray<YTUnit *> *YTAppendLevelCompletionUnitIfNeeded(NSArray<YTUnit *> *units, NSString *sceneId, YTLevelId levelId) {
-    if (units.count == 0) return units;
-    for (YTUnit *u in units) {
-        if (u.unitType == YTUnitTypeLevelCompletion) return units;
-    }
-    YTUnit *c = [[YTUnit alloc] init];
-    c.sceneId = sceneId;
-    c.levelId = levelId;
-    c.unitType = YTUnitTypeLevelCompletion;
-    c.unitId = [NSString stringWithFormat:@"%@_%ld_level_complete", sceneId ?: @"scene", (long)levelId];
-    NSMutableArray<YTUnit *> *m = [units mutableCopy];
-    [m addObject:c];
-    for (NSInteger i = 0; i < m.count; i++) {
-        m[i].stepIndex = i;
-    }
-    return [m copy];
-}
-
 @implementation YTMockUnitFactory
 
 + (void)fetchUnitsForSceneId:(NSString *)sceneId
@@ -89,9 +43,10 @@ static NSArray<YTUnit *> *YTAppendLevelCompletionUnitIfNeeded(NSArray<YTUnit *> 
 + (NSArray<YTUnit *> *)learningFlowUnitsFromRawUnits:(NSArray<YTUnit *> *)rawUnits
                                              sceneId:(NSString *)sceneId
                                              levelId:(YTLevelId)levelId {
-    NSArray<YTUnit *> *raw = rawUnits ?: @[];
-    NSArray<YTUnit *> *withTransition = YTInsertPracticeTransitionUnitIfNeeded(raw, sceneId, levelId);
-    return YTAppendLevelCompletionUnitIfNeeded(withTransition, sceneId, levelId);
+    (void)sceneId;
+    (void)levelId;
+    /// 过渡页（7）/ 完成页（8）须已在启动接口 `data.units` 中下发（Mock 由 `YTMockLearningFlowResponseBuilder` 拼进 `units`）
+    return rawUnits ?: @[];
 }
 
 + (NSArray<YTUnit *> *)learningFlowUnitsForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId {

@@ -71,6 +71,11 @@ Tap to start recording and say this sound out loud
 "Talk_LevelComplete_Intermediate_Subtitle" = "You've mastered how to ask simple questions using 「吗」(ma)";
 "Talk_LevelComplete_Advanced_Headline" = "Grammar & Culture";
 "Talk_LevelComplete_Advanced_Subtitle" = "You've mastered how to start questions politely and describe actions that haven't happened yet.";
+"Talk_LevelComplete_Nav_Again" = "Again";
+"Talk_ConfirmRestartLearning" = "Do you want to restart learning?";
+"Talk_RestartLearning_Restart" = "Restart";
+"Talk_Alert_Confirm" = "OK";
+"Talk_Alert_DefaultTopTitle" = "Tip";
 
 "Detected last learning at %@, continue?" = "Detected last learning at %@, continue?";
 "Continue last learning" = "Continue last learning";

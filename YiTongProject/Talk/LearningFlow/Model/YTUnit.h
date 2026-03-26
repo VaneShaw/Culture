@@ -69,9 +69,6 @@ typedef NS_ENUM(NSInteger, YTLevelId) {
 /// - 说明：目前用“子串数组”表达；若未来要支持多处同文案/精确 range，可升级为结构化 range
 @property (nonatomic, strong, nullable) NSArray<NSString *> *highlightTexts;
 
-/// Grammar 专用（MVP：纯文本）
-@property (nonatomic, copy, nullable) NSString *grammarText;
-
 /// Grammar Page（点词高亮翻转后的语法页：标题/说明/公式/示例/拼音与高亮）
 /// - 注意：当前语法页 UI 由 `YTPronounceUnitView` 负责（不是 `unitType=grammar` 那个纯文本页）
 @property (nonatomic, copy, nullable) NSString *grammarPageNavTitle;
@@ -108,8 +105,19 @@ typedef NS_ENUM(NSInteger, YTLevelId) {
 /// 后台下发的可恢复答案（如 @{@"selectedOptionId":@"a"} 或句子组装的 orderedTokenTexts）
 @property (nonatomic, copy, nullable) NSDictionary *serverAnswerPayload;
 
+/// `practice_transition`（7）：`display.subtitle`（string）与 `display.sections`
+@property (nonatomic, copy, nullable) NSString *transitionSubtitle;
+/// 每项建议 `@{ @"caption": @"", @"body": @"" }`（困难模式两段说明）
+@property (nonatomic, copy, nullable) NSArray<NSDictionary *> *transitionSections;
+/// `level_complete`（8）：`display.scoreText` / `display.subtitle` 等
+@property (nonatomic, copy, nullable) NSString *completionScoreText;
+@property (nonatomic, copy, nullable) NSString *completionSubtitle;
+
 /// 是否计入进度（过渡页 / 完成页不计入）
 - (BOOL)countsTowardProgress;
+
+/// `unitType` 7 / 8：主标题来自接口 `display.title`（string）；其它题型仍可能用 `titleCN` / `titleEN` / `titlePinyin`。
+- (NSString *)yt_resolvedTitleDisplayText;
 
 @end
 

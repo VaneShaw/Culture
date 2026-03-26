@@ -276,6 +276,11 @@
 "Talk_LevelComplete_Intermediate_Subtitle" = "你已掌握如何用「吗」提出简单疑问";
 "Talk_LevelComplete_Advanced_Headline" = "语法与文化";
 "Talk_LevelComplete_Advanced_Subtitle" = "你已掌握如何礼貌提问，并描述尚未发生的动作。";
+"Talk_LevelComplete_Nav_Again" = "重来";
+"Talk_ConfirmRestartLearning" = "是否重新开始学习？";
+"Talk_RestartLearning_Restart" = "重新开始";
+"Talk_Alert_Confirm" = "确定";
+"Talk_Alert_DefaultTopTitle" = "提示";
 
 "Renew Now" = "立即续费";
 "Unlocked!" = "解锁成功!";

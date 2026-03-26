@@ -22,8 +22,8 @@ typedef NS_ENUM(NSInteger, YTTalkSceneCellStatus) {
 // 按场景卡片 UI 需求配置内容与进度状态
 - (void)configureWithTitle:(NSString *)title
                   subtitle:(NSString *)subtitle
-                 imageName:(NSString *)imageName
-                     status:(YTTalkSceneCellStatus)status;
+                  imageUrl:(NSString *)imageUrl
+           progressPercent:(NSInteger)progressPercent;
 @end
 
 NS_ASSUME_NONNULL_END

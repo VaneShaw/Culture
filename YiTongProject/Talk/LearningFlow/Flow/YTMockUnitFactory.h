@@ -30,7 +30,7 @@ NS_ASSUME_NONNULL_BEGIN
                       levelId:(YTLevelId)levelId
                     completion:(void (^)(NSArray<YTUnit *> * _Nonnull units))completion;
 
-/// 构建完整 mock 接口响应：@{ @"units": [...], @"lastPosition": {...} }，lastPosition 模拟阶段从本地取
+/// 构建完整 mock 接口响应：@{ @"units": [...] }（无 `lastPosition` 字段）
 + (NSDictionary *)buildMockAPIResponseForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId;
 
 /// 将接口返回的 units 数组映射为 YTUnit
@@ -38,12 +38,12 @@ NS_ASSUME_NONNULL_BEGIN
                                         sceneId:(NSString *)sceneId
                                         levelId:(YTLevelId)levelId;
 
-/// 与 `TalkLearningFlowViewController` 一致：在 raw units 上插入过渡页、追加完成页（已存在则跳过）
+/// 原样返回 `rawUnits`（过渡/完成页须已在接口 `units` 里，不再由客户端插入）
 + (NSArray<YTUnit *> *)learningFlowUnitsFromRawUnits:(NSArray<YTUnit *> *)rawUnits
                                              sceneId:(NSString *)sceneId
                                              levelId:(YTLevelId)levelId;
 
-/// `buildUnitsForSceneId` + 过渡页 + 完成页
+/// 等同 `buildUnitsForSceneId`（Mock 响应里已含 7/8）
 + (NSArray<YTUnit *> *)learningFlowUnitsForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId;
 
 /// 与容器页 `currentProgress` 一致：已完成且计入进度的 unit 数 / 计入进度的总数

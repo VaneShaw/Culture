@@ -60,6 +60,25 @@
     return self.recorder.isRecording;
 }
 
+- (CGFloat)currentMeterNormalizedLevel {
+    AVAudioRecorder *r = self.recorder;
+    if (!r || !r.isRecording || !r.meteringEnabled) {
+        return 0;
+    }
+    [r updateMeters];
+    float power = [r averagePowerForChannel:0];
+    // dB：约 -160（静音）~ 0；跟读场景取一段映射到 0~1
+    static const float kFloorDb = -55.0f;
+    static const float kCeilDb = -8.0f;
+    if (power < kFloorDb) {
+        return 0;
+    }
+    float t = (power - kFloorDb) / (kCeilDb - kFloorDb);
+    if (t < 0) t = 0;
+    if (t > 1) t = 1;
+    return t;
+}
+
 - (void)startRecordingWithIdentifier:(NSString *)identifier completion:(YTRecordStartCallback)completion {
     if (identifier.length == 0) {
         if (completion) completion(NO, [NSError errorWithDomain:@"YTRecordingService" code:2001 userInfo:@{NSLocalizedDescriptionKey: @"identifier 为空"}]);

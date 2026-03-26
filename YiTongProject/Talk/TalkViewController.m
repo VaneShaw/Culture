@@ -318,7 +318,13 @@
     [itemView addSubview:bannerButton];
 
     UIImageView *bgImageView = [[UIImageView alloc] init];
-    bgImageView.image = [UIImage imageNamed:item[@"imageName"] ?: @"talk_topic_bg"];
+    UIImage *placeholder = [UIImage imageNamed:@"talk_topic_bg"];
+    NSString *imageUrlStr = item[@"imageUrl"];
+    if (imageUrlStr.length > 0) {
+        [bgImageView sd_setImageWithURL:[NSURL URLWithString:imageUrlStr] placeholderImage:placeholder];
+    } else {
+        bgImageView.image = placeholder;
+    }
     bgImageView.contentMode = UIViewContentModeScaleAspectFill;
     bgImageView.clipsToBounds = YES;
     [bannerButton addSubview:bgImageView];
@@ -455,19 +461,19 @@
                 @"title": NSLocalizedString(@"Talk_Home_Banner_Title", @""),
                 @"subtitle": NSLocalizedString(@"Talk_Home_Banner_Subtitle", @""),
                 @"tag": NSLocalizedString(@"Talk_Home_Banner_Tag", @""),
-                @"imageName": @"talk_topic_bg"
+                @"imageUrl": @"https://picsum.photos/seed/talk_banner_1/800/450"
             },
             @{
                 @"title": NSLocalizedString(@"Talk_Home_Banner_Title_2", @""),
                 @"subtitle": NSLocalizedString(@"Talk_Home_Banner_Subtitle_2", @""),
                 @"tag": NSLocalizedString(@"Talk_Home_Banner_Tag_2", @""),
-                @"imageName": @"talk_topic_bg"
+                @"imageUrl": @"https://picsum.photos/seed/talk_banner_2/800/450"
             },
             @{
                 @"title": NSLocalizedString(@"Talk_Home_Banner_Title_3", @""),
                 @"subtitle": NSLocalizedString(@"Talk_Home_Banner_Subtitle_3", @""),
                 @"tag": NSLocalizedString(@"Talk_Home_Banner_Tag_3", @""),
-                @"imageName": @"talk_topic_bg"
+                @"imageUrl": @"https://picsum.photos/seed/talk_banner_3/800/450"
             }
         ];
     }

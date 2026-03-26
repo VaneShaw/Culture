@@ -23,5 +23,11 @@
     return YES;
 }
 
+- (NSString *)yt_resolvedTitleDisplayText {
+    if (self.titleCN.length) return self.titleCN;
+    if (self.titleEN.length) return self.titleEN;
+    return self.titlePinyin ?: @"";
+}
+
 @end
 

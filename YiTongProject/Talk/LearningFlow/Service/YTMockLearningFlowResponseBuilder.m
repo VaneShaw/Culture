@@ -8,6 +8,34 @@
 
 static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
 
+/// 与旧版「前端插入」位置一致：过渡页插在首道练习题前；完成页在末尾。若 `units` 已含 7/8 则不再追加（便于真实接口直接下发）。
+static void YTAppendBuiltinTransitionAndCompletionIfMissing(NSMutableArray<NSDictionary *> *resp, NSString *sceneId, YTLevelId levelId) {
+    BOOL hasTrans = NO;
+    BOOL hasComp = NO;
+    for (NSDictionary *u in resp) {
+        NSInteger ut = [u[@"unitType"] integerValue];
+        if (ut == YTUnitTypePracticeTransition) hasTrans = YES;
+        if (ut == YTUnitTypeLevelCompletion) hasComp = YES;
+    }
+    if (!hasTrans && resp.count > 0) {
+        NSInteger firstExerciseIndex = NSNotFound;
+        for (NSInteger i = 0; i < resp.count; i++) {
+            NSInteger t = [resp[i][@"unitType"] integerValue];
+            if (t != YTUnitTypePronounce) {
+                firstExerciseIndex = i;
+                break;
+            }
+        }
+        if (firstExerciseIndex != NSNotFound && firstExerciseIndex > 0) {
+            NSDictionary *payload = [YTMockLearningFlowResponseBuilder practiceTransitionUnitPayloadForSceneId:sceneId levelId:levelId];
+            [resp insertObject:payload atIndex:firstExerciseIndex];
+        }
+    }
+    if (!hasComp && resp.count > 0) {
+        [resp addObject:[YTMockLearningFlowResponseBuilder levelCompletionUnitPayloadForSceneId:sceneId levelId:levelId]];
+    }
+}
+
 @implementation YTMockLearningFlowResponseBuilder
 
 + (NSDictionary *)buildResponseForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId {
@@ -35,9 +63,8 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
                 ];
             }
             [resp addObject:@{
-                @"unitType": @"pronounce",
+                @"unitType": @(YTUnitTypePronounce),
                 @"unitId": [NSString stringWithFormat:@"vocab_%ld", (long)i],
-                @"stepIndex": @(i),
                 @"display": @{
                     @"title": @{@"zh": d[@"cn"], @"pinyin": d[@"py"], @"en": d[@"en"]},
                     @"image": @{@"name": d[@"img"], @"url": remoteImageURL ?: @""},
@@ -53,9 +80,8 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             NSString *correctId = (i == 0) ? @"b" : @"d";
 
             [resp addObject:@{
-                @"unitType": @"exercise_listen_choose_image",
+                @"unitType": @(YTUnitTypeExerciseListenChooseImage),
                 @"unitId": unitId,
-                @"stepIndex": @(vocabs.count + i),
                 @"display": @{
                     @"title": @{@"zh": @"", @"pinyin": pinyin, @"en": @""},
                     @"image": @{@"name": @""},
@@ -79,9 +105,8 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             NSString *correctId = (i == 0) ? @"b" : @"c";
 
             [resp addObject:@{
-                @"unitType": @"exercise_look_choose_word",
+                @"unitType": @(YTUnitTypeExerciseLookChooseWord),
                 @"unitId": unitId,
-                @"stepIndex": @(vocabs.count + 2 + i),
                 @"display": @{
                     @"title": @{@"zh": @"", @"pinyin": @"", @"en": @""},
                     @"image": @{@"name": headerImg},
@@ -111,7 +136,6 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
 
             if (i == 0) {
                 display[@"highlights"] = @[@{@"text": @"吗"}];
-                display[@"grammarText"] = @"Grammar Rule\n\n“吗”用于一般疑问句的句末。";
                 display[@"grammarPage"] = @{
                     @"navTitle": @"Grammar Rule",
                     @"description": @"Used at the end of a sentence to ask a yes/no question.",
@@ -131,22 +155,21 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             }
 
             [resp addObject:@{
-                @"unitType": @"pronounce",
+                @"unitType": @(YTUnitTypePronounce),
                 @"unitId": [NSString stringWithFormat:@"dlg_%ld", (long)i],
-                @"stepIndex": @(i),
                 @"display": display
             }];
         }
 
-        NSArray<NSString *> *exTypes = @[
-            @"exercise_choose_word_fill_blank",
-            @"exercise_listen_choose_response",
-            @"exercise_build_sentence",
-            @"exercise_complete_dialogue",
+        NSArray<NSNumber *> *exTypes = @[
+            @(YTUnitTypeExerciseChooseWordFillBlank),
+            @(YTUnitTypeExerciseListenChooseResponse),
+            @(YTUnitTypeExerciseBuildSentence),
+            @(YTUnitTypeExerciseCompleteDialogue),
         ];
 
         for (NSInteger i = 0; i < exTypes.count; i++) {
-            NSString *t = exTypes[i];
+            YTUnitType t = (YTUnitType)[exTypes[i] integerValue];
             NSString *unitId = [NSString stringWithFormat:@"ex_%ld", (long)i];
 
             NSMutableDictionary *display = [@{
@@ -157,7 +180,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
 
             NSString *correctOptionId = @"";
 
-            if ([t isEqualToString:@"exercise_choose_word_fill_blank"]) {
+            if (t == YTUnitTypeExerciseChooseWordFillBlank) {
                 display[@"title"] = @{@"zh": @"你是学生__？", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"吗"},
@@ -165,7 +188,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
                     @{@"id": @"c", @"text": @"啊"},
                 ];
                 correctOptionId = @"a";
-            } else if ([t isEqualToString:@"exercise_listen_choose_response"]) {
+            } else if (t == YTUnitTypeExerciseListenChooseResponse) {
                 display[@"title"] = @{@"zh": @"听音选择正确回应", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"是的，我是学生。"},
@@ -174,7 +197,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
                 ];
                 display[@"audio"] = @{@"referenceUrl": @""};
                 correctOptionId = @"a";
-            } else if ([t isEqualToString:@"exercise_build_sentence"]) {
+            } else if (t == YTUnitTypeExerciseBuildSentence) {
                 display[@"title"] = @{@"zh": @"拼出句子", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"text": @"你"},
@@ -184,7 +207,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
                     @{@"text": @"？"},
                 ];
                 display[@"correctSentenceText"] = @"你是学生吗？";
-            } else if ([t isEqualToString:@"exercise_complete_dialogue"]) {
+            } else if (t == YTUnitTypeExerciseCompleteDialogue) {
                 display[@"title"] = @{@"zh": @"你是学生吗？如果是的话请回答一下，我们需要确认你的身份。", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"是的"},
@@ -196,9 +219,8 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             }
 
             [resp addObject:@{
-                @"unitType": t,
+                @"unitType": @(t),
                 @"unitId": unitId,
-                @"stepIndex": @(lines.count + i),
                 @"display": display,
                 @"evaluation": @{@"rule": @{@"correctOptionId": correctOptionId}}
             }];
@@ -220,7 +242,6 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
 
             if ([d[@"cn"] containsString:@"吗"]) {
                 display[@"highlights"] = @[@{@"text": @"吗"}];
-                display[@"grammarText"] = @"Grammar Rule\n\n“吗”用于一般疑问句的句末。";
                 display[@"grammarPage"] = @{
                     @"navTitle": @"Grammar Rule",
                     @"description": @"Used at the end of a sentence to ask a yes/no question.",
@@ -240,21 +261,20 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             }
 
             [resp addObject:@{
-                @"unitType": @"pronounce",
+                @"unitType": @(YTUnitTypePronounce),
                 @"unitId": [NSString stringWithFormat:@"dlg_adv_%ld", (long)i],
-                @"stepIndex": @(i),
                 @"display": display
             }];
         }
 
-        NSArray<NSString *> *exTypes = @[
-            @"exercise_choose_word_fill_blank",
-            @"exercise_listen_choose_response",
-            @"exercise_build_sentence",
-            @"exercise_complete_dialogue",
+        NSArray<NSNumber *> *exTypes = @[
+            @(YTUnitTypeExerciseChooseWordFillBlank),
+            @(YTUnitTypeExerciseListenChooseResponse),
+            @(YTUnitTypeExerciseBuildSentence),
+            @(YTUnitTypeExerciseCompleteDialogue),
         ];
         for (NSInteger i = 0; i < exTypes.count; i++) {
-            NSString *t = exTypes[i];
+            YTUnitType t = (YTUnitType)[exTypes[i] integerValue];
             NSString *unitId = [NSString stringWithFormat:@"ex_adv_%ld", (long)i];
 
             NSMutableDictionary *display = [@{
@@ -264,7 +284,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             } mutableCopy];
             NSString *correctOptionId = @"";
 
-            if ([t isEqualToString:@"exercise_choose_word_fill_blank"]) {
+            if (t == YTUnitTypeExerciseChooseWordFillBlank) {
                 display[@"title"] = @{@"zh": @"请问图书馆在__里？", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"哪"},
@@ -272,7 +292,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
                     @{@"id": @"c", @"text": @"呢"},
                 ];
                 correctOptionId = @"a";
-            } else if ([t isEqualToString:@"exercise_listen_choose_response"]) {
+            } else if (t == YTUnitTypeExerciseListenChooseResponse) {
                 display[@"title"] = @{@"zh": @"听音选择正确回应", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"id": @"a", @"text": @"还没有，要到九点才开门。"},
@@ -280,7 +300,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
                     @{@"id": @"c", @"text": @"谢谢。"},
                 ];
                 correctOptionId = @"a";
-            } else if ([t isEqualToString:@"exercise_build_sentence"]) {
+            } else if (t == YTUnitTypeExerciseBuildSentence) {
                 display[@"title"] = @{@"zh": @"拼出句子", @"pinyin": @"", @"en": @""};
                 display[@"options"] = @[
                     @{@"text": @"现在"},
@@ -289,7 +309,7 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
                     @{@"text": @"？"},
                 ];
                 display[@"correctSentenceText"] = @"现在开门了吗？";
-            } else if ([t isEqualToString:@"exercise_complete_dialogue"]) {
+            } else if (t == YTUnitTypeExerciseCompleteDialogue) {
                 display[@"title"] = @{@"zh": @"现在开门了吗？", @"pinyin": @"", @"en": @""};
                 display[@"answerTemplate"] = @{@"zh": @"__，还没有。"};
                 display[@"options"] = @[
@@ -301,16 +321,14 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             }
 
             [resp addObject:@{
-                @"unitType": t,
+                @"unitType": @(t),
                 @"unitId": unitId,
-                @"stepIndex": @(lines.count + i),
                 @"display": display,
                 @"evaluation": @{@"rule": @{@"correctOptionId": correctOptionId}}
             }];
         }
 
         {
-            NSString *t = @"exercise_build_sentence";
             NSString *unitId = [NSString stringWithFormat:@"ex_adv_%ld", (long)exTypes.count];
             NSString *correctSentenceText = @"现在请你打开书本开始学习";
             NSMutableDictionary *display = [@{
@@ -329,23 +347,63 @@ static NSString *const kLastPositionKeyPrefix = @"talk_last_position";
             } mutableCopy];
 
             [resp addObject:@{
-                @"unitType": t,
+                @"unitType": @(YTUnitTypeExerciseBuildSentence),
                 @"unitId": unitId,
-                @"stepIndex": @(lines.count + exTypes.count),
                 @"display": display,
                 @"evaluation": @{@"rule": @{}}
             }];
         }
     }
 
-    NSString *lastPositionKey = [NSString stringWithFormat:@"%@_%@_%ld", kLastPositionKeyPrefix, sceneId ?: @"", (long)levelId];
-    id lastPositionRaw = [KUSER_DEFAULT objectForKey:lastPositionKey];
-    if (![lastPositionRaw isKindOfClass:[NSDictionary class]]) lastPositionRaw = nil;
+    YTAppendBuiltinTransitionAndCompletionIfMissing(resp, sceneId, levelId);
 
     return @{
         @"units": resp,
-        @"lastPosition": lastPositionRaw ?: [NSNull null],
     };
+}
+
++ (NSDictionary *)practiceTransitionUnitPayloadForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId {
+    NSString *uid = [NSString stringWithFormat:@"%@_%ld_practice_transition", sceneId ?: @"scene", (long)levelId];
+    NSMutableDictionary *display = [NSMutableDictionary dictionary];
+    switch (levelId) {
+        case YTLevelIdBeginner:
+            display[@"title"] = NSLocalizedString(@"Talk_PracticeTransition_Title_Beginner", @"");
+            display[@"subtitle"] = NSLocalizedString(@"Talk_PracticeTransition_Subtitle", @"");
+            break;
+        case YTLevelIdIntermediate:
+            display[@"title"] = NSLocalizedString(@"Talk_PracticeTransition_Title_Intermediate", @"");
+            display[@"subtitle"] = NSLocalizedString(@"Talk_PracticeTransition_Subtitle_Intermediate", @"");
+            break;
+        case YTLevelIdAdvanced:
+            display[@"title"] = NSLocalizedString(@"Talk_PracticeTransition_Title_Advanced", @"");
+            display[@"sections"] = @[
+                @{ @"caption": NSLocalizedString(@"Talk_PracticeTransition_AdvSec1_Label", @""), @"body": NSLocalizedString(@"Talk_PracticeTransition_AdvSec1_Body", @"") },
+                @{ @"caption": NSLocalizedString(@"Talk_PracticeTransition_AdvSec2_Label", @""), @"body": NSLocalizedString(@"Talk_PracticeTransition_AdvSec2_Body", @"") },
+            ];
+            break;
+    }
+    return @{ @"unitType": @(YTUnitTypePracticeTransition), @"unitId": uid, @"display": [display copy] };
+}
+
++ (NSDictionary *)levelCompletionUnitPayloadForSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId {
+    NSString *uid = [NSString stringWithFormat:@"%@_%ld_level_complete", sceneId ?: @"scene", (long)levelId];
+    NSMutableDictionary *display = [NSMutableDictionary dictionary];
+    switch (levelId) {
+        case YTLevelIdBeginner:
+            display[@"scoreText"] = NSLocalizedString(@"Talk_LevelComplete_Beginner_Score", @"");
+            display[@"title"] = NSLocalizedString(@"Talk_LevelComplete_Beginner_Headline", @"");
+            display[@"subtitle"] = NSLocalizedString(@"Talk_LevelComplete_Beginner_Subtitle", @"");
+            break;
+        case YTLevelIdIntermediate:
+            display[@"title"] = NSLocalizedString(@"Talk_LevelComplete_Intermediate_Headline", @"");
+            display[@"subtitle"] = NSLocalizedString(@"Talk_LevelComplete_Intermediate_Subtitle", @"");
+            break;
+        case YTLevelIdAdvanced:
+            display[@"title"] = NSLocalizedString(@"Talk_LevelComplete_Advanced_Headline", @"");
+            display[@"subtitle"] = NSLocalizedString(@"Talk_LevelComplete_Advanced_Subtitle", @"");
+            break;
+    }
+    return @{ @"unitType": @(YTUnitTypeLevelCompletion), @"unitId": uid, @"display": [display copy] };
 }
 
 @end
