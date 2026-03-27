@@ -44,6 +44,20 @@ static NSString *YTTalkNavAssetPrefix(YTLevelId levelId) {
     }
 }
 
+/// 主按钮不可点（如未选题）：面片与底层叠色同步变浅
+static UIColor *YTBlendColorTowardWhite(UIColor *color, CGFloat amount) {
+    if (!color) return color;
+    CGFloat r = 0, g = 0, b = 0, a = 1;
+    if (![color getRed:&r green:&g blue:&b alpha:&a]) {
+        return color;
+    }
+    CGFloat t = MIN(MAX(amount, 0), 1);
+    return [UIColor colorWithRed:r + (1.0 - r) * t
+                           green:g + (1.0 - g) * t
+                            blue:b + (1.0 - b) * t
+                           alpha:a];
+}
+
 /**
  场景对话 - 学习流容器（核心页）
  
@@ -75,6 +89,10 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 @property (nonatomic, assign) BOOL skipFetchUsePreloaded;
 
 @property (nonatomic, strong) UIView *progressBackgroundView;
+/// 进度条左侧：宽度 = 总宽 × 进度，内铺「主题色 → 轨道色」渐变，与右侧纯色无缝衔接
+@property (nonatomic, strong) UIView *progressLeftGradientHost;
+/// 进度条右侧：纯色轨道；与左侧相加为整条，进度 0 时仅占满、进度 1 时宽度为 0
+@property (nonatomic, strong) UIView *progressRightTrackView;
 @property (nonatomic, strong) UILabel *progressPillLabel;
 @property (nonatomic, strong) UIView *contentContainer;
 @property (nonatomic, strong) id<YTUnitViewProtocol> unitView;
@@ -144,6 +162,9 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
+    if (self.progressGradientLayer && self.progressLeftGradientHost) {
+        self.progressGradientLayer.frame = self.progressLeftGradientHost.bounds;
+    }
     if (self.currentIndex >= 0 && self.currentIndex < self.units.count &&
         self.units[self.currentIndex].unitType == YTUnitTypeLevelCompletion) {
         [self yt_applyLevelCompletionNextNavAppearance];
@@ -315,7 +336,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 
 - (void)setupUI {
     // UI 结构（自上而下）：
-    // 1) 进度胶囊：底层背景 progressBackgroundView + 渐变层承载 progressPillLabel
+    // 1) 进度胶囊：progressBackgroundView 内左（渐变）+ 右（纯色轨道）+ 上层 progressPillLabel
     // 2) 内容容器 contentContainer：所有题型共用同一容器；各题 Presenter 的 rootView 铺满此区域（edges = contentContainer）
     // 3) 底部导航：左/主/右（三按钮）；过渡页仅主按钮；主按钮由 Presenter 驱动文案/可用态
     // 4) 底部反馈条 bottomToast（Submit 对错/错误提示）
@@ -623,9 +644,18 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         } else {
             faceColor = self.theme.primaryColor;
         }
-        self.primaryDepthButton.depthColor = nil;
+        BOOL dimDisabledChrome = (!state.enabled && !isRecordingState && state.kind == YTUnitPrimaryKindSubmit);
+        if (dimDisabledChrome) {
+            faceColor = YTBlendColorTowardWhite(faceColor, 0.52);
+            self.primaryDepthButton.depthColor =
+                [YTDepthPrimaryButton autoDepthColorForFaceColor:faceColor
+                                                  darkeningFactor:self.primaryDepthButton.depthDarkeningFactor];
+        } else {
+            self.primaryDepthButton.depthColor = nil;
+        }
         self.primaryDepthButton.faceColor = faceColor;
         [self.primaryButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        [self.primaryButton setTitleColor:[[UIColor whiteColor] colorWithAlphaComponent:0.78] forState:UIControlStateDisabled];
         [self updateNavButtons];
     };
 
@@ -893,45 +923,47 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 }
 
 - (void)updateProgressUI {
+    (void)self.progressBackgroundView;
     CGFloat p = [self currentProgress];
+    p = MIN(MAX(p, 0.0), 1.0);
     NSInteger percent = (NSInteger)round(p * 100.0);
     NSString *progressPrefix = NSLocalizedString(@"Progress", @"");
     // 进度胶囊文案：所有难度统一展示“Progress”，避免 Intermediate/Advanced 被误显示为“Vocabulary”
     NSString *prefix = progressPrefix;
     self.progressPillLabel.text = [NSString stringWithFormat:@"%@  %ld%%", prefix, (long)percent];
 
-    // 渐变进度条：仅在有进度时展示（渐变放在背景层，避免盖住文字）
+    // 左：渐变块（宽 = p × 总长）；右：纯色轨道（宽 = (1-p) × 总长）。渐变末端 = 轨道色，避免与底色叠加产生白条/切割感
+    [self.progressLeftGradientHost mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.left.top.bottom.equalTo(self.progressBackgroundView);
+        make.width.equalTo(self.progressBackgroundView).multipliedBy(p);
+    }];
+    [self.progressRightTrackView mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.right.top.bottom.equalTo(self.progressBackgroundView);
+        make.left.equalTo(self.progressLeftGradientHost.mas_right);
+    }];
     [self.progressBackgroundView layoutIfNeeded];
+
     if (self.progressGradientLayer) {
         [self.progressGradientLayer removeFromSuperlayer];
         self.progressGradientLayer = nil;
     }
-    if (p > 0) {
-        CGRect bounds = self.progressBackgroundView.bounds;
-        if (!CGRectIsEmpty(bounds)) {
-            // 起始颜色：按难度使用指定色，50% 透明度
-            UIColor *startColor = nil;
-            if (self.levelId == YTLevelIdBeginner) {
-                startColor = [theAppDelegate.window colorWithHexString:@"#079669" alpha:0.5];
-            } else if (self.levelId == YTLevelIdIntermediate) {
-                startColor = [theAppDelegate.window colorWithHexString:@"#117FEC" alpha:0.5];
-            } else {
-                startColor = [theAppDelegate.window colorWithHexString:@"#2711EC" alpha:0.5];
-            }
-            UIColor *endColor = [[UIColor whiteColor] colorWithAlphaComponent:0.6];
-
-            // 渐变范围 = 从左边到当前进度对应的宽度；渐变层只占这段宽度，这样整段都是左→右渐变
-            CGFloat fillWidth = bounds.size.width * MIN(MAX(p, 0.0), 1.0);
-            CAGradientLayer *grad = [CAGradientLayer layer];
-            grad.frame = CGRectMake(0, 0, fillWidth, bounds.size.height);
-            grad.colors = @[(id)startColor.CGColor, (id)endColor.CGColor];
-            grad.startPoint = CGPointMake(0, 0.5);
-            grad.endPoint = CGPointMake(1, 0.5);
-
-            // 背景 view 已 masksToBounds，渐变会被圆角裁剪；文字 label 始终在上层
-            [self.progressBackgroundView.layer insertSublayer:grad atIndex:0];
-            self.progressGradientLayer = grad;
+    if (p > 1e-6) {
+        UIColor *startColor = nil;
+        if (self.levelId == YTLevelIdBeginner) {
+            startColor = [theAppDelegate.window colorWithHexString:@"#079669" alpha:0.5];
+        } else if (self.levelId == YTLevelIdIntermediate) {
+            startColor = [theAppDelegate.window colorWithHexString:@"#117FEC" alpha:0.5];
+        } else {
+            startColor = [theAppDelegate.window colorWithHexString:@"#2711EC" alpha:0.5];
         }
+        UIColor *trackColor = self.progressRightTrackView.backgroundColor ?: [UIColor colorWithWhite:1.0 alpha:0.6];
+        CAGradientLayer *grad = [CAGradientLayer layer];
+        grad.frame = self.progressLeftGradientHost.bounds;
+        grad.colors = @[(id)startColor.CGColor, (id)trackColor.CGColor];
+        grad.startPoint = CGPointMake(0, 0.5);
+        grad.endPoint = CGPointMake(1, 0.5);
+        [self.progressLeftGradientHost.layer insertSublayer:grad atIndex:0];
+        self.progressGradientLayer = grad;
     }
 
     [self maybeShowUnlockToastIfNeededWithProgress:p];
@@ -1034,10 +1066,27 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 - (UIView *)progressBackgroundView {
     if (!_progressBackgroundView) {
         _progressBackgroundView = [[UIView alloc] init];
-        // 使用原来的进度条背景色：白色 60% 透明度
-        _progressBackgroundView.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.6];
+        _progressBackgroundView.backgroundColor = [UIColor clearColor];
         _progressBackgroundView.layer.cornerRadius = 20;
         _progressBackgroundView.layer.masksToBounds = YES;
+
+        _progressRightTrackView = [[UIView alloc] init];
+        _progressRightTrackView.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.6];
+        [_progressBackgroundView addSubview:_progressRightTrackView];
+
+        _progressLeftGradientHost = [[UIView alloc] init];
+        _progressLeftGradientHost.backgroundColor = [UIColor clearColor];
+        _progressLeftGradientHost.clipsToBounds = YES;
+        [_progressBackgroundView addSubview:_progressLeftGradientHost];
+
+        [_progressLeftGradientHost mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.top.bottom.equalTo(_progressBackgroundView);
+            make.width.equalTo(_progressBackgroundView).multipliedBy(0);
+        }];
+        [_progressRightTrackView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.right.top.bottom.equalTo(_progressBackgroundView);
+            make.left.equalTo(_progressLeftGradientHost.mas_right);
+        }];
     }
     return _progressBackgroundView;
 }

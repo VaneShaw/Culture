@@ -64,7 +64,7 @@
 
         // Question bubble (left)
         _questionBubble = [[UIView alloc] init];
-        _questionBubble.backgroundColor = [UIColor colorWithWhite:0.94 alpha:1];
+        _questionBubble.backgroundColor = [UIColor colorWithRed:0xF2 / 255.0 green:0xF2 / 255.0 blue:0xF2 / 255.0 alpha:1];
         _questionBubble.layer.cornerRadius = 18;
         _questionBubble.layer.masksToBounds = YES;
         [_cardView addSubview:_questionBubble];
@@ -95,7 +95,7 @@
         }];
 
         _questionLabel = [[UILabel alloc] init];
-        _questionLabel.textColor = [UIColor colorWithWhite:0.25 alpha:1];
+        _questionLabel.textColor = GARY_COLOR_63;
         _questionLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:15];
         _questionLabel.numberOfLines = 0;
         _questionLabel.lineBreakMode = NSLineBreakByWordWrapping;
@@ -141,7 +141,7 @@
         _answerTextView.dataDetectorTypes = UIDataDetectorTypeNone;
         _answerTextView.textContainerInset = UIEdgeInsetsZero;
         _answerTextView.textContainer.lineFragmentPadding = 0;
-        _answerTextView.textColor = [UIColor colorWithWhite:0.25 alpha:1];
+        _answerTextView.textColor = GARY_COLOR_63;
         _answerTextView.font = [UIFont fontWithName:FONT_NAME_Semibold size:15];
         [_answerContentView addSubview:_answerTextView];
         [_answerTextView mas_makeConstraints:^(MASConstraintMaker *make) {
@@ -204,7 +204,7 @@
 
 - (NSAttributedString *)answerAttributedStringForTemplate:(NSString *)tpl {
     UIFont *font = [UIFont fontWithName:FONT_NAME_Semibold size:15] ?: [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-    UIColor *color = [UIColor colorWithWhite:0.25 alpha:1];
+    UIColor *color = GARY_COLOR_63;
     NSDictionary *baseAttr = @{NSFontAttributeName: font, NSForegroundColorAttributeName: color};
 
     NSRange br = [tpl rangeOfString:@"__"];
@@ -293,6 +293,8 @@
 
 - (void)configureWithUnit:(YTUnit *)unit theme:(YTDifficultyTheme *)theme audio:(YTAudioMuxService *)audio recording:(YTRecordingService *)recording pronounceEvaluator:(id<YTPronounceEvaluating>)pronounceEvaluator answerEvaluator:(id<YTAnswerEvaluating>)answerEvaluator {
     [super configureWithUnit:unit theme:theme audio:audio recording:recording pronounceEvaluator:pronounceEvaluator answerEvaluator:answerEvaluator];
+    self.questionBubble.backgroundColor = theme.chatPromptBubbleBackgroundColor ?: [UIColor colorWithRed:0xF2 / 255.0 green:0xF2 / 255.0 blue:0xF2 / 255.0 alpha:1];
+    self.answerBubble.backgroundColor = theme.chatAnswerBubbleBackgroundColor ?: [UIColor colorWithRed:0xE9/255.0 green:0xF2/255.0 blue:0xFF/255.0 alpha:1.0];
     self.selectedOptionId = nil;
     self.selectedTokenText = nil;
     self.answerChipStyle = 0;

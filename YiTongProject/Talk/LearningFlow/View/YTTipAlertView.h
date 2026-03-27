@@ -11,7 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface YTTipAlertView : UIView
 
-/// `secondaryButtonTitle` 非空时为双按钮模式（无关闭叉）；否则为单按钮模式（有关闭叉）。
+/// `secondaryButtonTitle` 非空时为双按钮模式（无关闭叉）；否则为单按钮模式（有关闭叉）。单/双主按钮均为底部扁平样式（与双按钮左侧「确定」一致，无 Depth 叠层）。
 /// - `topTitle`：顶部提示；nil 或空字符串时默认展示本地化「提示」（`Talk_Alert_DefaultTopTitle`）。
 /// - `contentText`：中间正文（必传非空）。
 /// - `primaryButtonTitle`：单按钮时为主按钮文案；双按钮时为左侧按钮文案（可为 @""，由业务决定）。

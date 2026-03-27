@@ -17,6 +17,9 @@
 #import "YTTipAlertView.h"
 #import "YTTopicLevelProgressIndicator.h"
 #import "YTDifficultyTheme.h"
+#import <QuartzCore/QuartzCore.h>
+#import <CoreImage/CoreImage.h>
+#import <SDWebImage/SDWebImage.h>
 
 /**
  话题主页（静态 UI + 难度入口）
@@ -34,14 +37,70 @@
  */
 static NSString *const kTalkTopicSceneId = @"scene_school";
 
+/// Core Image 高斯模糊半径（点），轻微虚化；可调 3～10
+static CGFloat const kYTTopicHomeBackgroundBlurRadius = 5.0;
+
 // 用于更新三张难度卡片的标题/副标题（不大改 UI 结构）
 static NSInteger const kYTTopicHomeCardTitleLabelTag = 901001;
 static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
+static NSInteger const kYTTopicHomeCardContentViewTag = 901003;
+
+/// 转为 OrientationUp，避免 CGImage + CI 与 UIImage 展示不一致导致边缘异常
+static UIImage *YTTopicHomeImageNormalizedUp(UIImage *image) {
+    if (!image) return image;
+    if (image.imageOrientation == UIImageOrientationUp) return image;
+    UIGraphicsBeginImageContextWithOptions(image.size, YES, image.scale);
+    [image drawInRect:CGRectMake(0, 0, image.size.width, image.size.height)];
+    UIImage *out = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return out ?: image;
+}
+
+/// 轻微高斯模糊：先 CIAffineClamp 再模糊，避免边缘向外采样透明/白底形成「一圈白」
+static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat radius) {
+    if (!image || image.size.width < 1.0 || image.size.height < 1.0) return image;
+
+    UIImage *flat = YTTopicHomeImageNormalizedUp(image);
+    CGImageRef cgImage = flat.CGImage;
+    if (!cgImage) return image;
+
+    CIImage *input = [CIImage imageWithCGImage:cgImage];
+    if (!input) return image;
+
+    CIFilter *clamp = [CIFilter filterWithName:@"CIAffineClamp"];
+    [clamp setValue:input forKey:kCIInputImageKey];
+    [clamp setValue:[NSValue valueWithCGAffineTransform:CGAffineTransformIdentity] forKey:kCIInputTransformKey];
+    CIImage *clamped = clamp.outputImage;
+    if (!clamped) return image;
+
+    CIFilter *blur = [CIFilter filterWithName:@"CIGaussianBlur"];
+    [blur setValue:clamped forKey:kCIInputImageKey];
+    [blur setValue:@(radius) forKey:kCIInputRadiusKey];
+    CIImage *output = blur.outputImage;
+    if (!output) return image;
+
+    CGRect extent = input.extent;
+    CIImage *cropped = [output imageByCroppingToRect:extent];
+    if (!cropped) return image;
+
+    static CIContext *ctx = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        ctx = [CIContext contextWithOptions:nil];
+    });
+    CGImageRef outCG = [ctx createCGImage:cropped fromRect:extent];
+    if (!outCG) return image;
+    UIImage *result = [UIImage imageWithCGImage:outCG scale:flat.scale orientation:UIImageOrientationUp];
+    CGImageRelease(outCG);
+    return result ?: image;
+}
 
 @interface TalkTopicHomeViewController ()
 
 @property (nonatomic, strong) UIImageView *backgroundImageView;
-@property (nonatomic, strong) UIView *backgroundDimView;
+/// 背景图底部与页面底色之间的渐变过渡，消除硬切割
+@property (nonatomic, strong) UIView *headerBottomFadeView;
+@property (nonatomic, strong) CAGradientLayer *headerBottomFadeGradientLayer;
 
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *subtitleLabel;
@@ -94,8 +153,12 @@ static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
+    if (self.headerBottomFadeGradientLayer && self.headerBottomFadeView) {
+        self.headerBottomFadeGradientLayer.frame = self.headerBottomFadeView.bounds;
+    }
     // viewWillAppear 往往早于卡片/指示器首帧布局，圆环 path 未建立时描边不画；布局完成后再刷一次进度与主题色
     [self refreshTopicLevelProgressIndicators];
+    [self yt_updateDifficultyCardShadowPathsIfNeeded];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -141,9 +204,28 @@ static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
         }
     }];
 
-    [self.view addSubview:self.backgroundDimView];
-    [self.backgroundDimView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.edges.equalTo(self.backgroundImageView);
+    // 底部渐变：图片区域平滑融入 self.view 背景色，避免与下方区域硬边
+    UIColor *pageBG = self.view.backgroundColor ?: [theAppDelegate.window colorWithHexString:@"#F6F8FF" alpha:1];
+    UIView *fade = [[UIView alloc] init];
+    fade.userInteractionEnabled = NO;
+    fade.backgroundColor = [UIColor clearColor];
+    CAGradientLayer *fadeGr = [CAGradientLayer layer];
+    fadeGr.startPoint = CGPointMake(0.5, 0.0);
+    fadeGr.endPoint = CGPointMake(0.5, 1.0);
+    fadeGr.colors = @[
+        (id)[UIColor clearColor].CGColor,
+        (id)[pageBG colorWithAlphaComponent:0.35].CGColor,
+        (id)pageBG.CGColor
+    ];
+    fadeGr.locations = @[@0.0, @0.45, @1.0];
+    [fade.layer addSublayer:fadeGr];
+    self.headerBottomFadeView = fade;
+    self.headerBottomFadeGradientLayer = fadeGr;
+    [self.view addSubview:fade];
+    [fade mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.right.equalTo(self.view);
+        make.bottom.equalTo(self.backgroundImageView);
+        make.height.mas_equalTo(140);
     }];
 
     [self.view addSubview:self.titleLabel];
@@ -190,6 +272,22 @@ static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
     [self.advancedCard mas_makeConstraints:^(MASConstraintMaker *make) {
         make.height.mas_equalTo(86);
     }];
+
+    [self yt_enqueueCoreImageBlurForBackgroundImage:self.backgroundImageView.image];
+}
+
+- (void)yt_enqueueCoreImageBlurForBackgroundImage:(UIImage *)source {
+    if (!source) return;
+    UIImage *sourceCopy = source;
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        UIImage *blurred = YTTopicHomeImageByApplyingGaussianBlur(sourceCopy, kYTTopicHomeBackgroundBlurRadius);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            self.backgroundImageView.image = blurred;
+        });
+    });
 }
 
 - (UIView *)buildCardWithTitle:(NSString *)title
@@ -197,17 +295,12 @@ static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
                 trailingWidget:(UIView *)trailingWidget
 {
     UIView *card = [[UIView alloc] init];
-    card.backgroundColor = [UIColor whiteColor];
+    card.backgroundColor = [UIColor clearColor];
     card.layer.cornerRadius = 16;
-    card.layer.masksToBounds = YES;
-
-    card.layer.shadowColor = [UIColor blackColor].CGColor;
-    card.layer.shadowOpacity = 0.06;
-    card.layer.shadowRadius = 10;
-    card.layer.shadowOffset = CGSizeMake(0, 6);
     card.layer.masksToBounds = NO;
 
     UIView *content = [[UIView alloc] init];
+    content.tag = kYTTopicHomeCardContentViewTag;
     content.backgroundColor = [UIColor whiteColor];
     content.layer.cornerRadius = 16;
     content.layer.masksToBounds = YES;
@@ -372,8 +465,16 @@ static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
     self.topicHomeBackgroundUrl = bgUrl;
     if (bgUrl.length > 0) {
         UIImage *placeholder = [UIImage imageNamed:@"talk_topic_bg"];
-        [self.backgroundImageView sd_setImageWithURL:[NSURL URLWithString:bgUrl] placeholderImage:placeholder];
+        __weak typeof(self) weakSelf = self;
+        [self.backgroundImageView sd_setImageWithURL:[NSURL URLWithString:bgUrl]
+                                    placeholderImage:placeholder
+                                           completed:^(UIImage * _Nullable image, NSError * _Nullable error, SDImageCacheType cacheType, NSURL * _Nullable imageURL) {
+            if (image && !error) {
+                [weakSelf yt_enqueueCoreImageBlurForBackgroundImage:image];
+            }
+        }];
     }
+    // 无网络图时沿用 setupUI 里已对占位图做的模糊
 
     // levels
     NSArray *levels = data[@"levels"];
@@ -473,6 +574,69 @@ static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
     [self yt_updateLockBadgesWithBeginnerUnlocked:self.beginnerBadgeUnlocked
                                      intermediateUnlocked:self.intermediateBadgeUnlocked
                                             advancedUnlocked:self.advancedBadgeUnlocked];
+
+    BOOL bDone = (beginnerRatio >= 1.0 - 1e-5);
+    BOOL iDone = (intermediateRatio >= 1.0 - 1e-5);
+    BOOL aDone = (advancedRatio >= 1.0 - 1e-5);
+    [self yt_applyDifficultyCardStyle:self.beginnerCard levelId:YTLevelIdBeginner completed:bDone];
+    [self yt_applyDifficultyCardStyle:self.intermediateCard levelId:YTLevelIdIntermediate completed:iDone];
+    [self yt_applyDifficultyCardStyle:self.advancedCard levelId:YTLevelIdAdvanced completed:aDone];
+}
+
+/// 未完成：白底 + 轻阴影；已完成：难度色底 + 对应色阴影（offset 0,2 radius 10）
+- (void)yt_applyDifficultyCardStyle:(UIView *)card levelId:(YTLevelId)levelId completed:(BOOL)completed {
+    if (!card) return;
+    UIView *content = [card viewWithTag:kYTTopicHomeCardContentViewTag];
+    if (!content) return;
+
+    if (completed) {
+        UIColor *fill = nil;
+        UIColor *shadow = nil;
+        switch (levelId) {
+            case YTLevelIdBeginner:
+                fill = [theAppDelegate.window colorWithHexString:@"#F3FAF7" alpha:1];
+                shadow = [theAppDelegate.window colorWithHexString:@"#CCDDD7" alpha:1];
+                break;
+            case YTLevelIdIntermediate:
+                fill = [theAppDelegate.window colorWithHexString:@"#F0F5FF" alpha:1];
+                shadow = [theAppDelegate.window colorWithHexString:@"#DDE6F4" alpha:1];
+                break;
+            case YTLevelIdAdvanced:
+                fill = [theAppDelegate.window colorWithHexString:@"#F0E8FF" alpha:1];
+                shadow = [theAppDelegate.window colorWithHexString:@"#DDD4E7" alpha:1];
+                break;
+            default:
+                fill = [UIColor whiteColor];
+                shadow = [[UIColor blackColor] colorWithAlphaComponent:0.12];
+                break;
+        }
+        content.backgroundColor = fill;
+        card.layer.shadowColor = shadow.CGColor;
+        card.layer.shadowOpacity = 1.0;
+    } else {
+        content.backgroundColor = [UIColor whiteColor];
+        card.layer.shadowColor = [UIColor blackColor].CGColor;
+        card.layer.shadowOpacity = 0.08;
+    }
+    card.layer.shadowOffset = CGSizeMake(0, 2);
+    card.layer.shadowRadius = 10.0;
+
+    CGRect b = card.bounds;
+    if (b.size.width > 0.5 && b.size.height > 0.5) {
+        card.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:b cornerRadius:16].CGPath;
+    } else {
+        card.layer.shadowPath = nil;
+    }
+}
+
+/// 首帧 bounds 为 0 时 shadowPath 延后到 layout 再补
+- (void)yt_updateDifficultyCardShadowPathsIfNeeded {
+    for (UIView *card in @[self.beginnerCard, self.intermediateCard, self.advancedCard]) {
+        if (!card) continue;
+        CGRect b = card.bounds;
+        if (b.size.width < 0.5 || b.size.height < 0.5) continue;
+        card.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:b cornerRadius:16].CGPath;
+    }
 }
 
 - (BOOL)yt_useChineseLockBadge {
@@ -528,14 +692,6 @@ static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
         }
     }
     return _backgroundImageView;
-}
-
-- (UIView *)backgroundDimView {
-    if (!_backgroundDimView) {
-        _backgroundDimView = [[UIView alloc] init];
-        _backgroundDimView.backgroundColor = [UIColor colorWithWhite:0 alpha:0.18];
-    }
-    return _backgroundDimView;
 }
 
 - (UILabel *)titleLabel {

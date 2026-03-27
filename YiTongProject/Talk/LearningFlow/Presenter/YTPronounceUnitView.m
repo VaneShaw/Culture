@@ -8,6 +8,179 @@
 #import "VideoPlayerView.h"
 #import "VideoFullScreenViewController.h"
 
+#pragma mark - 语法页：点状虚线竖线
+
+@interface YTGrammarDottedVerticalLineView : UIView
+@property (nonatomic, strong) CAShapeLayer *shapeLayer;
+@property (nonatomic, strong) UIColor *lineColor;
+@end
+
+@implementation YTGrammarDottedVerticalLineView
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.backgroundColor = [UIColor clearColor];
+        _shapeLayer = [CAShapeLayer layer];
+        _shapeLayer.fillColor = nil;
+        _shapeLayer.lineCap = kCALineCapRound;
+        [self.layer addSublayer:_shapeLayer];
+    }
+    return self;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    CGFloat mid = CGRectGetMidX(self.bounds);
+    CGFloat h = CGRectGetHeight(self.bounds);
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    [path moveToPoint:CGPointMake(mid, 0)];
+    [path addLineToPoint:CGPointMake(mid, MAX(0, h))];
+    self.shapeLayer.path = path.CGPath;
+    self.shapeLayer.frame = self.bounds;
+    self.shapeLayer.strokeColor = self.lineColor.CGColor;
+    self.shapeLayer.lineWidth = 2.0;
+    // 圆点状虚线：更细、点距更密（短划 + 间隔，圆头）
+    self.shapeLayer.lineDashPattern = @[@1.5, @3.5];
+}
+
+@end
+
+#pragma mark - 语法页：向下箭头（自下而上渐变，底端尾色白 60%）
+
+@interface YTGrammarGradientArrowDownView : UIView
+@property (nonatomic, strong) CAGradientLayer *gradientLayer;
+@end
+
+@implementation YTGrammarGradientArrowDownView
+
+/// 自下而上渐变（沿 y 轴从下往上）：底端为主题色，上端为尾端浅色（白 60%）。与 ↓ 字形一致：尖端在下、尾在上。
+- (instancetype)initWithTopColor:(UIColor *)topColor bottomTailColor:(UIColor *)tailColor arrowText:(NSString *)arrowText {
+    self = [super initWithFrame:CGRectZero];
+    if (self) {
+        self.backgroundColor = [UIColor clearColor];
+        self.userInteractionEnabled = NO;
+        _gradientLayer = [CAGradientLayer layer];
+        // startPoint 在下、endPoint 在上：颜色沿从下到上插值（勿用 0→1 否则会成「上到下」）
+        _gradientLayer.startPoint = CGPointMake(0.5, 1.0);
+        _gradientLayer.endPoint = CGPointMake(0.5, 0.0);
+        _gradientLayer.colors = @[(id)topColor.CGColor, (id)tailColor.CGColor];
+        [self.layer addSublayer:_gradientLayer];
+
+        UILabel *maskLabel = [[UILabel alloc] init];
+        maskLabel.text = (arrowText.length > 0) ? arrowText : @"↓";
+        maskLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightSemibold];
+        maskLabel.textAlignment = NSTextAlignmentCenter;
+        maskLabel.textColor = [UIColor whiteColor];
+        self.maskView = maskLabel;
+    }
+    return self;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    self.gradientLayer.frame = self.bounds;
+    self.maskView.frame = self.bounds;
+}
+
+@end
+
+#pragma mark - 拼音行：喇叭紧跟最后一个字（含换行后末行）
+
+/// 在 `layoutSubviews` 里按与 `UILabel` 相同的绘制区域（`textRectForBounds`）排版，将喇叭放在最后一个字形右侧。
+@interface YTPinyinLabel : UILabel
+@property (nonatomic, weak) UIButton *playButton;
+@property (nonatomic, assign) CGFloat playSpacing;
+@end
+
+@implementation YTPinyinLabel
+
+- (void)layoutSubviews {
+    CGFloat w = CGRectGetWidth(self.bounds);
+    if (w > 0) {
+        self.preferredMaxLayoutWidth = w;
+    }
+    [super layoutSubviews];
+    [self yt_positionPlayButtonIfNeeded];
+}
+
+- (NSAttributedString *)yt_attributedStringForLayout {
+    if (self.attributedText.length > 0) {
+        return self.attributedText;
+    }
+    NSString *plain = self.text ?: @"";
+    if (plain.length == 0) {
+        return nil;
+    }
+    NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
+    paragraph.alignment = self.textAlignment;
+    paragraph.lineBreakMode = self.lineBreakMode;
+    return [[NSAttributedString alloc] initWithString:plain
+                                         attributes:@{
+                                             NSFontAttributeName: self.font,
+                                             NSForegroundColorAttributeName: self.textColor ?: [UIColor blackColor],
+                                             NSParagraphStyleAttributeName: paragraph
+                                         }];
+}
+
+- (void)yt_positionPlayButtonIfNeeded {
+    UIButton *btn = self.playButton;
+    UIView *superv = self.superview;
+    if (!btn || !superv) {
+        return;
+    }
+
+    static CGFloat const kBtnSize = 28.0;
+    CGFloat spacing = (self.playSpacing > 0) ? self.playSpacing : 8.0;
+
+    CGRect bounds = self.bounds;
+    if (CGRectGetWidth(bounds) <= 0) {
+        return;
+    }
+
+    CGRect textRect = [self textRectForBounds:bounds limitedToNumberOfLines:self.numberOfLines];
+    CGFloat containerW = CGRectGetWidth(textRect);
+    if (containerW <= 0) {
+        return;
+    }
+
+    NSAttributedString *attr = [self yt_attributedStringForLayout];
+    if (!attr || attr.length == 0) {
+        CGFloat y = CGRectGetMinY(self.frame) + (CGRectGetHeight(self.frame) - kBtnSize) / 2.0;
+        btn.frame = CGRectMake(CGRectGetMinX(self.frame), y, kBtnSize, kBtnSize);
+        [superv bringSubviewToFront:btn];
+        return;
+    }
+
+    NSTextStorage *storage = [[NSTextStorage alloc] initWithAttributedString:attr];
+    NSLayoutManager *lm = [[NSLayoutManager alloc] init];
+    [storage addLayoutManager:lm];
+    NSTextContainer *tc = [[NSTextContainer alloc] initWithSize:CGSizeMake(containerW, CGFLOAT_MAX)];
+    tc.lineFragmentPadding = 0;
+    tc.maximumNumberOfLines = self.numberOfLines;
+    tc.lineBreakMode = self.lineBreakMode;
+    [lm addTextContainer:tc];
+
+    NSRange glyphRange = [lm glyphRangeForTextContainer:tc];
+    if (glyphRange.length == 0) {
+        CGFloat y = CGRectGetMinY(self.frame) + (CGRectGetHeight(self.frame) - kBtnSize) / 2.0;
+        btn.frame = CGRectMake(CGRectGetMinX(self.frame), y, kBtnSize, kBtnSize);
+        [superv bringSubviewToFront:btn];
+        return;
+    }
+
+    NSUInteger lastGlyph = NSMaxRange(glyphRange) - 1;
+    CGRect lastGlyphRect = [lm boundingRectForGlyphRange:NSMakeRange(lastGlyph, 1) inTextContainer:tc];
+
+    CGFloat x = CGRectGetMinX(self.frame) + CGRectGetMinX(textRect) + CGRectGetMaxX(lastGlyphRect) + spacing;
+    CGFloat y = CGRectGetMinY(self.frame) + CGRectGetMinY(textRect) + lastGlyphRect.origin.y + (lastGlyphRect.size.height - kBtnSize) / 2.0;
+
+    btn.frame = CGRectMake(x, y, kBtnSize, kBtnSize);
+    [superv bringSubviewToFront:btn];
+}
+
+@end
+
 #pragma mark - Pronounce (recording)
 
 /**
@@ -62,6 +235,10 @@ static NSInteger const kMediaVideoPosterTag = 9101;
 static NSInteger const kMediaVideoHostTag = 9102;
 /// 视频展示区比例（与设计稿 302×170 一致）
 static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
+/// 媒体区底边到中文标题顶：原设计 60，整体上移 20 后为 40
+static CGFloat const kYTPronounceMediaToTitleGap = 40.0;
+/// 拼音行左右边距（大于标题区 20，避免长拼音顶边）
+static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
 
 - (UIViewController *)yt_hostViewController {
     UIResponder *responder = self;
@@ -132,8 +309,12 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
                                                     blue:0x7D / 255.0
                                                    alpha:1.0];
 
-        _pinyinLabel = [[UILabel alloc] init];
-        _pinyinLabel.textAlignment = NSTextAlignmentCenter;
+        YTPinyinLabel *pinyin = [[YTPinyinLabel alloc] init];
+        _pinyinLabel = pinyin;
+        _pinyinLabel.textAlignment = NSTextAlignmentLeft;
+        _pinyinLabel.numberOfLines = 2;
+        // 按字符换行：一行放不下时排到第二行（勿用 TruncatingTail，否则易与单行混淆）
+        _pinyinLabel.lineBreakMode = NSLineBreakByCharWrapping;
         _pinyinLabel.textColor = textColor63637D;
         _pinyinLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:16];
         [self.frontContentView addSubview:_pinyinLabel];
@@ -157,6 +338,9 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
         [_playButton setImage:voicePlay forState:UIControlStateNormal];
         [_playButton addTarget:self action:@selector(onPlay) forControlEvents:UIControlEventTouchUpInside];
         [self.frontContentView addSubview:_playButton];
+        pinyin.playButton = _playButton;
+        pinyin.playSpacing = 8.0;
+        _playButton.translatesAutoresizingMaskIntoConstraints = YES;
 
         _recordHintLabel = [[UILabel alloc] init];
         _recordHintLabel.textAlignment = NSTextAlignmentCenter;
@@ -169,48 +353,43 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
         _dashedLineView.backgroundColor = [self dashedPatternColor];
         [self.frontContentView addSubview:_dashedLineView];
 
-        // 中文（学生）：与拼音固定 6px 间距；顶部依赖媒体区域（与旧版“图片 + 60”一致）
+        // 中文（学生）：与拼音固定 6pt；与媒体区间距 kYTPronounceMediaToTitleGap（原 60 → 40，整体上移 20）
         [_cnTextView mas_makeConstraints:^(MASConstraintMaker *make) {
             make.centerX.equalTo(self.frontContentView);
-            make.left.right.equalTo(self.frontContentView).inset(16);
-            make.top.equalTo(self.mediaContainerView.mas_bottom).offset(60);
+            make.left.right.equalTo(self.frontContentView).inset(20);
+            make.top.equalTo(self.mediaContainerView.mas_bottom).offset(kYTPronounceMediaToTitleGap);
             make.bottom.equalTo(self.pinyinLabel.mas_top).offset(-6);
         }];
         [_pinyinLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            // 拼音：与中文固定 6px 间距，避免纵向约束循环
-            make.centerX.equalTo(self.frontContentView);
+            make.left.equalTo(self.frontContentView).offset(kYTPronouncePinyinHorizontalInset);
+            make.right.equalTo(self.frontContentView).offset(-kYTPronouncePinyinHorizontalInset);
             make.top.equalTo(self.cnTextView.mas_bottom).offset(6);
-        }];
-        [_playButton mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.equalTo(self.pinyinLabel.mas_right).offset(8);
-            make.centerY.equalTo(self.pinyinLabel);
-            make.width.height.mas_equalTo(28);
         }];
         [_recordHintLabel mas_makeConstraints:^(MASConstraintMaker *make) {
             make.top.equalTo(self.pinyinLabel.mas_bottom).offset(8);
-            make.left.right.equalTo(self.frontContentView).inset(16);
+            make.left.right.equalTo(self.frontContentView).inset(20);
         }];
 
         [self.dashedLineView mas_makeConstraints:^(MASConstraintMaker *make) {
             // 虚线固定放在拼音下方（不依赖 recordHint，避免空文案时链路不稳定）
             make.top.equalTo(self.pinyinLabel.mas_bottom).offset(22);
-            make.left.right.equalTo(self.frontContentView).inset(32);
+            make.left.right.equalTo(self.frontContentView).inset(20);
             make.height.mas_equalTo(1);
         }];
 
         [_enLabel mas_makeConstraints:^(MASConstraintMaker *make) {
             make.top.equalTo(self.dashedLineView.mas_bottom).offset(20);
-            make.left.right.equalTo(self.frontContentView).inset(16);
+            make.left.right.equalTo(self.frontContentView).inset(20);
             make.bottom.equalTo(self.frontContentView).offset(-53);
         }];
 
         [_mediaContainerView mas_makeConstraints:^(MASConstraintMaker *make) {
             // 中间媒体区域：可承载图片/视频，支持左右滑动
             make.top.equalTo(self.frontContentView).offset(40);
-            make.left.right.equalTo(self.frontContentView).inset(16);
+            make.left.right.equalTo(self.frontContentView).inset(20);
             make.height.greaterThanOrEqualTo(@160);
-            // 跟旧版 imageView 一样：由下方“学生”位置反推高度（尽量保持视觉比例）
-            make.bottom.equalTo(self.cnTextView.mas_top).offset(-60);
+            // 由下方中文顶边反推高度；与 cnTextView 顶间距 kYTPronounceMediaToTitleGap
+            make.bottom.equalTo(self.cnTextView.mas_top).offset(-kYTPronounceMediaToTitleGap);
         }];
         [_mediaScrollView mas_makeConstraints:^(MASConstraintMaker *make) {
             make.edges.equalTo(self.mediaContainerView);
@@ -324,6 +503,7 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
         _grammarFlipToGrammarButton.hidden = YES;
     }
     self.pinyinLabel.text = unit.titlePinyin ?: @"";
+    [self.pinyinLabel setNeedsLayout];
     self.enLabel.text = unit.titleEN ?: @"";
 
     self.recordHintLabel.text = @"";
@@ -989,19 +1169,18 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
         NSString *enText = ex[@"en"] ?: @"";
         NSString *highlightText = ex[@"highlightText"] ?: @"";
 
-        // 例句之间的箭头（i>0）
-        UILabel *arrow = nil;
+        // 例句之间的箭头（i>0）：自下而上渐变，底端尾色白 60%，顶端主题高亮色
+        YTGrammarGradientArrowDownView *arrowView = nil;
         if (i > 0 && lastExampleView) {
-            arrow = [[UILabel alloc] init];
-            arrow.textAlignment = NSTextAlignmentCenter;
-            arrow.textColor = hl;
-            arrow.font = [UIFont systemFontOfSize:18 weight:UIFontWeightSemibold];
-            arrow.text = self.unit.grammarPageArrowText ?: @"↓";
-            [content addSubview:arrow];
-            [arrow mas_makeConstraints:^(MASConstraintMaker *make) {
+            NSString *arrowStr = self.unit.grammarPageArrowText ?: @"↓";
+            UIColor *tailWhite = [[UIColor whiteColor] colorWithAlphaComponent:0.6];
+            arrowView = [[YTGrammarGradientArrowDownView alloc] initWithTopColor:hl bottomTailColor:tailWhite arrowText:arrowStr];
+            [content addSubview:arrowView];
+            [arrowView mas_makeConstraints:^(MASConstraintMaker *make) {
                 make.top.equalTo(lastExampleView.mas_bottom).offset(10);
                 make.centerX.equalTo(content);
-                make.height.mas_equalTo(20);
+                make.width.mas_equalTo(28);
+                make.height.mas_equalTo(22);
             }];
         }
 
@@ -1010,8 +1189,8 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
         [exView mas_makeConstraints:^(MASConstraintMaker *make) {
             if (!lastExampleView) {
                 make.top.equalTo(exampleLabel.mas_bottom).offset(10);
-            } else if (arrow) {
-                make.top.equalTo(arrow.mas_bottom).offset(10);
+            } else if (arrowView) {
+                make.top.equalTo(arrowView.mas_bottom).offset(10);
             }
             make.left.right.equalTo(content).inset(16);
             if (i == examples.count - 1) {
@@ -1070,17 +1249,15 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
             make.bottom.equalTo(exView);
         }];
 
-        // 竖线：从 dot 下沿开始，覆盖当前例句的中英文高度
-        UIView *vertLine = [[UIView alloc] init];
-        vertLine.backgroundColor = dotColor;
-        vertLine.layer.cornerRadius = 1;
-        vertLine.layer.masksToBounds = YES;
+        // 竖线：从 dot 下沿开始，点状虚线（与圆点同色）
+        YTGrammarDottedVerticalLineView *vertLine = [[YTGrammarDottedVerticalLineView alloc] initWithFrame:CGRectZero];
+        vertLine.lineColor = dotColor;
         [exView addSubview:vertLine];
         [vertLine mas_makeConstraints:^(MASConstraintMaker *make) {
             make.centerX.equalTo(dot);
             make.top.equalTo(dot.mas_bottom);
             make.bottom.equalTo(enLabel.mas_bottom);
-            make.width.mas_equalTo(2);
+            make.width.mas_equalTo(6);
         }];
 
         lastExampleView = exView;

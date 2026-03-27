@@ -44,7 +44,7 @@
         }];
 
         _bubbleView = [[UIView alloc] init];
-        _bubbleView.backgroundColor = [UIColor colorWithWhite:0.94 alpha:1];
+        _bubbleView.backgroundColor = [UIColor colorWithRed:0xF2 / 255.0 green:0xF2 / 255.0 blue:0xF2 / 255.0 alpha:1];
         _bubbleView.layer.cornerRadius = 18;
         _bubbleView.layer.masksToBounds = YES;
         [_cardView addSubview:_bubbleView];
@@ -74,7 +74,7 @@
         }];
 
         _bubbleLabel = [[UILabel alloc] init];
-        _bubbleLabel.textColor = [UIColor colorWithWhite:0.25 alpha:1];
+        _bubbleLabel.textColor = GARY_COLOR_63;
         _bubbleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:15];
         _bubbleLabel.numberOfLines = 1;
         _bubbleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -99,6 +99,7 @@
 
 - (void)configureWithUnit:(YTUnit *)unit theme:(YTDifficultyTheme *)theme audio:(YTAudioMuxService *)audio recording:(YTRecordingService *)recording pronounceEvaluator:(id<YTPronounceEvaluating>)pronounceEvaluator answerEvaluator:(id<YTAnswerEvaluating>)answerEvaluator {
     [super configureWithUnit:unit theme:theme audio:audio recording:recording pronounceEvaluator:pronounceEvaluator answerEvaluator:answerEvaluator];
+    self.bubbleView.backgroundColor = theme.chatPromptBubbleBackgroundColor ?: [UIColor colorWithRed:0xF2 / 255.0 green:0xF2 / 255.0 blue:0xF2 / 255.0 alpha:1];
     self.selectedOptionId = nil;
 
     self.titleLabel.text = NSLocalizedString(@"Choose the correct response", @"");

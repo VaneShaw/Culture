@@ -10,8 +10,11 @@
 #import "YTPronounceEvaluating.h"
 #import "HeaderConfig.h"
 
-/// 卡片底：比难度页背景色略深一点（与主色 token 区分，避免过重）
+/// 过渡页中间容器（cardView）底色。中等难度整流程背景为 `#DCE7FF`（theme），仅过渡页容器用 `#A2C9FA`。
 static UIColor *YTPracticeTransitionCardBackground(YTDifficultyTheme *theme) {
+    if (theme.levelId == YTLevelIdIntermediate) {
+        return [theAppDelegate.window colorWithHexString:@"#A2C9FA" alpha:1];
+    }
     UIColor *base = theme.backgroundColor ?: theme.primaryColor;
     CGFloat r = 0, g = 0, b = 0, a = 1;
     if (![base getRed:&r green:&g blue:&b alpha:&a]) {

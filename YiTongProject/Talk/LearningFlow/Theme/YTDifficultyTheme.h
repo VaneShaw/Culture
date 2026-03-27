@@ -24,6 +24,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) UIColor *primaryColor;
 @property (nonatomic, strong) UIColor *progressTintColor;
 
+/// 聊天气泡：左侧/题干（听音回应、完成对话问题侧等），全难度统一 #F2F2F2
+@property (nonatomic, strong) UIColor *chatPromptBubbleBackgroundColor;
+/// 聊天气泡：右侧作答浅底（完成对话答案侧等，随难度区分于中等蓝 / 困难紫）
+@property (nonatomic, strong) UIColor *chatAnswerBubbleBackgroundColor;
+
 /// 对/错反馈色：跨难度保持一致，增强学习反馈的稳定性
 @property (nonatomic, strong) UIColor *correctColor;
 @property (nonatomic, strong) UIColor *wrongColor;

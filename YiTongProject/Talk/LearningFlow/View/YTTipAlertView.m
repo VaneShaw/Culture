@@ -68,7 +68,7 @@ static CGFloat const kYTTipAlertMaxHeight = 500.0;
         [alert.cancelFlatButton setTitle:(secondaryButtonTitle ?: @"") forState:UIControlStateNormal];
         [alert yt_installDualButtonLayoutHasTitle:YES];
     } else {
-        [alert.primaryDepthButton.actionButton setTitle:(primaryButtonTitle ?: @"") forState:UIControlStateNormal];
+        [alert.confirmFlatButton setTitle:(primaryButtonTitle ?: @"") forState:UIControlStateNormal];
         [alert yt_installSingleButtonLayout];
     }
 
@@ -101,8 +101,8 @@ static CGFloat const kYTTipAlertMaxHeight = 500.0;
         // dual: titleTop(28) + titleH + titleBottomGap(14) + textToButtonGap(24) + buttonH(44) + bottomGap(24)
         desiredH = 28.0 + titleH + 14.0 + 24.0 + kYTTipDualButtonHeight + 24.0 + textH;
     } else {
-        // single: titleTop(22) + titleH + titleBottomGap(14) + textToButtonGap(22) + btnH + bottomGap(24)
-        desiredH = 22.0 + titleH + 14.0 + 22.0 + alert.primaryDepthButton.totalHeight + 24.0 + textH;
+        // single：与双按钮同高扁平主按钮（无 Depth 叠层）
+        desiredH = 22.0 + titleH + 14.0 + 24.0 + kYTTipDualButtonHeight + 24.0 + textH;
     }
     desiredH = MIN(kYTTipAlertMaxHeight, MAX(kYTTipAlertMinHeight, desiredH));
 
@@ -229,8 +229,8 @@ static CGFloat const kYTTipAlertMaxHeight = 500.0;
 
 - (void)yt_installSingleButtonLayout {
     self.closeButton.hidden = NO;
-    self.primaryDepthButton.hidden = NO;
-    self.confirmFlatButton.hidden = YES;
+    self.primaryDepthButton.hidden = YES;
+    self.confirmFlatButton.hidden = NO;
     self.cancelFlatButton.hidden = YES;
 
     [self.titleLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
@@ -243,19 +243,21 @@ static CGFloat const kYTTipAlertMaxHeight = 500.0;
         make.left.equalTo(self.cardView).offset(22);
         make.right.equalTo(self.cardView).offset(-22);
         make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+        make.bottom.equalTo(self.confirmFlatButton.mas_top).offset(-24);
     }];
 
     [self.primaryDepthButton mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.height.mas_equalTo(0);
         make.left.equalTo(self.cardView).offset(22);
         make.right.equalTo(self.cardView).offset(-22);
-        make.top.equalTo(self.messageTextView.mas_bottom).offset(22);
-        make.height.mas_equalTo(self.primaryDepthButton.totalHeight);
-        make.bottom.equalTo(self.cardView).offset(-24);
+        make.top.equalTo(self.cardView).offset(0);
     }];
 
     [self.confirmFlatButton mas_remakeConstraints:^(MASConstraintMaker *make) {
-        make.height.mas_equalTo(0);
-        make.width.mas_equalTo(0);
+        make.left.equalTo(self.cardView).offset(28);
+        make.right.equalTo(self.cardView).offset(-28);
+        make.height.mas_equalTo(kYTTipDualButtonHeight);
+        make.bottom.equalTo(self.cardView).offset(-24);
     }];
 
     [self.cancelFlatButton mas_remakeConstraints:^(MASConstraintMaker *make) {

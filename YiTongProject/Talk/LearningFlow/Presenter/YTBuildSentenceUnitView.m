@@ -160,7 +160,8 @@
         [self.tokenWidths addObject:@(w)];
 
         UIView *placeholder = [[UIView alloc] init];
-        placeholder.backgroundColor = [UIColor colorWithWhite:0.94 alpha:1];
+        // 选项被点到上方作答区后，原位置留下的占位块
+        placeholder.backgroundColor = [UIColor colorWithRed:0xF5 / 255.0 green:0xF5 / 255.0 blue:0xF5 / 255.0 alpha:1];
         placeholder.layer.cornerRadius = 12;
         placeholder.layer.masksToBounds = YES;
         placeholder.hidden = YES;
