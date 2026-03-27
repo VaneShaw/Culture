@@ -43,10 +43,6 @@
     }
 }
 
-+ (BOOL)yt_isListeningExerciseType:(YTUnitType)t {
-    return t == YTUnitTypeExerciseListenChooseImage || t == YTUnitTypeExerciseListenChooseResponse;
-}
-
 + (BOOL)yt_isSelectedOptionExerciseType:(YTUnitType)t {
     switch (t) {
         case YTUnitTypeExerciseListenChooseImage:
@@ -60,16 +56,9 @@
     }
 }
 
-- (BOOL)yt_isExerciseQuestion {
-    return [YTUnit yt_isExerciseQuestionType:self.unitType];
-}
-
 - (BOOL)yt_isListeningExercise {
-    return [YTUnit yt_isListeningExerciseType:self.unitType];
-}
-
-- (BOOL)yt_isSelectedOptionExercise {
-    return [YTUnit yt_isSelectedOptionExerciseType:self.unitType];
+    YTUnitType t = self.unitType;
+    return t == YTUnitTypeExerciseListenChooseImage || t == YTUnitTypeExerciseListenChooseResponse;
 }
 
 @end

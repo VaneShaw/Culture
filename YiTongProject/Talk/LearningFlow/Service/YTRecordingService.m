@@ -11,7 +11,7 @@
  
  职责边界：
  - 负责：麦克风权限申请、AVAudioSession 配置、录音文件写入本地
- - 不负责：播放（走 `YTAudioMuxService`）、评分（走 `YTScoringService`）
+ - 不负责：播放（走 `YTAudioMuxService`）、评分（走 `YTLocalPronounceEvaluator`）
  
  设计要点：
  - iOS17+ 使用 `AVAudioApplication` 的权限 API；低版本 fallback 到 `AVAudioSession`

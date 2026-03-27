@@ -123,14 +123,11 @@ typedef NS_ENUM(NSInteger, YTLevelId) {
 
 /// 练习题：unitType 1～6（听词选图 / … / 完成对话）
 + (BOOL)yt_isExerciseQuestionType:(YTUnitType)t;
-/// 听词选图、听音回应（自动播、错题提示带拼音等）
-+ (BOOL)yt_isListeningExerciseType:(YTUnitType)t;
 /// 用 `selectedOptionId` 判题的选择/填空类（不含句子组装）
 + (BOOL)yt_isSelectedOptionExerciseType:(YTUnitType)t;
 
-- (BOOL)yt_isExerciseQuestion;
+/// 听词选图 / 听音回应（错题提示带拼音等）
 - (BOOL)yt_isListeningExercise;
-- (BOOL)yt_isSelectedOptionExercise;
 
 @end
 

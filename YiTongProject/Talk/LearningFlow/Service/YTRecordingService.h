@@ -17,7 +17,7 @@ typedef void (^YTMicPermissionCallback)(YTMicPermissionState state);
 typedef void (^YTRecordStartCallback)(BOOL success, NSError * _Nullable error);
 typedef void (^YTRecordStopCallback)(NSURL * _Nullable fileURL, NSError * _Nullable error);
 
-/// 录音服务：负责权限/录音文件落地，不做评分（评分走 `YTScoringService`）
+/// 录音服务：负责权限/录音文件落地，不做评分（评分走 `YTLocalPronounceEvaluator`）
 ///
 /// 设计约定（MVP）：
 /// - start 时若权限未知会触发系统弹窗，授权后自动重试开始录音

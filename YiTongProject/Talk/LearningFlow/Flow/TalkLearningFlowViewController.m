@@ -9,7 +9,6 @@
 #import "LoginViewController.h"
 #import "UIViewController+BackButton.h"
 
-#import "YTLastPosition.h"
 #import "YTLearningFlowBootstrap.h"
 #import "YTLearningFlowBootstrapService.h"
 #import "YTDifficultyTheme.h"
@@ -282,7 +281,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     }
 
     // 未完成且已有进度：弹续学弹窗，让用户在「继续上次学习 / 从头开始」间选择
-    [self showResumePromptWithLastPosition:nil];
+    [self showResumePrompt];
 }
 
 - (NSInteger)indexForResumeFromCompletedUnits {
@@ -441,7 +440,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
                       onCancel:nil];
 }
 
-- (void)showResumePromptWithLastPosition:(YTLastPosition *)pos {
+- (void)showResumePrompt {
     // 续学弹窗：与 YTTipAlertView 同风格的卡片 + 圆环进度 + 继续/重新开始（无关闭按钮时仅能通过两按钮选择）
     CGFloat progressRatio = [self currentProgress];
     __weak typeof(self) weakSelf = self;
@@ -460,20 +459,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         if (!self) return;
         [self restartLearningFromBeginning];
     }];
-}
-
-- (NSInteger)indexForLastPosition:(YTLastPosition *)pos {
-    if (!pos) return 0;
-    // 优先按 unitId 精确定位（更抗数据结构调整）
-    for (NSInteger i = 0; i < self.units.count; i++) {
-        YTUnit *u = self.units[i];
-        if ([u.unitId isEqualToString:pos.unitId]) return i;
-    }
-    // fallback：用 stepIndex 兜底，并做边界保护
-    NSInteger idx = pos.stepIndex;
-    if (idx < 0) idx = 0;
-    if (idx >= self.units.count) idx = self.units.count - 1;
-    return idx;
 }
 
 - (void)showUnitAtIndex:(NSInteger)index {
@@ -1024,17 +1009,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 }
 
 #pragma mark - Helpers
-
-- (NSString *)levelName {
-    if (self.levelId == YTLevelIdBeginner) return NSLocalizedString(@"Beginner", @"");
-    if (self.levelId == YTLevelIdIntermediate) return NSLocalizedString(@"Intermediate", @"");
-    return NSLocalizedString(@"Advanced", @"");
-}
-
-- (NSString *)unitDisplayNameForStepIndex:(NSInteger)stepIndex {
-    NSString *tpl = NSLocalizedString(@"Step %ld", @"");
-    return [NSString stringWithFormat:tpl, (long)(stepIndex + 1)];
-}
 
 #pragma mark - 懒加载
 
