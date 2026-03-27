@@ -49,6 +49,8 @@
 @property (nonatomic, assign) BOOL showingGrammar;
 /// 最近一次成功 `stopRecording` 得到的本地文件 URL 字符串（`fileURL.absoluteString`），供调试回放
 @property (nonatomic, copy, nullable) NSString *lastRecordingFileURLString;
+/// 题型页：可进入语法页时，底部与语法页同位的翻转按钮
+@property (nonatomic, strong) UIButton *grammarFlipToGrammarButton;
 #if DEBUG
 @property (nonatomic, strong) UIButton *debugPlayMyRecordingButton;
 #endif
@@ -224,6 +226,28 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
     return self;
 }
 
+- (UIButton *)grammarFlipToGrammarButton {
+    if (!_grammarFlipToGrammarButton) {
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+        b.imageView.contentMode = UIViewContentModeScaleAspectFit;
+        UIImage *img = [UIImage imageNamed:@"talk_grammar_change"];
+        if (img) {
+            img = [img imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+        }
+        [b setImage:img forState:UIControlStateNormal];
+        [b addTarget:self action:@selector(onTapGrammarFlipToGrammar) forControlEvents:UIControlEventTouchUpInside];
+        [self.frontContentView addSubview:b];
+        [b mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.centerX.equalTo(self.frontContentView);
+            make.bottom.equalTo(self.frontContentView).offset(-18);
+            make.width.height.mas_equalTo(23);
+        }];
+        [self.frontContentView bringSubviewToFront:b];
+        _grammarFlipToGrammarButton = b;
+    }
+    return _grammarFlipToGrammarButton;
+}
+
 #if DEBUG
 
 - (UIButton *)debugPlayMyRecordingButton {
@@ -293,6 +317,12 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
         [self layoutMediaIfNeeded];
     });
     [self applyCNAttributedTextForUnit:unit];
+    BOOL canOpenGrammar = (unit.highlightTexts.count > 0);
+    if (canOpenGrammar) {
+        self.grammarFlipToGrammarButton.hidden = NO;
+    } else if (_grammarFlipToGrammarButton) {
+        _grammarFlipToGrammarButton.hidden = YES;
+    }
     self.pinyinLabel.text = unit.titlePinyin ?: @"";
     self.enLabel.text = unit.titleEN ?: @"";
 
@@ -765,21 +795,18 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
     }];
 
     UIButton *back = [UIButton buttonWithType:UIButtonTypeCustom];
-    back.contentEdgeInsets = UIEdgeInsetsMake(10, 10, 10, 10);
-    if (@available(iOS 13.0, *)) {
-        UIImage *img = [UIImage systemImageNamed:@"chevron.left"];
-        [back setImage:img forState:UIControlStateNormal];
-        back.tintColor = self.theme.primaryColor ?: [UIColor colorWithRed:0x11/255.0 green:0x7F/255.0 blue:0xEC/255.0 alpha:1.0];
-    } else {
-        [back setTitle:@"<" forState:UIControlStateNormal];
-        [back setTitleColor:self.theme.primaryColor ?: [UIColor colorWithRed:0x11/255.0 green:0x7F/255.0 blue:0xEC/255.0 alpha:1.0] forState:UIControlStateNormal];
+    back.imageView.contentMode = UIViewContentModeScaleAspectFit;
+    UIImage *starImg = [UIImage imageNamed:@"talk_grammar_star"];
+    if (starImg) {
+        starImg = [starImg imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
     }
+    [back setImage:starImg forState:UIControlStateNormal];
     [back addTarget:self action:@selector(onTapGrammarHighlight) forControlEvents:UIControlEventTouchUpInside];
     [nav addSubview:back];
     [back mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(nav).offset(6);
+        make.left.equalTo(nav).offset(16);
         make.centerY.equalTo(nav);
-        make.width.height.mas_equalTo(40);
+        make.width.height.mas_equalTo(14);
     }];
 
     UILabel *navTitle = [[UILabel alloc] init];
@@ -788,23 +815,8 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
     navTitle.text = self.unit.grammarPageNavTitle ?: NSLocalizedString(@"Grammar Rule", @"");
     [nav addSubview:navTitle];
     [navTitle mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(back.mas_right).offset(2);
+        make.left.equalTo(back.mas_right).offset(3);
         make.centerY.equalTo(nav);
-    }];
-
-    UIButton *expand = [UIButton buttonWithType:UIButtonTypeCustom];
-    expand.contentEdgeInsets = UIEdgeInsetsMake(10, 10, 10, 10);
-    if (@available(iOS 13.0, *)) {
-        UIImage *img = [UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right"];
-        [expand setImage:img forState:UIControlStateNormal];
-        expand.tintColor = [UIColor colorWithWhite:0.35 alpha:1];
-    }
-    // 右侧按钮先做占位，不做逻辑
-    [nav addSubview:expand];
-    [expand mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.right.equalTo(nav).offset(-6);
-        make.centerY.equalTo(nav);
-        make.width.height.mas_equalTo(40);
     }];
 
     UIView *divider = [[UIView alloc] init];
@@ -816,14 +828,31 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
         make.height.mas_equalTo(1);
     }];
 
-    // 内容可滚动
+    UIButton *grammarFlipBackBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    grammarFlipBackBtn.imageView.contentMode = UIViewContentModeScaleAspectFit;
+    UIImage *flipImg = [UIImage imageNamed:@"talk_grammar_change"];
+    if (flipImg) {
+        flipImg = [flipImg imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    }
+    [grammarFlipBackBtn setImage:flipImg forState:UIControlStateNormal];
+    [grammarFlipBackBtn addTarget:self action:@selector(onTapGrammarHighlight) forControlEvents:UIControlEventTouchUpInside];
+    [v addSubview:grammarFlipBackBtn];
+    [grammarFlipBackBtn mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.centerX.equalTo(v);
+        make.bottom.equalTo(v).offset(-18);
+        make.width.height.mas_equalTo(23);
+    }];
+
+    // 内容可滚动（底部为翻转按钮留出空间，与题型页同位）
     UIScrollView *scroll = [[UIScrollView alloc] init];
     scroll.showsVerticalScrollIndicator = NO;
     [v addSubview:scroll];
     [scroll mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.right.bottom.equalTo(v);
+        make.left.right.equalTo(v);
         make.top.equalTo(divider.mas_bottom);
+        make.bottom.equalTo(grammarFlipBackBtn.mas_top).offset(-8);
     }];
+    [v bringSubviewToFront:grammarFlipBackBtn];
 
     UIView *content = [[UIView alloc] init];
     [scroll addSubview:content];
@@ -1062,6 +1091,11 @@ static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
 
 - (void)onTapGrammarHighlight {
     [self flipToGrammar:NO];
+}
+
+- (void)onTapGrammarFlipToGrammar {
+    if (self.unit.highlightTexts.count == 0) return;
+    [self flipToGrammar:YES];
 }
 
 - (void)onPlay {
