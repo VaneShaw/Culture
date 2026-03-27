@@ -52,11 +52,6 @@ static void YTApplyPracticeTransitionBadge(UIImageView *iv, YTLevelId levelId, Y
         iv.image = img;
         return;
     }
-    UIImage *fallback = [UIImage imageNamed:@"talk_practice_transition_badge"];
-    if (fallback) {
-        iv.image = fallback;
-        return;
-    }
     if (@available(iOS 13.0, *)) {
         NSString *sym = @"checkmark.seal.fill";
         if (levelId == YTLevelIdIntermediate) {

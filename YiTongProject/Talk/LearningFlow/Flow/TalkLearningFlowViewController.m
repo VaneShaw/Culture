@@ -645,10 +645,10 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
         }
         self.primaryButton.enabled = state.enabled;
         self.primaryButton.tag = state.kind;
-        // 过渡页 / 完成页：深色主按钮；其余题型保留难度主题色（录音态见上）
+        // 过渡页：深色主按钮；完成页与练习题等统一用难度主题色（录音态见上）
         YTUnit *cu = (self.currentIndex >= 0 && self.currentIndex < self.units.count) ? self.units[self.currentIndex] : nil;
         UIColor *faceColor;
-        if (cu && (cu.unitType == YTUnitTypePracticeTransition || cu.unitType == YTUnitTypeLevelCompletion)) {
+        if (cu && cu.unitType == YTUnitTypePracticeTransition) {
             faceColor = [theAppDelegate.window colorWithHexString:@"#1F2540" alpha:1];
         } else {
             faceColor = self.theme.primaryColor;

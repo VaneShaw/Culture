@@ -5,7 +5,8 @@
 
 #import "YTPronounceUnitView.h"
 #import "HeaderConfig.h"
-#import <AVFoundation/AVFoundation.h>
+#import "VideoPlayerView.h"
+#import "VideoFullScreenViewController.h"
 
 #pragma mark - Pronounce (recording)
 
@@ -30,12 +31,9 @@
 @property (nonatomic, assign) NSInteger currentMediaPage;
 @property (nonatomic, strong) NSMutableArray<UIView *> *mediaPageViews;
 @property (nonatomic, strong) NSArray<NSDictionary *> *currentMediaItems;
-@property (nonatomic, strong, nullable) AVPlayer *activePlayer;
-@property (nonatomic, strong, nullable) AVPlayerLayer *activePlayerLayer;
-@property (nonatomic, strong) UIButton *mediaPlayPauseButton;
+@property (nonatomic, strong, nullable) VideoPlayerView *activeVideoPlayerView;
 @property (nonatomic, assign) NSInteger activeVideoIndex;
 @property (nonatomic, copy, nullable) NSString *activeVideoURLString;
-@property (nonatomic, strong, nullable) id videoEndObserver;
 @property (nonatomic, strong) UIView *dashedLineView;
 @property (nonatomic, strong) UITextView *cnTextView;
 @property (nonatomic, strong) UILabel *pinyinLabel;
@@ -60,6 +58,19 @@
 
 static NSInteger const kMediaVideoPosterTag = 9101;
 static NSInteger const kMediaVideoHostTag = 9102;
+/// 视频展示区比例（与设计稿 302×170 一致）
+static CGFloat const kYTTalkVideoPlayerAspectRatio = 170.0 / 302.0;
+
+- (UIViewController *)yt_hostViewController {
+    UIResponder *responder = self;
+    while (responder) {
+        responder = responder.nextResponder;
+        if ([responder isKindOfClass:[UIViewController class]]) {
+            return (UIViewController *)responder;
+        }
+    }
+    return nil;
+}
 
 - (instancetype)init {
     self = [super init];
@@ -211,33 +222,6 @@ static NSInteger const kMediaVideoHostTag = 9102;
 
     }
     return self;
-}
-
-- (UIButton *)mediaPlayPauseButton {
-    if (!_mediaPlayPauseButton) {
-        _mediaPlayPauseButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        _mediaPlayPauseButton.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.45];
-        _mediaPlayPauseButton.layer.cornerRadius = 28;
-        _mediaPlayPauseButton.layer.masksToBounds = YES;
-        _mediaPlayPauseButton.adjustsImageWhenHighlighted = YES;
-        if (@available(iOS 13.0, *)) {
-            UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightSemibold];
-            UIImage *play = [[UIImage systemImageNamed:@"play.fill"] imageWithConfiguration:cfg];
-            UIImage *pause = [[UIImage systemImageNamed:@"pause.fill"] imageWithConfiguration:cfg];
-            [_mediaPlayPauseButton setImage:play forState:UIControlStateNormal];
-            [_mediaPlayPauseButton setImage:pause forState:UIControlStateSelected];
-            _mediaPlayPauseButton.tintColor = [UIColor whiteColor];
-        } else {
-            [_mediaPlayPauseButton setTitle:@"▶︎" forState:UIControlStateNormal];
-            [_mediaPlayPauseButton setTitle:@"Ⅱ" forState:UIControlStateSelected];
-            [_mediaPlayPauseButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-            _mediaPlayPauseButton.titleLabel.font = [UIFont boldSystemFontOfSize:20];
-        }
-        [_mediaPlayPauseButton addTarget:self action:@selector(onTapMediaPlayPause) forControlEvents:UIControlEventTouchUpInside];
-        _mediaPlayPauseButton.bounds = CGRectMake(0, 0, 56, 56);
-        _mediaPlayPauseButton.hidden = YES;
-    }
-    return _mediaPlayPauseButton;
 }
 
 #if DEBUG
@@ -410,24 +394,13 @@ static NSInteger const kMediaVideoHostTag = 9102;
 }
 
 - (void)stopActiveVideoIfNeeded {
-    if (self.activePlayer) {
-        [self.activePlayer pause];
+    if (self.activeVideoPlayerView) {
+        [self.activeVideoPlayerView turnOffVideoPlayback];
+        [self.activeVideoPlayerView removeFromSuperview];
     }
-    if (self.activePlayerLayer) {
-        [self.activePlayerLayer removeFromSuperlayer];
-    }
-    if (self.videoEndObserver) {
-        [[NSNotificationCenter defaultCenter] removeObserver:self.videoEndObserver];
-        self.videoEndObserver = nil;
-    }
-    self.activePlayerLayer = nil;
-    self.activePlayer = nil;
+    self.activeVideoPlayerView = nil;
     self.activeVideoIndex = NSNotFound;
     self.activeVideoURLString = nil;
-    if (_mediaPlayPauseButton.superview) {
-        [_mediaPlayPauseButton removeFromSuperview];
-    }
-    _mediaPlayPauseButton.hidden = YES;
 }
 
 - (void)rebuildMediaWithUnit:(YTUnit *)unit {
@@ -453,29 +426,36 @@ static NSInteger const kMediaVideoHostTag = 9102;
         [self.mediaPageViews addObject:page];
 
         if ([type isEqualToString:@"video"]) {
-            // 视频页：先放占位图，真正的 playerLayer 在可见页时再挂载
-            UIView *bg = [[UIView alloc] init];
-            bg.backgroundColor = [UIColor colorWithWhite:0.95 alpha:1];
-            [page addSubview:bg];
-            bg.frame = page.bounds;
-            bg.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            // 视频页：302:170 比例容器，去掉底层淡灰底；播放器在 videoHost 内再挂载
+            UIView *videoShell = [[UIView alloc] init];
+            videoShell.backgroundColor = [UIColor clearColor];
+            videoShell.clipsToBounds = YES;
+            [page addSubview:videoShell];
+            [videoShell mas_makeConstraints:^(MASConstraintMaker *make) {
+                make.left.right.equalTo(page);
+                make.centerY.equalTo(page);
+                make.height.equalTo(videoShell.mas_width).multipliedBy(kYTTalkVideoPlayerAspectRatio);
+            }];
 
             UIImageView *poster = [[UIImageView alloc] init];
             poster.contentMode = UIViewContentModeScaleAspectFit;
             poster.clipsToBounds = YES;
+            poster.backgroundColor = [UIColor clearColor];
             poster.image = [UIImage imageNamed:@"take_img1"];
             poster.tag = kMediaVideoPosterTag;
-            [page addSubview:poster];
-            poster.frame = page.bounds;
-            poster.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [videoShell addSubview:poster];
+            [poster mas_makeConstraints:^(MASConstraintMaker *make) {
+                make.edges.equalTo(videoShell);
+            }];
 
             UIView *videoHost = [[UIView alloc] init];
             videoHost.backgroundColor = [UIColor clearColor];
-            videoHost.userInteractionEnabled = NO;
+            videoHost.userInteractionEnabled = YES;
             videoHost.tag = kMediaVideoHostTag;
-            [page addSubview:videoHost];
-            videoHost.frame = page.bounds;
-            videoHost.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [videoShell addSubview:videoHost];
+            [videoHost mas_makeConstraints:^(MASConstraintMaker *make) {
+                make.edges.equalTo(videoShell);
+            }];
         } else {
             UIImageView *iv = [[UIImageView alloc] init];
             iv.contentMode = UIViewContentModeScaleAspectFit;
@@ -545,6 +525,7 @@ static NSInteger const kMediaVideoHostTag = 9102;
     for (NSInteger i = 0; i < self.mediaPageViews.count; i++) {
         UIView *page = self.mediaPageViews[i];
         page.frame = CGRectMake(w * i, 0, w, h);
+        [page layoutIfNeeded];
     }
     self.mediaScrollView.contentSize = CGSizeMake(w * self.mediaPageViews.count, h);
     // 约束变化后确保滚动位置仍对齐页边界
@@ -554,12 +535,10 @@ static NSInteger const kMediaVideoHostTag = 9102;
     if (self.activeVideoIndex != NSNotFound &&
         self.activeVideoIndex < self.mediaPageViews.count) {
         UIView *page = self.mediaPageViews[self.activeVideoIndex];
-        if (self.activePlayerLayer) {
+        if (self.activeVideoPlayerView && self.activeVideoPlayerView.superview) {
             UIView *videoHost = [page viewWithTag:kMediaVideoHostTag];
-            self.activePlayerLayer.frame = (videoHost ? videoHost.bounds : page.bounds);
-        }
-        if (self.mediaPlayPauseButton.superview == page) {
-            self.mediaPlayPauseButton.center = CGPointMake(CGRectGetMidX(page.bounds), CGRectGetMidY(page.bounds));
+            CGRect r = videoHost ? videoHost.bounds : page.bounds;
+            self.activeVideoPlayerView.frame = r;
         }
     }
 
@@ -580,11 +559,9 @@ static NSInteger const kMediaVideoHostTag = 9102;
     NSString *type = [it isKindOfClass:[NSDictionary class]] ? (it[@"type"] ?: @"") : @"";
     if (![type isEqualToString:@"video"]) {
         // 切到图片页：仅暂停，不销毁视频实例（回到视频页可继续）
-        if (self.activePlayer) {
-            [self.activePlayer pause];
+        if (self.activeVideoPlayerView) {
+            [self.activeVideoPlayerView pauseVideo];
         }
-        self.mediaPlayPauseButton.selected = NO;
-        self.mediaPlayPauseButton.hidden = YES;
         return;
     }
 
@@ -603,7 +580,7 @@ static NSInteger const kMediaVideoHostTag = 9102;
         });
         return;
     }
-    BOOL shouldRecreatePlayer = (self.activePlayer == nil ||
+    BOOL shouldRecreatePlayer = (self.activeVideoPlayerView == nil ||
                                  self.activeVideoURLString.length == 0 ||
                                  ![self.activeVideoURLString isEqualToString:urlStr]);
     self.activeVideoIndex = index;
@@ -617,67 +594,39 @@ static NSInteger const kMediaVideoHostTag = 9102;
         self.activeVideoIndex = index;
         self.activeVideoURLString = urlStr;
 
-        AVPlayer *p = [AVPlayer playerWithURL:url];
-        p.muted = YES;
-        self.activePlayer = p;
-
-        AVPlayerLayer *layer = [AVPlayerLayer playerLayerWithPlayer:p];
-        layer.videoGravity = AVLayerVideoGravityResizeAspect;
-        layer.frame = videoHost.bounds;
-        [videoHost.layer addSublayer:layer];
-        self.activePlayerLayer = layer;
-
-        __weak typeof(self) weakSelf = self;
-        self.videoEndObserver = [[NSNotificationCenter defaultCenter] addObserverForName:AVPlayerItemDidPlayToEndTimeNotification object:p.currentItem queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
-            __strong typeof(weakSelf) selfStrong = weakSelf;
-            if (!selfStrong) return;
-            [selfStrong.activePlayer seekToTime:kCMTimeZero completionHandler:^(BOOL finished) {
-                if (finished) {
-                    [selfStrong.activePlayer play];
-                    selfStrong.mediaPlayPauseButton.selected = YES;
-                }
-            }];
-        }];
-    } else {
-        // 复用已有 player/layer：重挂到当前页，避免切页时出现“重新加载闪烁”
-        if (self.activePlayerLayer.superlayer != videoHost.layer) {
-            [self.activePlayerLayer removeFromSuperlayer];
-            [videoHost.layer addSublayer:self.activePlayerLayer];
+        VideoPlayerView *pv = [[VideoPlayerView alloc] initWithFrame:videoHost.bounds];
+        pv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        pv.clipsToBounds = YES;
+        [pv setVideoURL:url];
+        if (pv.player) {
+            pv.player.muted = YES;
         }
-        self.activePlayerLayer.frame = videoHost.bounds;
+        __weak typeof(self) weakSelf = self;
+        pv.enterFullScreenBlock = ^(AVPlayer *player) {
+            __strong typeof(weakSelf) selfStrong = weakSelf;
+            if (!selfStrong || !player) return;
+            UIViewController *host = [selfStrong yt_hostViewController];
+            if (!host) return;
+            [KUSER_DEFAULT setObject:@"Video" forKey:Card_Type];
+            VideoFullScreenViewController *vc = [[VideoFullScreenViewController alloc] init];
+            vc.player = player;
+            vc.modalPresentationStyle = UIModalPresentationFullScreen;
+            [host presentViewController:vc animated:YES completion:nil];
+        };
+        [videoHost addSubview:pv];
+        self.activeVideoPlayerView = pv;
+    } else {
+        // 复用已有播放器：重挂到当前页，避免切页时出现“重新加载闪烁”
+        if (self.activeVideoPlayerView.superview != videoHost) {
+            [self.activeVideoPlayerView removeFromSuperview];
+            [videoHost addSubview:self.activeVideoPlayerView];
+        }
+        self.activeVideoPlayerView.frame = videoHost.bounds;
     }
 
     UIView *poster = [page viewWithTag:kMediaVideoPosterTag];
     if (poster) {
         poster.hidden = YES;
-    }
-
-    // 视频页中间：播放/暂停按钮
-    UIButton *btn = self.mediaPlayPauseButton;
-    if (btn.superview != page) {
-        [btn removeFromSuperview];
-        [page addSubview:btn];
-    }
-    btn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
-    btn.center = CGPointMake(CGRectGetMidX(page.bounds), CGRectGetMidY(page.bounds));
-    btn.selected = (self.activePlayer.rate > 0.01);
-    btn.hidden = NO;
-}
-
-- (void)onTapMediaPlayPause {
-    if (self.activeVideoIndex == NSNotFound || self.activeVideoIndex >= self.currentMediaItems.count) return;
-    if (!self.activePlayer) {
-        // 兜底：若因重建等场景还未准备好 player，这里先准备不播放
-        [self playVideoIfNeededAtIndex:self.activeVideoIndex];
-        if (!self.activePlayer) return;
-    }
-
-    if (self.activePlayer.rate > 0.01) {
-        [self.activePlayer pause];
-        self.mediaPlayPauseButton.selected = NO;
-    } else {
-        [self.activePlayer play];
-        self.mediaPlayPauseButton.selected = YES;
     }
 }
 

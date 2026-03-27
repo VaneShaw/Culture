@@ -263,7 +263,7 @@ static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
     if (self.isRequestingTopicHome) return;
     self.isRequestingTopicHome = YES;
 
-    [[GlobalHUDManager shared] showOrUpdateMessage:NSLocalizedString(@"Processing...", @"")];
+    [[GlobalHUDManager shared] showSpinnerOnly];
 
     __weak typeof(self) weakSelf = self;
     NSDictionary *params = @{@"sceneId": kTalkTopicSceneId ?: @""};
@@ -748,7 +748,7 @@ static NSInteger const kYTTopicHomeCardSubtitleLabelTag = 901002;
 
     self.isRequestingUnits = YES;
 
-    [[GlobalHUDManager shared] showOrUpdateMessage:NSLocalizedString(@"Processing...", @"")];
+    [[GlobalHUDManager shared] showSpinnerOnly];
 
     __weak typeof(self) weakSelf = self;
     [[YTMockLearningFlowBootstrapService shared] fetchBootstrapForSceneId:kTalkTopicSceneId levelId:levelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
