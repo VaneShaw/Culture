@@ -117,8 +117,7 @@ static void YTMapPlainTitleAndSubtitle(YTUnit *u, NSDictionary *display, BOOL is
                 u.grammarPageArrowText = grammarPage[@"arrowText"];
                 u.grammarPageExamples = grammarPage[@"examples"];
             }
-        } else if (u.unitType >= YTUnitTypeExerciseListenChooseImage &&
-                   u.unitType <= YTUnitTypeExerciseCompleteDialogue) {
+        } else if ([YTUnit yt_isExerciseQuestionType:u.unitType]) {
             NSDictionary *title = display[@"title"] ?: @{};
             if ([title isKindOfClass:[NSDictionary class]]) {
                 u.titleCN = title[@"zh"];

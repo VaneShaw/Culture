@@ -44,20 +44,14 @@ static NSArray<NSString *> *YTOrderedTokenTextsByGreedyMatch(NSString *sentence,
 
 NSDictionary *YTRestoreAnswerPayloadFromUnit(YTUnit *unit) {
     if (!unit) return nil;
-    switch (unit.unitType) {
-        case YTUnitTypeExerciseListenChooseImage:
-        case YTUnitTypeExerciseLookChooseWord:
-        case YTUnitTypeExerciseChooseWordFillBlank:
-        case YTUnitTypeExerciseListenChooseResponse:
-        case YTUnitTypeExerciseCompleteDialogue:
-            return YTAnswerPayloadForSelectedOptionId(unit.correctOptionId);
-        case YTUnitTypeExerciseBuildSentence: {
-            NSArray *ordered = YTOrderedTokenTextsByGreedyMatch(unit.correctSentenceText ?: @"", unit.options ?: @[]);
-            return YTAnswerPayloadForOrderedTokenTexts(ordered);
-        }
-        default:
-            return nil;
+    if ([YTUnit yt_isSelectedOptionExerciseType:unit.unitType]) {
+        return YTAnswerPayloadForSelectedOptionId(unit.correctOptionId);
     }
+    if (unit.unitType == YTUnitTypeExerciseBuildSentence) {
+        NSArray *ordered = YTOrderedTokenTextsByGreedyMatch(unit.correctSentenceText ?: @"", unit.options ?: @[]);
+        return YTAnswerPayloadForOrderedTokenTexts(ordered);
+    }
+    return nil;
 }
 
 NSDictionary *YTAnswerPayloadForSelectedOptionId(NSString *selectedOptionId) {

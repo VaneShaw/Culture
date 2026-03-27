@@ -106,21 +106,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 
 @implementation TalkLearningFlowViewController
 
-/// 是否为「练习题」题型（不含过渡页/完成页/发音）
-static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
-    switch (t) {
-        case YTUnitTypeExerciseListenChooseImage:
-        case YTUnitTypeExerciseLookChooseWord:
-        case YTUnitTypeExerciseChooseWordFillBlank:
-        case YTUnitTypeExerciseListenChooseResponse:
-        case YTUnitTypeExerciseBuildSentence:
-        case YTUnitTypeExerciseCompleteDialogue:
-            return YES;
-        default:
-            return NO;
-    }
-}
-
 - (instancetype)initWithSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId {
     return [self initWithSceneId:sceneId levelId:levelId preloadedUnits:nil skipFetchUsePreloaded:NO];
 }
@@ -528,7 +513,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 - (NSInteger)indexOfFirstUnitBlockingReturnToPronounce {
     for (NSInteger i = 0; i < self.units.count; i++) {
         YTUnitType t = self.units[i].unitType;
-        if (t == YTUnitTypePracticeTransition || YTUnitTypeIsExerciseQuestion(t)) {
+        if (t == YTUnitTypePracticeTransition || [YTUnit yt_isExerciseQuestionType:t]) {
             return i;
         }
     }
@@ -538,7 +523,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
 /// 第一道练习题下标；无练习题时为 NSNotFound
 - (NSInteger)indexOfFirstExerciseQuestion {
     for (NSInteger i = 0; i < self.units.count; i++) {
-        if (YTUnitTypeIsExerciseQuestion(self.units[i].unitType)) {
+        if ([YTUnit yt_isExerciseQuestionType:self.units[i].unitType]) {
             return i;
         }
     }
@@ -784,8 +769,7 @@ static BOOL YTUnitTypeIsExerciseQuestion(YTUnitType t) {
     // 听音类题型：如果有拼音提示，则把拼音放在前面一起展示（由调用方拼好传入弹窗）
     YTUnit *u = (self.currentIndex >= 0 && self.currentIndex < self.units.count) ? self.units[self.currentIndex] : nil;
     if (u) {
-        BOOL isListening = (u.unitType == YTUnitTypeExerciseListenChooseImage ||
-                            u.unitType == YTUnitTypeExerciseListenChooseResponse);
+        BOOL isListening = [u yt_isListeningExercise];
         if (isListening && (u.titlePinyin.length > 0)) {
             // 例：图书馆（tú shū guǎn）
             if (correctText.length > 0) {

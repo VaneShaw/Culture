@@ -119,6 +119,19 @@ typedef NS_ENUM(NSInteger, YTLevelId) {
 /// `unitType` 7 / 8：主标题来自接口 `display.title`（string）；其它题型仍可能用 `titleCN` / `titleEN` / `titlePinyin`。
 - (NSString *)yt_resolvedTitleDisplayText;
 
+#pragma mark - 题型分类（学习流内统一入口，避免多处 switch 重复）
+
+/// 练习题：unitType 1～6（听词选图 / … / 完成对话）
++ (BOOL)yt_isExerciseQuestionType:(YTUnitType)t;
+/// 听词选图、听音回应（自动播、错题提示带拼音等）
++ (BOOL)yt_isListeningExerciseType:(YTUnitType)t;
+/// 用 `selectedOptionId` 判题的选择/填空类（不含句子组装）
++ (BOOL)yt_isSelectedOptionExerciseType:(YTUnitType)t;
+
+- (BOOL)yt_isExerciseQuestion;
+- (BOOL)yt_isListeningExercise;
+- (BOOL)yt_isSelectedOptionExercise;
+
 @end
 
 NS_ASSUME_NONNULL_END

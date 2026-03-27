@@ -42,49 +42,39 @@ static NSString *YTLocalAnswerEvaluatorCorrectOptionTextForUnit(YTUnit *unit) {
     YTUnitSubmitResult *result = [[YTUnitSubmitResult alloc] init];
     BOOL isCorrect = NO;
 
-    switch (unit.unitType) {
-        case YTUnitTypeExerciseListenChooseImage:
-        case YTUnitTypeExerciseLookChooseWord:
-        case YTUnitTypeExerciseChooseWordFillBlank:
-        case YTUnitTypeExerciseListenChooseResponse:
-        case YTUnitTypeExerciseCompleteDialogue: {
-            NSString *selectedOptionId = [answerPayload[YTAnswerPayloadKeySelectedOptionId] isKindOfClass:[NSString class]] ? answerPayload[YTAnswerPayloadKeySelectedOptionId] : @"";
-            isCorrect = [selectedOptionId isEqualToString:unit.correctOptionId ?: @""];
-            result.isCorrect = isCorrect;
-            if (isCorrect) {
-                result.answerPayload = answerPayload;
-            } else {
-                result.correctAnswerText = YTLocalAnswerEvaluatorCorrectOptionTextForUnit(unit);
-            }
-            break;
+    if ([YTUnit yt_isSelectedOptionExerciseType:unit.unitType]) {
+        NSString *selectedOptionId = [answerPayload[YTAnswerPayloadKeySelectedOptionId] isKindOfClass:[NSString class]] ? answerPayload[YTAnswerPayloadKeySelectedOptionId] : @"";
+        isCorrect = [selectedOptionId isEqualToString:unit.correctOptionId ?: @""];
+        result.isCorrect = isCorrect;
+        if (isCorrect) {
+            result.answerPayload = answerPayload;
+        } else {
+            result.correctAnswerText = YTLocalAnswerEvaluatorCorrectOptionTextForUnit(unit);
         }
-        case YTUnitTypeExerciseBuildSentence: {
-            NSArray *orderedTokenTexts = [answerPayload[YTAnswerPayloadKeyOrderedTokenTexts] isKindOfClass:[NSArray class]] ? answerPayload[YTAnswerPayloadKeyOrderedTokenTexts] : nil;
-            NSMutableArray<NSString *> *parts = [NSMutableArray array];
-            for (id obj in orderedTokenTexts) {
-                if ([obj isKindOfClass:[NSString class]]) {
-                    [parts addObject:obj];
-                }
+    } else if (unit.unitType == YTUnitTypeExerciseBuildSentence) {
+        NSArray *orderedTokenTexts = [answerPayload[YTAnswerPayloadKeyOrderedTokenTexts] isKindOfClass:[NSArray class]] ? answerPayload[YTAnswerPayloadKeyOrderedTokenTexts] : nil;
+        NSMutableArray<NSString *> *parts = [NSMutableArray array];
+        for (id obj in orderedTokenTexts) {
+            if ([obj isKindOfClass:[NSString class]]) {
+                [parts addObject:obj];
             }
-            NSString *answer = [parts componentsJoinedByString:@""];
-            NSString *correct = unit.correctSentenceText ?: @"";
-            isCorrect = (correct.length > 0) ? [answer isEqualToString:correct] : YES;
-            result.isCorrect = isCorrect;
-            if (isCorrect) {
-                result.answerPayload = answerPayload;
-            } else {
-                result.correctAnswerText = correct;
-            }
-            break;
         }
-        default: {
-            if (completion) {
-                completion(nil, [NSError errorWithDomain:@"YTLocalAnswerEvaluator"
-                                                    code:4002
-                                                userInfo:@{NSLocalizedDescriptionKey: @"Unsupported unit type"}]);
-            }
-            return;
+        NSString *answer = [parts componentsJoinedByString:@""];
+        NSString *correct = unit.correctSentenceText ?: @"";
+        isCorrect = (correct.length > 0) ? [answer isEqualToString:correct] : YES;
+        result.isCorrect = isCorrect;
+        if (isCorrect) {
+            result.answerPayload = answerPayload;
+        } else {
+            result.correctAnswerText = correct;
         }
+    } else {
+        if (completion) {
+            completion(nil, [NSError errorWithDomain:@"YTLocalAnswerEvaluator"
+                                                code:4002
+                                            userInfo:@{NSLocalizedDescriptionKey: @"Unsupported unit type"}]);
+        }
+        return;
     }
 
     if (completion) completion(result, nil);
