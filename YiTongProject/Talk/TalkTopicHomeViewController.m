@@ -27,7 +27,7 @@
  作用：
  - 承接 Talk 首页/列表的点击进入
  - 展示三档难度卡片（Beginner/Intermediate/Advanced）
- - 点击卡片直接进入学习流容器 `TalkLearningFlowViewController`
+ - 点击卡片进入学习流前校验登录；未登录则弹出登录页，成功后再进入 `TalkLearningFlowViewController`
  - 进阶/困难：上一难度本地进度 ≥60% 才可进入，否则弹出 `YTTipAlertView`
  - 卡片右侧：`YTTopicLevelProgressIndicator`（未开始箭头 / 进行中圆环 / 完成圆+勾），数据来自本地进度
  
@@ -849,6 +849,19 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
 
 - (void)pushLearningFlowWithLevel:(YTLevelId)levelId {
     if (self.isRequestingUnits) return;
+
+    if (![[UserModel sharedInstance] isLogin]) {
+        __weak typeof(self) weakSelf = self;
+        [[LoginManager sharedManager] handleLoginExpiredWithCompletion:^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            if ([[UserModel sharedInstance] isLogin]) {
+                [self pushLearningFlowWithLevel:levelId];
+            }
+        }];
+        return;
+    }
+
     // Intermediate/Advanced 需要解锁条件：必须先拿到后端进度数据
     if (levelId == YTLevelIdIntermediate || levelId == YTLevelIdAdvanced) {
         if (self.isRequestingTopicHome) {
