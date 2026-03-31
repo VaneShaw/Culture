@@ -73,8 +73,10 @@
     [self yt_fetchSceneCardsWithType:self.type completion:^(NSArray<YTTalkSceneListItemModel *> *models) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
-        self.dataSource = [models mutableCopy] ?: [NSMutableArray array];
-        [self.tableView reloadData];
+        if (models) {
+            self.dataSource = [models mutableCopy] ?: [NSMutableArray array];
+            [self.tableView reloadData];
+        }
         [self.tableView.mj_header endRefreshing];
     }];
 }
@@ -83,7 +85,7 @@
 
 - (void)yt_fetchSceneCardsWithType:(NSString *)type completion:(void (^)(NSArray<YTTalkSceneListItemModel *> *models))completion {
     if (self.isRequesting) {
-        if (completion) completion(@[]);
+        if (completion) completion(nil);
         return;
     }
     self.isRequesting = YES;
@@ -209,6 +211,7 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if (indexPath.row < 0 || indexPath.row >= self.dataSource.count) return;
     
     TalkTopicHomeViewController *vc = [[TalkTopicHomeViewController alloc] init];
     vc.hidesBottomBarWhenPushed = YES;
@@ -216,4 +219,3 @@
 }
 
 @end
-

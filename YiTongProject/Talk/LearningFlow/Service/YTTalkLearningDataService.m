@@ -68,6 +68,17 @@ static NSString *const kAnswerSnapshotsKeyPrefix = @"talk_answer_snapshots";
     [KUSER_DEFAULT removeObjectForKey:key];
 }
 
+- (NSArray<NSString *> *)completedUnitIdsForSceneId:(NSString *)sceneId levelId:(NSInteger)levelId {
+    NSArray *arr = [KUSER_DEFAULT objectForKey:[self completedUnitsKeyForSceneId:sceneId levelId:levelId]];
+    NSMutableArray<NSString *> *completed = [NSMutableArray array];
+    if ([arr isKindOfClass:[NSArray class]]) {
+        for (id v in arr) {
+            if ([v isKindOfClass:[NSString class]]) [completed addObject:v];
+        }
+    }
+    return [completed copy];
+}
+
 - (void)fetchLearningProgressForSceneId:(NSString *)sceneId
                                 levelId:(NSInteger)levelId
                              completion:(YTLearningProgressCompletion)completion {
@@ -77,13 +88,7 @@ static NSString *const kAnswerSnapshotsKeyPrefix = @"talk_answer_snapshots";
     if ([lastPositionRaw isKindOfClass:[NSNull class]]) lastPositionRaw = nil;
     YTLastPosition *lastPosition = [YTLastPosition fromDictionary:lastPositionRaw];
 
-    NSArray *arr = [KUSER_DEFAULT objectForKey:[self completedUnitsKeyForSceneId:sceneId levelId:levelId]];
-    NSMutableArray<NSString *> *completed = [NSMutableArray array];
-    if ([arr isKindOfClass:[NSArray class]]) {
-        for (id v in arr) {
-            if ([v isKindOfClass:[NSString class]]) [completed addObject:v];
-        }
-    }
+    NSArray<NSString *> *completed = [self completedUnitIdsForSceneId:sceneId levelId:levelId];
     completion(lastPosition, [completed copy], nil);
 }
 

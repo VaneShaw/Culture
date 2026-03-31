@@ -33,6 +33,7 @@
 @property (nonatomic, strong) UIScrollView *segmentScrollView;
 @property (nonatomic, strong) UIView *segmentContentView;
 @property (nonatomic, assign) BOOL isPagerSetup;
+@property (nonatomic, weak, nullable) UIScrollView *observedListContentScrollView;
 @end
  
  @implementation TalkViewController
@@ -512,9 +513,12 @@
     return _bannerIndicatorViews;
 }
  
- - (void)segTap:(UIButton *)btn {
+- (void)segTap:(UIButton *)btn {
      NSInteger index = btn.tag;
+    if (index < 0 || index >= self.segButtons.count) return;
+    if (!self.pagerView.listContainerView) return;
     UIScrollView *contentScrollView = [self.pagerView.listContainerView contentScrollView];
+    if (!contentScrollView) return;
      CGPoint offset = CGPointMake(index * contentScrollView.bounds.size.width, 0);
      [contentScrollView setContentOffset:offset animated:YES];
     [self.pagerView.listContainerView didClickSelectedItemAtIndex:index];
@@ -556,6 +560,7 @@
     if (!self.pagerView.listContainerView) return;
     UIScrollView *contentScrollView = [self.pagerView.listContainerView contentScrollView];
     if (!contentScrollView) return;
+    self.observedListContentScrollView = contentScrollView;
     self.isObservingContentOffset = YES;
     [contentScrollView addObserver:self
                         forKeyPath:NSStringFromSelector(@selector(contentOffset))
@@ -565,11 +570,14 @@
 
 - (void)stopObserveListContainerContentOffsetIfNeeded {
     if (!self.isObservingContentOffset) return;
-    UIScrollView *contentScrollView = [self.pagerView.listContainerView contentScrollView];
+    UIScrollView *contentScrollView = self.observedListContentScrollView;
     @try {
-        [contentScrollView removeObserver:self forKeyPath:NSStringFromSelector(@selector(contentOffset))];
+        if (contentScrollView) {
+            [contentScrollView removeObserver:self forKeyPath:NSStringFromSelector(@selector(contentOffset))];
+        }
     } @catch (__unused NSException *e) {
     }
+    self.observedListContentScrollView = nil;
     self.isObservingContentOffset = NO;
 }
 
@@ -581,6 +589,7 @@
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
         return;
     }
+    if (object != self.observedListContentScrollView) return;
     if (self.segmentTitles.count == 0) return;
     if (!self.indicatorView) return;
     
@@ -590,6 +599,9 @@
     
     CGFloat progress = scrollView.contentOffset.x / pageW; // 连续值 0~(count-1)
     if (self.segButtons.count == 0) return;
+    CGFloat maxProgress = (CGFloat)self.segButtons.count - 1.0;
+    // 容器左右回弹时 contentOffset 可能 <0 或 >最后一页，先夹紧避免数组越界
+    progress = MAX(0.0, MIN(progress, maxProgress));
 
     NSInteger leftIndex = (NSInteger)floor(progress);
     NSInteger rightIndex = MIN(leftIndex + 1, self.segButtons.count - 1);

@@ -356,13 +356,18 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     if (self.isRequestingTopicHome) return;
     self.isRequestingTopicHome = YES;
 
-    [[GlobalHUDManager shared] showSpinnerOnly];
+    BOOL shouldShowHUD = !self.didLoadTopicHome;
+    if (shouldShowHUD) {
+        [[GlobalHUDManager shared] showSpinnerOnly];
+    }
 
     __weak typeof(self) weakSelf = self;
     NSDictionary *params = @{@"sceneId": kTalkTopicSceneId ?: @""};
     [HttpTools getRequest:@"/talk/topic-home" parames:params success:^(BOOL success, BaseDataModel *response) {
         __strong typeof(weakSelf) self = weakSelf;
-        [[GlobalHUDManager shared] hide];
+        if (shouldShowHUD) {
+            [[GlobalHUDManager shared] hide];
+        }
         if (!self) return;
         self.isRequestingTopicHome = NO;
         if (!success || !response || !response.data || ![response.data isKindOfClass:[NSDictionary class]]) return;
@@ -372,7 +377,9 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
         [self yt_applyTopicHomeData:data];
     } failure:^(NSError *error) {
         __strong typeof(weakSelf) self = weakSelf;
-        [[GlobalHUDManager shared] hide];
+        if (shouldShowHUD) {
+            [[GlobalHUDManager shared] hide];
+        }
         if (!self) return;
         self.isRequestingTopicHome = NO;
         // 失败时保持可用 UI：直接使用本地 mock（不影响进入学习流）
@@ -431,15 +438,9 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
 
 - (CGFloat)yt_localProgressRatioForLevel:(YTLevelId)levelId {
     NSArray<YTUnit *> *units = [YTMockUnitFactory learningFlowUnitsForSceneId:kTalkTopicSceneId levelId:levelId];
-    __block NSSet<NSString *> *completedIds = [NSSet set];
-
-    [[YTTalkLearningDataService shared] fetchLearningProgressForSceneId:kTalkTopicSceneId
-                                                                levelId:levelId
-                                                             completion:^(YTLastPosition * _Nullable lastPosition,
-                                                                          NSArray<NSString *> *completedUnitIds,
-                                                                          NSError * _Nullable error) {
-        completedIds = [NSSet setWithArray:completedUnitIds ?: @[]];
-    }];
+    NSArray<NSString *> *completedUnitIds = [[YTTalkLearningDataService shared] completedUnitIdsForSceneId:kTalkTopicSceneId
+                                                                                                    levelId:levelId];
+    NSSet<NSString *> *completedIds = [NSSet setWithArray:completedUnitIds ?: @[]];
 
     return [YTMockUnitFactory progressRatioForUnits:units completedUnitIdentifiers:completedIds];
 }
@@ -510,36 +511,48 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
                 self.beginnerProgressRatio = ratio;
                 self.beginnerBadgeUnlocked = badgeUnlocked;
                 if (title.length > 0) {
-                    UILabel *lbl = [self.beginnerCard viewWithTag:kYTTopicHomeCardTitleLabelTag];
-                    lbl.text = title;
+                    UIView *v = [self.beginnerCard viewWithTag:kYTTopicHomeCardTitleLabelTag];
+                    if ([v isKindOfClass:[UILabel class]]) {
+                        ((UILabel *)v).text = title;
+                    }
                 }
                 if (subtitle.length > 0) {
-                    UILabel *lbl = [self.beginnerCard viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
-                    lbl.text = subtitle;
+                    UIView *v = [self.beginnerCard viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
+                    if ([v isKindOfClass:[UILabel class]]) {
+                        ((UILabel *)v).text = subtitle;
+                    }
                 }
             } break;
             case YTLevelIdIntermediate: {
                 self.intermediateProgressRatio = ratio;
                 self.intermediateBadgeUnlocked = badgeUnlocked;
                 if (title.length > 0) {
-                    UILabel *lbl = [self.intermediateCard viewWithTag:kYTTopicHomeCardTitleLabelTag];
-                    lbl.text = title;
+                    UIView *v = [self.intermediateCard viewWithTag:kYTTopicHomeCardTitleLabelTag];
+                    if ([v isKindOfClass:[UILabel class]]) {
+                        ((UILabel *)v).text = title;
+                    }
                 }
                 if (subtitle.length > 0) {
-                    UILabel *lbl = [self.intermediateCard viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
-                    lbl.text = subtitle;
+                    UIView *v = [self.intermediateCard viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
+                    if ([v isKindOfClass:[UILabel class]]) {
+                        ((UILabel *)v).text = subtitle;
+                    }
                 }
             } break;
             case YTLevelIdAdvanced: {
                 self.advancedProgressRatio = ratio;
                 self.advancedBadgeUnlocked = badgeUnlocked;
                 if (title.length > 0) {
-                    UILabel *lbl = [self.advancedCard viewWithTag:kYTTopicHomeCardTitleLabelTag];
-                    lbl.text = title;
+                    UIView *v = [self.advancedCard viewWithTag:kYTTopicHomeCardTitleLabelTag];
+                    if ([v isKindOfClass:[UILabel class]]) {
+                        ((UILabel *)v).text = title;
+                    }
                 }
                 if (subtitle.length > 0) {
-                    UILabel *lbl = [self.advancedCard viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
-                    lbl.text = subtitle;
+                    UIView *v = [self.advancedCard viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
+                    if ([v isKindOfClass:[UILabel class]]) {
+                        ((UILabel *)v).text = subtitle;
+                    }
                 }
             } break;
             default:

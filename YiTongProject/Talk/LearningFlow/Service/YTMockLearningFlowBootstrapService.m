@@ -38,15 +38,20 @@
         NSArray<YTUnit *> *units = [YTUnitMapper mapUnitsFromResponse:unitsArray sceneId:sceneId levelId:(YTLevelId)levelId];
 
         [self.progressStore fetchLearningProgressForSceneId:sceneId levelId:levelId completion:^(YTLastPosition * _Nullable lastPosition, NSArray<NSString *> *completedUnitIds, NSError * _Nullable error) {
+            void (^finishOnMain)(YTLearningFlowBootstrap * _Nullable, NSError * _Nullable) = ^(YTLearningFlowBootstrap * _Nullable outBootstrap, NSError * _Nullable outError) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completion(outBootstrap, outError);
+                });
+            };
             if (error) {
-                completion(nil, error);
+                finishOnMain(nil, error);
                 return;
             }
             YTLearningFlowBootstrap *bootstrap = [[YTLearningFlowBootstrap alloc] init];
             bootstrap.units = units ?: @[];
             bootstrap.lastPosition = lastPosition;
             bootstrap.completedUnitIds = completedUnitIds ?: @[];
-            completion(bootstrap, nil);
+            finishOnMain(bootstrap, nil);
         }];
     });
 }
