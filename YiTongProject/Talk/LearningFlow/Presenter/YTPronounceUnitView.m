@@ -1284,6 +1284,7 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
     __weak typeof(self) weakSelf = self;
     [self.audio playURLString:self.unit.audioURLString completion:^(__unused BOOL success, __unused NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         self.hasPlayedOnce = YES;
         self.recordHintLabel.text = NSLocalizedString(@"Playback complete (standard pronunciation)", @"");
     }];
@@ -1335,6 +1336,7 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
         __weak typeof(self) weakSelf = self;
         [self.recording startRecordingWithIdentifier:self.unit.unitId completion:^(BOOL success, NSError * _Nullable error) {
             __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
             if (!success || error) {
                 // 录音启动失败：恢复到可录状态，并提示可用“播放标准音”完成
                 // 如果是“权限被拒绝”，把按钮切到“去设置”
@@ -1380,7 +1382,10 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
 #endif
 
         NSString *expected = self.unit.titleCN.length ? self.unit.titleCN : (self.unit.titlePinyin ?: @"");
+        __weak typeof(self) weakEval = self;
         [self.pronounceEvaluator evaluateRecordingAtURL:fileURL expectedText:expected completion:^(YTScoreResult * _Nullable result, NSError * _Nullable error2) {
+            __strong typeof(weakEval) self = weakEval;
+            if (!self) return;
             self.isScoring = NO;
             if (error2 || !result) {
                 self.primaryState.title = @"Start recording";

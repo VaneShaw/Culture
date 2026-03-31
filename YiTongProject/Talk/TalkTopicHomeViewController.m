@@ -362,9 +362,9 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     NSDictionary *params = @{@"sceneId": kTalkTopicSceneId ?: @""};
     [HttpTools getRequest:@"/talk/topic-home" parames:params success:^(BOOL success, BaseDataModel *response) {
         __strong typeof(weakSelf) self = weakSelf;
-        self.isRequestingTopicHome = NO;
         [[GlobalHUDManager shared] hide];
         if (!self) return;
+        self.isRequestingTopicHome = NO;
         if (!success || !response || !response.data || ![response.data isKindOfClass:[NSDictionary class]]) return;
 
         // TODO: 后端未接入时，直接使用本地 mock（保证页面可展示）
@@ -372,9 +372,9 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
         [self yt_applyTopicHomeData:data];
     } failure:^(NSError *error) {
         __strong typeof(weakSelf) self = weakSelf;
-        self.isRequestingTopicHome = NO;
         [[GlobalHUDManager shared] hide];
         if (!self) return;
+        self.isRequestingTopicHome = NO;
         // 失败时保持可用 UI：直接使用本地 mock（不影响进入学习流）
         NSDictionary *data = [self yt_localTopicHomeData];
         [self yt_applyTopicHomeData:data];
@@ -922,9 +922,9 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     __weak typeof(self) weakSelf = self;
     [[YTMockLearningFlowBootstrapService shared] fetchBootstrapForSceneId:kTalkTopicSceneId levelId:levelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
+        [[GlobalHUDManager shared] hide];
         if (!self) return;
         self.isRequestingUnits = NO;
-        [[GlobalHUDManager shared] hide];
         if (!bootstrap || error) return;
 
         TalkLearningFlowViewController *vc = [[TalkLearningFlowViewController alloc] initWithSceneId:kTalkTopicSceneId

@@ -171,7 +171,10 @@
 - (void)getPronunciation{//左
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params = [LanguageHelper currentLanguageParams:params];
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequest:@"/pinyin/getPronunciation" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
          if (success) {
              //self.collectionPronunciation.dataArray = [NSArray arrayWithArray:response.data];
              //[self.collectionPronunciation reloadData];
@@ -190,7 +193,10 @@
 - (void)getAlphabetical{
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params = [LanguageHelper currentLanguageParams:params];
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequest:@"/pinyin/getAlphabetical" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         //NSLog(@"--------[%@]-----[%d],,,,[%@]",response.data,response.code,response.msg);
          if (success) {
              NSArray *newArray = [NSArray arrayWithArray:response.data];

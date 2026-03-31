@@ -62,9 +62,9 @@
 
     NoNetworkView *noNetView = [[NoNetworkView alloc] initWithFrame:self.view.bounds];
     self.noNetView = noNetView;
+    __weak typeof(self) weakSelf = self;
     noNetView.refreshHandler = ^{
-        // 刷新逻辑，比如重新发起网络请求
-        [self getPracticeZone];
+        [weakSelf getPracticeZone];
     };
     [self.view addSubview:self.noNetView];
     self.noNetView.hidden = YES;
@@ -75,6 +75,8 @@
     } else {
         self.noNetView.alpha = 0;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
             self.noNetView.alpha = 1;
             });
         self.noNetView.hidden = [KUSER_DEFAULT boolForKey:@"notwork_key"];
@@ -84,8 +86,10 @@
 }
 - (void)monitoringNetwork {
     [[NetworkMonitor sharedMonitor] startMonitoring];
+    __weak typeof(self) weakSelf = self;
     [NetworkMonitor sharedMonitor].statusChangeHandler = ^(NetworkStatusType status) {
-      
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         switch (status) {
             case NetworkStatusTypeNotReachable:
                 self.noNetView.hidden = NO;
@@ -266,5 +270,8 @@
  }
  */
 
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
 
 @end

@@ -427,11 +427,17 @@
 - (void)yt_startBannerAutoScrollIfNeeded {
     if (self.bannerItems.count <= 1) return;
     if (self.bannerAutoScrollTimer) return;
-    self.bannerAutoScrollTimer = [NSTimer scheduledTimerWithTimeInterval:3.0
-                                                                   target:self
-                                                                 selector:@selector(yt_autoScrollBanner)
-                                                                 userInfo:nil
-                                                                  repeats:YES];
+    __weak typeof(self) weakSelf = self;
+    self.bannerAutoScrollTimer = [NSTimer timerWithTimeInterval:3.0
+                                                        repeats:YES
+                                                          block:^(NSTimer * _Nonnull timer) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            [timer invalidate];
+            return;
+        }
+        [self yt_autoScrollBanner];
+    }];
     [[NSRunLoop mainRunLoop] addTimer:self.bannerAutoScrollTimer forMode:NSRunLoopCommonModes];
 }
 

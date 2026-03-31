@@ -69,8 +69,10 @@
 #pragma mark - 数据
 
 - (void)reloadData {
-    // 这里模拟接口请求：未来替换真实接口时，只需要替换 yt_fetchSceneCardsWithType
+    __weak typeof(self) weakSelf = self;
     [self yt_fetchSceneCardsWithType:self.type completion:^(NSArray<YTTalkSceneListItemModel *> *models) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         self.dataSource = [models mutableCopy] ?: [NSMutableArray array];
         [self.tableView reloadData];
         [self.tableView.mj_header endRefreshing];
@@ -87,10 +89,15 @@
     self.isRequesting = YES;
 
     // TODO: 对接真实接口时：把本地 yt_localModelsForType 替换为网络请求回调即可
+    __weak typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.7 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        NSArray<YTTalkSceneListItemModel *> *models = [self yt_localModelsForType:type];
-        self.isRequesting = NO;
-        if (completion) completion(models ?: @[]);
+        __strong typeof(weakSelf) self = weakSelf;
+        NSArray<YTTalkSceneListItemModel *> *models = @[];
+        if (self) {
+            models = [self yt_localModelsForType:type] ?: @[];
+            self.isRequesting = NO;
+        }
+        if (completion) completion(models);
     });
 }
 

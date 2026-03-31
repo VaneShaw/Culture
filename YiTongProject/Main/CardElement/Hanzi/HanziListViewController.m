@@ -204,7 +204,7 @@
 
 
 - (void)getCategoryList{
-    
+    __weak typeof(self) weakSelf = self;
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params = [LanguageHelper currentLanguageParams:params];
     params[@"app_region"] = @[@"domestic",@"overseas"][IS_OVERSEAS_VERSION];
@@ -216,13 +216,18 @@
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             if (!hudHidden) {
                 hudHidden = YES;
-                [MBProgressHUD hideHUDForView:self.view animated:YES]; //转圈圈隐藏
-                NSLog(@"⏱ HUD auto hidden after timeout");
+                __strong typeof(weakSelf) self = weakSelf;
+                if (self) {
+                    [MBProgressHUD hideHUDForView:self.view animated:YES]; //转圈圈隐藏
+                    NSLog(@"⏱ HUD auto hidden after timeout");
+                }
             }
         });
     }
     
     [HttpTools postRequest:@"/hanzi/getCategoryList" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         if (!hudHidden) {
                hudHidden = YES;
                [MBProgressHUD hideHUDForView:self.view animated:YES];

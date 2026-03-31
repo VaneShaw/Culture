@@ -102,7 +102,9 @@
         //dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             [self cancelRecording];
         //});
+        __weak typeof(self) weakSelf = self;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) self = weakSelf;
                 [self cancelRecording];
           });
     }
@@ -403,7 +405,10 @@
     [tableView setContentOffset:CGPointMake(0, maxOffsetY) animated:animated];
 }
 - (void)playAudioAtIndexPath:(NSIndexPath *)indexPath1 isStart:(BOOL)isStart {
+    __weak typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    __strong typeof(weakSelf) self = weakSelf;
+    if (!self) return;
     if (self.currentIndex_1 < 0 || self.currentIndex_1 >= self.dataArray.count) return;
     NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.currentIndex_1 inSection:0];
     StoryTextCell *cell = [self.tableView cellForRowAtIndexPath:indexPath];
@@ -436,5 +441,8 @@
     [self.animatedImage stopAnimatingWithHeights:@[@"11",@"15",@"10"]];
 }
 
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
 
 @end

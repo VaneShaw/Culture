@@ -981,9 +981,13 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     [KUSER_DEFAULT setBool:YES forKey:key];
 
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:NSLocalizedString(@"Congratulations, you've unlocked the next level!", @"") preferredStyle:UIAlertControllerStyleAlert];
+    __weak UIAlertController *weakAlert = alert;
     [self presentViewController:alert animated:YES completion:^{
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [alert dismissViewControllerAnimated:YES completion:nil];
+            UIAlertController *a = weakAlert;
+            if (a.presentingViewController) {
+                [a dismissViewControllerAnimated:YES completion:nil];
+            }
         });
     }];
 }
