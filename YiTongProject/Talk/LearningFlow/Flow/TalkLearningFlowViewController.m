@@ -19,13 +19,13 @@
 #import "YTLearningProgressStoring.h"
 #import "YTUnitViewFactory.h"
 #import "YTInternalUnitViewSupport.h"
-#import "TalkEventTracker.h"
 #import "YTAnswerResultBottomSheet.h"
 #import "YTResumeLearningAlertView.h"
 #import "YTTipAlertView.h"
 #import "YTTalkLearningDataService.h"
 #import "YTDepthPrimaryButton.h"
 #import "YTRecordingService.h"
+#import "YTAudioMuxService.h"
 #import "YTRecordingMeterBarsView.h"
 #import "YTUnit.h"
 #import <QuartzCore/QuartzCore.h>
@@ -63,7 +63,7 @@ static UIColor *YTBlendColorTowardWhite(UIColor *color, CGFloat amount) {
  
  设计意图：
  - 入口直接进入学习流（用户选难度后直接开始做题）
- - 容器只负责：导航/进度/续学/埋点/底部主按钮驱动
+ - 容器只负责：导航/进度/续学/底部主按钮驱动
  - 具体题型 UI/交互由 Presenter（`YTUnitViewProtocol`）承载，通过协议回调把“主按钮状态”回传给容器
  
  PRD MVP 约束（当前版本）：
@@ -202,6 +202,8 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
     [self yt_stopRecordingMeterDisplayLink];
+    // 离开学习流即停播：避免 pop 后题干/选项音频仍在后台播放，并尽快释放单例内 AVAudioPlayer/队列占用的内存
+    [[YTAudioMuxService shared] stop];
     // 离开学习流后恢复导航栏，避免影响其它页面
     [self.navigationController setNavigationBarHidden:NO animated:animated];
     [self saveLastPositionIfPossible];
@@ -501,8 +503,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 
     // 模拟接口：进入新步骤时调用，更新当前用户所在页面
     [self.progressStore saveCurrentPositionForSceneId:self.sceneId levelId:self.levelId unitId:u.unitId stepIndex:u.stepIndex unitType:u.unitType completion:nil];
-
-    [self markUnitEnter:u];
 }
 
 - (BOOL)isCurrentStepUnlockedForNext {
@@ -1000,23 +1000,8 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     return;
 }
 
-#pragma mark - 埋点（MVP：先走 AnalyticsManager 的壳，后续完善）
-
-- (void)markUnitEnter:(YTUnit *)u {
-    // 进入 unit 埋点：用于漏斗与停留分析（MVP 只记录基础字段）
-    NSMutableDictionary *params = [NSMutableDictionary dictionary];
-    params[@"sceneId"] = u.sceneId ?: @"";
-    params[@"levelId"] = @(u.levelId);
-    params[@"unitType"] = @(u.unitType);
-    params[@"unitId"] = u.unitId ?: @"";
-    params[@"stepIndex"] = @(u.stepIndex);
-    [[TalkEventTracker shared] track:@"unit_enter" params:params];
-}
-
 - (void)markUnitCompletedIfNeeded:(YTUnit *)u {
-    // 完成埋点：
-    // - 仅对 countsTowardProgress == YES 的 unit 生效
-    // - unitId 去重，避免重复计入进度/重复上报
+    // 进度：仅对 countsTowardProgress == YES 的 unit 生效；unitId 去重
     if (!u.unitId.length) return;
     if (![u countsTowardProgress]) return;
     NSString *uid = [u.unitId copy];
@@ -1033,15 +1018,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         if (!self) return;
         [self updateProgressUI];
     });
-
-    NSMutableDictionary *params = [NSMutableDictionary dictionary];
-    params[@"sceneId"] = u.sceneId ?: @"";
-    params[@"levelId"] = @(u.levelId);
-    params[@"unitType"] = @(u.unitType);
-    params[@"unitId"] = u.unitId ?: @"";
-    params[@"durationMs"] = @(0);
-    params[@"result"] = @"completed";
-    [[TalkEventTracker shared] track:@"unit_complete" params:params];
 }
 
 #pragma mark - Helpers

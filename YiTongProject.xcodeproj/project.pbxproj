@@ -190,10 +190,8 @@
 		6A7E0D978A2A4C9AA1B3C11D /* YTScoringService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */; };
 		6A7E0D9A8A2A4C9AA1B3C142 /* YTTalkLearningDataService.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */; };
 		6A7E0D9C8A2A4C9AA1B3C122 /* YTUnitViewFactory.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */; };
-		6A7E0DA08A2A4C9AA1B3C126 /* TalkEventTracker.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */; };
 		6A7E0DA38A2A4C9AA1B3C129 /* YTAnswerResultBottomSheet.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */; };
 		6A7E0DA78A2A4C9AA1B3C12D /* YTDepthPrimaryButton.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */; };
-		A1F0B0552F70001000B00105 /* YTRecordingMeterBarsView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0542F70001000B00104 /* YTRecordingMeterBarsView.m */; };
 		6A7E0DA8BA2A4C9AA1B3C131 /* YTTipAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */; };
 		6A7E0DA8EA2A4C9AA1B3C134 /* YTResumeLearningAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */; };
 		A1F0B0012F70000100B00100 /* YTLearningFlowBootstrap.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0002F70000100B00100 /* YTLearningFlowBootstrap.m */; };
@@ -211,6 +209,7 @@
 		A1F0B03D2F70000D00B00100 /* YTCompleteDialogueUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B03F2F70000D00B00100 /* YTCompleteDialogueUnitView.m */; };
 		A1F0B0402F70000E00B00100 /* YTPracticeTransitionUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0422F70000E00B00100 /* YTPracticeTransitionUnitView.m */; };
 		A1F0B0432F70000F00B00100 /* YTLevelCompletionUnitView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0452F70000F00B00100 /* YTLevelCompletionUnitView.m */; };
+		A1F0B0552F70001000B00105 /* YTRecordingMeterBarsView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0542F70001000B00104 /* YTRecordingMeterBarsView.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -591,14 +590,10 @@
 		6A7E0D9A8A2A4C9AA1B3C140 /* YTTalkLearningDataService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkLearningDataService.h; sourceTree = "<group>"; };
 		6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkLearningDataService.m; sourceTree = "<group>"; };
 		6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnitViewFactory.m; sourceTree = "<group>"; };
-		6A7E0D9D8A2A4C9AA1B3C123 /* TalkEventTracker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkEventTracker.h; sourceTree = "<group>"; };
-		6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkEventTracker.m; sourceTree = "<group>"; };
 		6A7E0DA18A2A4C9AA1B3C127 /* YTAnswerResultBottomSheet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAnswerResultBottomSheet.h; sourceTree = "<group>"; };
 		6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAnswerResultBottomSheet.m; sourceTree = "<group>"; };
 		6A7E0DA58A2A4C9AA1B3C12B /* YTDepthPrimaryButton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDepthPrimaryButton.h; sourceTree = "<group>"; };
 		6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDepthPrimaryButton.m; sourceTree = "<group>"; };
-		A1F0B0532F70001000B00103 /* YTRecordingMeterBarsView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTRecordingMeterBarsView.h; sourceTree = "<group>"; };
-		A1F0B0542F70001000B00104 /* YTRecordingMeterBarsView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTRecordingMeterBarsView.m; sourceTree = "<group>"; };
 		6A7E0DA888A2A4C9AA1B3C12E /* YTTipAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTipAlertView.h; sourceTree = "<group>"; };
 		6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTipAlertView.m; sourceTree = "<group>"; };
 		6A7E0DA8CA2A4C9AA1B3C132 /* YTResumeLearningAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTResumeLearningAlertView.h; sourceTree = "<group>"; };
@@ -637,6 +632,8 @@
 		A1F0B0422F70000E00B00100 /* YTPracticeTransitionUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTPracticeTransitionUnitView.m; sourceTree = "<group>"; };
 		A1F0B0442F70000F00B00100 /* YTLevelCompletionUnitView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLevelCompletionUnitView.h; sourceTree = "<group>"; };
 		A1F0B0452F70000F00B00100 /* YTLevelCompletionUnitView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLevelCompletionUnitView.m; sourceTree = "<group>"; };
+		A1F0B0532F70001000B00103 /* YTRecordingMeterBarsView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTRecordingMeterBarsView.h; sourceTree = "<group>"; };
+		A1F0B0542F70001000B00104 /* YTRecordingMeterBarsView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTRecordingMeterBarsView.m; sourceTree = "<group>"; };
 		B997D1A5141D600A2E8E4BC5 /* Pods-YiTongProject.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-YiTongProject.release.xcconfig"; path = "Target Support Files/Pods-YiTongProject/Pods-YiTongProject.release.xcconfig"; sourceTree = "<group>"; };
 		C49A377DA1266100B7CFCAD3 /* libPods-YiTongProject.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-YiTongProject.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FAF63196269D63FE047EBAE3 /* Pods-YiTongProject.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-YiTongProject.debug.xcconfig"; path = "Target Support Files/Pods-YiTongProject/Pods-YiTongProject.debug.xcconfig"; sourceTree = "<group>"; };
@@ -1362,8 +1359,6 @@
 		6A7E0D8E8A2A4C9AA1B3C114 /* Service */ = {
 			isa = PBXGroup;
 			children = (
-				6A7E0D9D8A2A4C9AA1B3C123 /* TalkEventTracker.h */,
-				6A7E0D9E8A2A4C9AA1B3C124 /* TalkEventTracker.m */,
 				A1F0B00F2F70000400B00100 /* YTAnswerEvaluating.h */,
 				A1F0B0082F70000300B00100 /* YTLearningFlowBootstrapService.h */,
 				A1F0B0172F70000600B00100 /* YTLearningProgressStoring.h */,
@@ -1592,13 +1587,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1635,13 +1626,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1696,7 +1683,6 @@
 				6A7E0D978A2A4C9AA1B3C11D /* YTScoringService.m in Sources */,
 				6A7E0D9A8A2A4C9AA1B3C142 /* YTTalkLearningDataService.m in Sources */,
 				6A7E0D9C8A2A4C9AA1B3C122 /* YTUnitViewFactory.m in Sources */,
-				6A7E0DA08A2A4C9AA1B3C126 /* TalkEventTracker.m in Sources */,
 				6A7E0DA38A2A4C9AA1B3C129 /* YTAnswerResultBottomSheet.m in Sources */,
 				6A7E0DA78A2A4C9AA1B3C12D /* YTDepthPrimaryButton.m in Sources */,
 				A1F0B0552F70001000B00105 /* YTRecordingMeterBarsView.m in Sources */,
