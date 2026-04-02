@@ -7,6 +7,8 @@
 
 #import "SceneDelegate.h"
 #import "AppDelegate.h"
+#import "YTVFeedCoordinator.h"
+#import "YTVVideoDeepLinkRouter.h"
 
 @interface SceneDelegate ()
 
@@ -54,5 +56,23 @@
     [(AppDelegate *)UIApplication.sharedApplication.delegate saveContext];
 }
 
+- (void)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts {
+    for (UIOpenURLContext *ctx in URLContexts) {
+        NSURL *url = ctx.URL;
+        if ([YTVVideoDeepLinkRouter ytv_isVideoDeepLinkURL:url]) {
+            [[YTVFeedCoordinator sharedCoordinator] routeVideoDeepLinkFromURL:url];
+        }
+    }
+}
+
+- (void)scene:(UIScene *)scene continueUserActivity:(NSUserActivity *)userActivity {
+    if (![userActivity.activityType isEqualToString:NSUserActivityTypeBrowsingWeb]) {
+        return;
+    }
+    NSURL *url = userActivity.webpageURL;
+    if ([YTVVideoDeepLinkRouter ytv_isVideoDeepLinkURL:url]) {
+        [[YTVFeedCoordinator sharedCoordinator] routeVideoDeepLinkFromURL:url];
+    }
+}
 
 @end

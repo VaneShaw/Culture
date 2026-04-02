@@ -18,6 +18,10 @@
 	<array>
 		<string>fbapi</string>
 		<string>fbauth2</string>
+		<string>weixin</string>
+		<string>wechat</string>
+		<string>whatsapp</string>
+		<string>instagram</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
@@ -41,5 +45,16 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.yitong.ytongvideo</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ytongvideo</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

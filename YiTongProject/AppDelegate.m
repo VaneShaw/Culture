@@ -13,14 +13,17 @@
 #import "LaunchViewController.h"
 #import "LoginViewController.h"
 #import "ProfileViewController.h"
-#import "QuizViewController.h"
+#import "VideoTabViewController.h"
+#import "YTVFeedCoordinator.h"
+#import "YTVVideoDeepLinkRouter.h"
+#import "UserModel.h"
 #import "VideoFullScreenViewController.h"
 #import "SplashViewController.h"
 #import <AppTrackingTransparency/AppTrackingTransparency.h>
 #import <AdSupport/AdSupport.h>
 
 @import Firebase;
-@interface AppDelegate ()<UITabBarDelegate,AppsFlyerLibDelegate>
+@interface AppDelegate ()<AppsFlyerLibDelegate>
 @property (strong, nonatomic) UIApplication *gApplication;
 @property (strong, nonatomic) NSDictionary *gLaunchOptions;
 @property (nonatomic, strong) NSDate *appStartTime;
@@ -278,10 +281,25 @@ void uncaughtExceptionHandler(NSException *exception) {
 }
  // ✅ Facebook 登录/分享回调（如果未来需要的话）
  - (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {
+     if ([YTVVideoDeepLinkRouter ytv_isVideoDeepLinkURL:url]) {
+         [[YTVFeedCoordinator sharedCoordinator] routeVideoDeepLinkFromURL:url];
+         return YES;
+     }
      return [[FBSDKApplicationDelegate sharedInstance] application:app
                                                            openURL:url
                                                            options:options];
  }
+
+- (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)userActivity restorationHandler:(void (^)(NSArray<id<UIUserActivityRestoring>> * _Nullable))restorationHandler {
+    if ([userActivity.activityType isEqualToString:NSUserActivityTypeBrowsingWeb]) {
+        NSURL *url = userActivity.webpageURL;
+        if ([YTVVideoDeepLinkRouter ytv_isVideoDeepLinkURL:url]) {
+            [[YTVFeedCoordinator sharedCoordinator] routeVideoDeepLinkFromURL:url];
+            return YES;
+        }
+    }
+    return NO;
+}
 //=================================================================================
 - (void)setAppLanguageEngin:(BOOL)isEngin {
     [[AppConfig sharedConfig] setLanguage:@[@"cn",@"en"][isEngin]];
@@ -334,25 +352,25 @@ void uncaughtExceptionHandler(NSException *exception) {
 - (void)setTabBarController {
     MainViewController *mainVC = [MainViewController new];
     TalkViewController *talkVC = [TalkViewController new];
-    QuizViewController *quizVC = [QuizViewController new];
+    VideoTabViewController *videoVC = [VideoTabViewController new];
     ProfileViewController *profileVC = [ProfileViewController new];
     
     UINavigationController *mainNC = [[UINavigationController alloc]initWithRootViewController:mainVC];
     UINavigationController *talkNC = [[UINavigationController alloc]initWithRootViewController:talkVC];
-    UINavigationController *quizNC = [[UINavigationController alloc]initWithRootViewController:quizVC];
+    UINavigationController *videoNC = [[UINavigationController alloc]initWithRootViewController:videoVC];
     UINavigationController *profileNC = [[UINavigationController alloc]initWithRootViewController:profileVC];
    
     mainNC.title = NSLocalizedString(@"Home",@"");
     talkNC.title = NSLocalizedString(@"Talk",@"");
-    quizNC.title = NSLocalizedString(@"Quiz",@"");
+    videoNC.title = NSLocalizedString(@"Video",@"");
     profileNC.title = NSLocalizedString(@"Profile",@"");
     
     mainNC.tabBarItem.selectedImage = [[UIImage imageNamed:@"Home_selected"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-    quizNC.tabBarItem.selectedImage = [[UIImage imageNamed:@"quiz_Selected"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    videoNC.tabBarItem.selectedImage = [[UIImage imageNamed:@"quiz_Selected"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
     profileNC.tabBarItem.selectedImage = [[UIImage imageNamed:@"Me_Selected"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
     //================================
     mainNC.tabBarItem.image = [[UIImage imageNamed:@"Home_Not"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-    quizNC.tabBarItem.image = [[UIImage imageNamed:@"quiz_Not"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    videoNC.tabBarItem.image = [[UIImage imageNamed:@"quiz_Not"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
     profileNC.tabBarItem.image = [[UIImage imageNamed:@"Me_Not"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
     
     talkNC.tabBarItem.selectedImage = [[UIImage imageNamed:@"talk_Selected"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
@@ -360,7 +378,7 @@ void uncaughtExceptionHandler(NSException *exception) {
     
     [self setNavieationBarColor:mainNC];
     [self setNavieationBarColor:talkNC];
-    [self setNavieationBarColor:quizNC];
+    [self setNavieationBarColor:videoNC];
     [self setNavieationBarColor:profileNC];
   
     UITabBarController *tabBar = [UITabBarController new];
@@ -368,13 +386,12 @@ void uncaughtExceptionHandler(NSException *exception) {
     theAppDelegate.tabBarController_startApp = tabBar;
     [[UITabBarItem appearance] setTitleTextAttributes:@{NSFontAttributeName: [UIFont fontWithName:FONT_NAME_Semibold size:11.0f]} forState:UIControlStateNormal];
 
-    tabBar.delegate = self;
     //tabBar.tabBar.backgroundImage = [UIImage new];   //底部一条黑线
     //tabBar.tabBar.shadowImage = [UIImage new];
     [self removeTabBarTopLine:tabBar];
     
     //tabBar.viewControllers = [NSArray arrayWithObjects:mainNC,quizNC,profileNC, nil];
-    tabBar.viewControllers = [NSArray arrayWithObjects:mainNC,talkNC,quizNC,profileNC, nil];
+    tabBar.viewControllers = [NSArray arrayWithObjects:mainNC,talkNC,videoNC,profileNC, nil];
     NSMutableDictionary *attr3 = [NSMutableDictionary dictionary];
     attr3[NSFontAttributeName] = [UIFont systemFontOfSize:12];
     [[UITabBarItem appearance]setTitleTextAttributes:attr3 forState:UIControlStateNormal];
@@ -403,6 +420,7 @@ void uncaughtExceptionHandler(NSException *exception) {
     NSDictionary *dict = [NSDictionary dictionaryWithObject:titltColor forKey:NSForegroundColorAttributeName];
     nav.navigationBar.titleTextAttributes = dict;
 }
+
 - (void)removeTabBarTopLine:(UITabBarController *)tabBarController {
     UITabBar *tabBar = tabBarController.tabBar;
     

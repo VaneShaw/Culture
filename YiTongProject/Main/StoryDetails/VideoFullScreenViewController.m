@@ -13,13 +13,7 @@
 @end
 
 @implementation VideoFullScreenViewController
-- (void)viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-    if (self.player) {
-        [self.player play];   // 进入全屏后立即播放
-    }
-    
-}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     
@@ -36,6 +30,24 @@
     [self.view addSubview:self.playerVC.view];
     [self.playerVC didMoveToParentViewController:self];
 }
+
+- (void)viewWillLayoutSubviews {
+    [super viewWillLayoutSubviews];
+    self.playerVC.view.frame = self.view.bounds;
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    if (self.player) {
+        [self.player play];   // 进入全屏后立即播放
+    }
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    [KUSER_DEFAULT setBool:NO forKey:@"isFullScreen"];
+}
+
 - (void)exitFullScreen {
     [self.player pause];  // 停止播放
     [self dismissViewControllerAnimated:YES completion:nil];

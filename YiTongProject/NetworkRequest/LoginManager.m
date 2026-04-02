@@ -6,6 +6,8 @@
 //
 
 #import "LoginManager.h"
+#import "UserModel.h"
+#import "PhoneLoginViewController.h"
 
 @implementation LoginManager
 + (instancetype)sharedManager {
@@ -116,21 +118,31 @@
     });
 }
 + (BOOL)checkLoginAndPresentIfNeededFrom:(UIViewController *)vc {
-    // 假设用 token 判断是否登录
-    NSString *token = [[NSUserDefaults standardUserDefaults] objectForKey:@"userToken"];
-    
-    if (token && token.length > 0) {
-        // 已登录
+    if ([[UserModel sharedInstance] isLogin]) {
         return YES;
-    } else {
-        // 未登录，跳转登录页
-        LoginViewController *loginVC = [[LoginViewController alloc] init];
-        UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:loginVC];
-        nav.modalPresentationStyle = UIModalPresentationFullScreen;
-        [vc presentViewController:nav animated:YES completion:nil];
-        
-        return NO;
     }
+    // 已在登录流程中则不再叠一层（含 Nav 包一层的情况）
+    UIViewController *p = vc.presentedViewController;
+    while (p) {
+        if ([p isKindOfClass:[UINavigationController class]]) {
+            UIViewController *root = [(UINavigationController *)p viewControllers].firstObject;
+            if ([root isKindOfClass:[LoginViewController class]] || [root isKindOfClass:[PhoneLoginViewController class]]) {
+                return NO;
+            }
+        }
+        p = p.presentedViewController;
+    }
+    UINavigationController *nav = nil;
+    if (IS_OVERSEAS_VERSION) {
+        LoginViewController *loginVC = [[LoginViewController alloc] init];
+        nav = [[UINavigationController alloc] initWithRootViewController:loginVC];
+    } else {
+        PhoneLoginViewController *loginVC = [[PhoneLoginViewController alloc] init];
+        nav = [[UINavigationController alloc] initWithRootViewController:loginVC];
+    }
+    nav.modalPresentationStyle = UIModalPresentationFullScreen;
+    [vc presentViewController:nav animated:YES completion:nil];
+    return NO;
 }
 
 @end

@@ -6,7 +6,7 @@
 //
 
 #import "ProfileViewController.h"
-#import "FavoitesViewController.h"
+#import "YTVFavoritesListViewController.h"
 #import "OrdersViewController.h"
 #import "ClearCacheViewController.h"
 #import "SettingsViewController.h"
@@ -466,7 +466,7 @@
     switch (tag) {
         case 0:
         {
-            FavoitesViewController *vc = [FavoitesViewController new];
+            YTVFavoritesListViewController *vc = [YTVFavoritesListViewController new];
             vc.hidesBottomBarWhenPushed = YES;
             [self.navigationController pushViewController:vc animated:YES];
         }
