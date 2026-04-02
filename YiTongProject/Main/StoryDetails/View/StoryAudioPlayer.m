@@ -6,6 +6,7 @@
 //
 
 #import "StoryAudioPlayer.h"
+#import "PublicTool.h"
 @interface StoryAudioPlayer ()
 @property (nonatomic, strong) id timeObserver;
 @property (nonatomic, strong) AVPlayerItem *playerItem;
@@ -100,7 +101,7 @@
 #pragma mark - 拖动跳转
 
 - (void)seekToTime:(Float64)seconds {
-    CMTime time = CMTimeMakeWithSeconds(seconds, NSEC_PER_SEC);
+    CMTime time = [PublicTool cmTimeFromSecondsMillisecondPrecision:seconds];
     [self.playerAudio seekToTime:time toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero];
     [self updateNowPlayingInfo];
 }

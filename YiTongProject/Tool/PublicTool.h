@@ -6,6 +6,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <CoreMedia/CoreMedia.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -27,6 +28,11 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)hasLanguageOrRegionChanged;
 + (NSInteger)versionStringToInteger:(NSString *)versionString;
 + (CGFloat)secondsFromFrameTimeString:(NSString *)timeString frameRate:(CGFloat)fps;
+/// 与安卓 Idiom 一致：`分:秒:第三段`，第三段整数 ×10 为毫秒（总毫秒 = m*60*1000 + s*1000 + third*10）
++ (NSInteger)millisecondsFromColonTimeStringLikeAndroid:(nullable id)raw;
++ (NSTimeInterval)secondsFromColonTimeStringLikeAndroid:(nullable id)raw;
+/// 将秒数转为以毫秒为 timeScale 的 CMTime，seek 时与后台毫秒时间对齐
++ (CMTime)cmTimeFromSecondsMillisecondPrecision:(NSTimeInterval)seconds;
 @end
 
 NS_ASSUME_NONNULL_END

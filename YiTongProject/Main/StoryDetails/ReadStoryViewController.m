@@ -518,7 +518,7 @@
     self.currentIndex = indexPath.row;
     self.menuView.lastIndex = self.currentIndex;
     //更新音频播放
-    float start = [Language_key isEqualToString:@"En"] ? model.startTimeEN : model.startTimeCN;
+    NSTimeInterval start = [Language_key isEqualToString:@"En"] ? model.startTimeEN : model.startTimeCN;
     [self.menuView clickCellToTime:start];
     [self.menuView.playPauseButton setImage:[UIImage imageNamed:@"pause_black"] forState:UIControlStateNormal];
     if(Index < 0){
