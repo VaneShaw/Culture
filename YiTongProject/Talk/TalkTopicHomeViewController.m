@@ -14,6 +14,7 @@
 #import "YTMockUnitFactory.h"
 #import "YTUnit.h"
 #import "YTTalkLearningDataService.h"
+#import "YTTalkLevelItem.h"
 #import "YTTipAlertView.h"
 #import "YTTopicLevelProgressIndicator.h"
 #import "YTDifficultyTheme.h"
@@ -28,11 +29,12 @@
  - 承接 Talk 首页/列表的点击进入
  - 展示三档难度卡片（Beginner/Intermediate/Advanced）
  - 点击卡片进入学习流前校验登录；未登录则弹出登录页，成功后再进入 `TalkLearningFlowViewController`
- - 进阶/困难：上一难度本地进度 ≥60% 才可进入，否则弹出 `YTTipAlertView`
- - 卡片右侧：`YTTopicLevelProgressIndicator`（未开始箭头 / 进行中圆环 / 完成圆+勾），数据来自本地进度
+ - 进阶/困难：上一难度本地进度 ≥60% 才可进入，否则弹出 `YTTipAlertView`（未走 `/talk/level` 时）；接口返回后按 `is_unlocked` 控制
+ - 卡片右侧：`YTTopicLevelProgressIndicator`（未开始箭头 / 进行中圆环 / 完成圆+勾），与 `progress_percent` 一致
  
  约束：
- - 该页为 UI 静态稿优先，无接口；后续可接“锁定状态/进度/权益”接口
+ - 列表进入且 `talkSceneNumericId > 0` 时请求 `POST /talk/level`（`scene_id`、`lang`），文案与进度以服务端为准
+ - 无场景 id（如 Banner）仅用本地 mock
  - 统一使用工程内返回按钮（`UIViewController+BackButton`），并隐藏系统导航栏保证视觉一致
  */
 static NSString *const kTalkTopicSceneId = @"scene_school";
@@ -135,6 +137,12 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
 @property (nonatomic, assign) BOOL intermediateBadgeUnlocked;
 @property (nonatomic, assign) BOOL advancedBadgeUnlocked;
 
+/// 是否已用 `/talk/level` 成功刷新（用于点击关卡时用 `is_unlocked` 门槛，否则走本地进度门槛）
+@property (nonatomic, assign) BOOL didApplyTalkLevelAPI;
+@property (nonatomic, assign) BOOL beginnerEntryUnlocked;
+@property (nonatomic, assign) BOOL intermediateEntryUnlocked;
+@property (nonatomic, assign) BOOL advancedEntryUnlocked;
+
 @end
 
 @implementation TalkTopicHomeViewController
@@ -181,10 +189,21 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     self.advancedBadgeUnlocked = NO;
     self.didLoadTopicHome = NO;
     self.isRequestingTopicHome = NO;
+    self.didApplyTalkLevelAPI = NO;
+    self.beginnerEntryUnlocked = YES;
+    self.intermediateEntryUnlocked = NO;
+    self.advancedEntryUnlocked = NO;
 
     [self setupUI];
     // 返回按钮统一走工程封装（图标/点击区域等）
     [self addGlobalBackButtonColor:[UIColor colorWithWhite:1.0 alpha:0.85] headerTitleDic:@{}];
+
+    if (self.scenePageTitle.length > 0) {
+        self.titleLabel.text = self.scenePageTitle;
+    }
+    if (self.scenePageSubtitle.length > 0) {
+        self.subtitleLabel.text = self.scenePageSubtitle;
+    }
 }
 
 #pragma mark - UI
@@ -347,6 +366,22 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
 
 #pragma mark - 进度展示
 
+- (NSString *)yt_effectiveLearningSceneId {
+    return (self.talkLearningSceneId.length > 0) ? self.talkLearningSceneId : kTalkTopicSceneId;
+}
+
+- (void)yt_setCardTitle:(NSString *)title subtitle:(NSString *)subtitle forCard:(UIView *)card {
+    if (!card) return;
+    UIView *t = [card viewWithTag:kYTTopicHomeCardTitleLabelTag];
+    if ([t isKindOfClass:[UILabel class]]) {
+        ((UILabel *)t).text = title ?: @"";
+    }
+    UIView *s = [card viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
+    if ([s isKindOfClass:[UILabel class]]) {
+        ((UILabel *)s).text = subtitle ?: @"";
+    }
+}
+
 - (void)yt_fetchTopicHomeDataIfNeeded {
     if (self.didLoadTopicHome) return;
     [self yt_refreshTopicHomeData];
@@ -356,40 +391,50 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     if (self.isRequestingTopicHome) return;
     self.isRequestingTopicHome = YES;
 
-    BOOL shouldShowHUD = !self.didLoadTopicHome;
-    if (shouldShowHUD) {
+ 
         [[GlobalHUDManager shared] showSpinnerOnly];
+ 
+
+    if (self.talkSceneNumericId <= 0) {
+       
+            [[GlobalHUDManager shared] hide];
+ 
+        self.isRequestingTopicHome = NO;
+        [self yt_applyTopicHomeData:[self yt_localTopicHomeData]];
+        return;
     }
 
-    __weak typeof(self) weakSelf = self;
-    NSDictionary *params = @{@"sceneId": kTalkTopicSceneId ?: @""};
-    [HttpTools getRequest:@"/talk/topic-home" parames:params success:^(BOOL success, BaseDataModel *response) {
-        __strong typeof(weakSelf) self = weakSelf;
-        if (shouldShowHUD) {
-            [[GlobalHUDManager shared] hide];
-        }
-        if (!self) return;
-        self.isRequestingTopicHome = NO;
-        if (!success || !response || !response.data || ![response.data isKindOfClass:[NSDictionary class]]) return;
+    NSMutableDictionary *params = [NSMutableDictionary dictionary];
+    params = [LanguageHelper currentLanguageParams:params];
+    params[@"scene_id"] = @(self.talkSceneNumericId);
 
-        // TODO: 后端未接入时，直接使用本地 mock（保证页面可展示）
-        NSDictionary *data = [self yt_localTopicHomeData];
-        [self yt_applyTopicHomeData:data];
-    } failure:^(NSError *error) {
-        __strong typeof(weakSelf) self = weakSelf;
-        if (shouldShowHUD) {
+    __weak typeof(self) weakSelf = self;
+    [HttpTools postRequest:@"/talk/level" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+ 
             [[GlobalHUDManager shared] hide];
-        }
+
+        __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
         self.isRequestingTopicHome = NO;
-        // 失败时保持可用 UI：直接使用本地 mock（不影响进入学习流）
-        NSDictionary *data = [self yt_localTopicHomeData];
-        [self yt_applyTopicHomeData:data];
+        if (success) {
+            NSArray<YTTalkLevelItem *> *items = [YTTalkLevelItem itemsByParsingAPIData:response.data];
+            [self yt_applyTalkLevelItems:items];
+        } else {
+            [self yt_applyTopicHomeData:[self yt_localTopicHomeData]];
+        }
+    } failure:^(NSError * _Nonnull error) {
+        
+            [[GlobalHUDManager shared] hide];
+ 
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        self.isRequestingTopicHome = NO;
+        [self yt_applyTopicHomeData:[self yt_localTopicHomeData]];
     }];
 }
 
 - (NSDictionary *)yt_localTopicHomeData {
-    // 与文档 `GET /talk/topic-home` 的字段结构对齐（用于未接入后端时展示）
+    // 本地兜底：与 `yt_applyTopicHomeData:` 约定的字典结构一致（无 `/talk/level` 或请求失败时使用）
     // 注意：这里不写死进度/解锁状态，而是复用本地已有进度存储计算。
     CGFloat thresholdRatio = self.unlockThresholdProgressRatio;
     if (thresholdRatio <= 0.001) thresholdRatio = 0.6;
@@ -437,8 +482,9 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
 }
 
 - (CGFloat)yt_localProgressRatioForLevel:(YTLevelId)levelId {
-    NSArray<YTUnit *> *units = [YTMockUnitFactory learningFlowUnitsForSceneId:kTalkTopicSceneId levelId:levelId];
-    NSArray<NSString *> *completedUnitIds = [[YTTalkLearningDataService shared] completedUnitIdsForSceneId:kTalkTopicSceneId
+    NSString *sid = [self yt_effectiveLearningSceneId];
+    NSArray<YTUnit *> *units = [YTMockUnitFactory learningFlowUnitsForSceneId:sid levelId:levelId];
+    NSArray<NSString *> *completedUnitIds = [[YTTalkLearningDataService shared] completedUnitIdsForSceneId:sid
                                                                                                     levelId:levelId];
     NSSet<NSString *> *completedIds = [NSSet setWithArray:completedUnitIds ?: @[]];
 
@@ -448,6 +494,7 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
 - (void)yt_applyTopicHomeData:(NSDictionary *)data {
     if (![data isKindOfClass:[NSDictionary class]]) return;
     self.didLoadTopicHome = YES;
+    self.didApplyTalkLevelAPI = NO;
 
     // unlockThresholdPercent：用于控制 Intermediate/Advanced 解锁阈值
     NSInteger thresholdPercent = 60;
@@ -501,60 +548,114 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
             badgeUnlocked = (progressPercent >= 100.0 - 1e-5);
         }
 
-        NSString *title = nil;
-        NSString *subtitle = nil;
-        if ([lv[@"title"] isKindOfClass:[NSString class]]) title = lv[@"title"];
-        if ([lv[@"subtitle"] isKindOfClass:[NSString class]]) subtitle = lv[@"subtitle"];
+        NSString *title = @"";
+        NSString *subtitle = @"";
+        if ([lv[@"title"] isKindOfClass:[NSString class]]) {
+            title = (NSString *)lv[@"title"];
+        }
+        if ([lv[@"subtitle"] isKindOfClass:[NSString class]]) {
+            subtitle = (NSString *)lv[@"subtitle"];
+        }
 
         switch (levelId) {
             case YTLevelIdBeginner: {
                 self.beginnerProgressRatio = ratio;
                 self.beginnerBadgeUnlocked = badgeUnlocked;
-                if (title.length > 0) {
-                    UIView *v = [self.beginnerCard viewWithTag:kYTTopicHomeCardTitleLabelTag];
-                    if ([v isKindOfClass:[UILabel class]]) {
-                        ((UILabel *)v).text = title;
-                    }
-                }
-                if (subtitle.length > 0) {
-                    UIView *v = [self.beginnerCard viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
-                    if ([v isKindOfClass:[UILabel class]]) {
-                        ((UILabel *)v).text = subtitle;
-                    }
-                }
+                [self yt_setCardTitle:title subtitle:subtitle forCard:self.beginnerCard];
             } break;
             case YTLevelIdIntermediate: {
                 self.intermediateProgressRatio = ratio;
                 self.intermediateBadgeUnlocked = badgeUnlocked;
-                if (title.length > 0) {
-                    UIView *v = [self.intermediateCard viewWithTag:kYTTopicHomeCardTitleLabelTag];
-                    if ([v isKindOfClass:[UILabel class]]) {
-                        ((UILabel *)v).text = title;
-                    }
-                }
-                if (subtitle.length > 0) {
-                    UIView *v = [self.intermediateCard viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
-                    if ([v isKindOfClass:[UILabel class]]) {
-                        ((UILabel *)v).text = subtitle;
-                    }
-                }
+                [self yt_setCardTitle:title subtitle:subtitle forCard:self.intermediateCard];
             } break;
             case YTLevelIdAdvanced: {
                 self.advancedProgressRatio = ratio;
                 self.advancedBadgeUnlocked = badgeUnlocked;
-                if (title.length > 0) {
-                    UIView *v = [self.advancedCard viewWithTag:kYTTopicHomeCardTitleLabelTag];
-                    if ([v isKindOfClass:[UILabel class]]) {
-                        ((UILabel *)v).text = title;
-                    }
-                }
-                if (subtitle.length > 0) {
-                    UIView *v = [self.advancedCard viewWithTag:kYTTopicHomeCardSubtitleLabelTag];
-                    if ([v isKindOfClass:[UILabel class]]) {
-                        ((UILabel *)v).text = subtitle;
-                    }
-                }
+                [self yt_setCardTitle:title subtitle:subtitle forCard:self.advancedCard];
             } break;
+            default:
+                break;
+        }
+    }
+
+    [self refreshTopicLevelProgressIndicators];
+}
+
+/// 应用 `POST /talk/level` 的 `data` 数组（`level` 1/2/3 对应初/中/高；门槛用 `is_unlocked`）
+- (void)yt_applyTalkLevelItems:(NSArray<YTTalkLevelItem *> *)items {
+    if (items.count == 0) {
+        [self yt_applyTopicHomeData:[self yt_localTopicHomeData]];
+        return;
+    }
+
+    self.didApplyTalkLevelAPI = YES;
+    self.didLoadTopicHome = YES;
+
+    NSInteger thresholdPercent = 60;
+    for (YTTalkLevelItem *it in items) {
+        if (it.unlockThreshold > 0) {
+            thresholdPercent = it.unlockThreshold;
+            break;
+        }
+    }
+    if (thresholdPercent <= 0) {
+        thresholdPercent = 60;
+    }
+    self.unlockThresholdProgressRatio = thresholdPercent / 100.0;
+
+    self.beginnerProgressRatio = 0;
+    self.intermediateProgressRatio = 0;
+    self.advancedProgressRatio = 0;
+    self.beginnerBadgeUnlocked = NO;
+    self.intermediateBadgeUnlocked = NO;
+    self.advancedBadgeUnlocked = NO;
+    self.beginnerEntryUnlocked = NO;
+    self.intermediateEntryUnlocked = NO;
+    self.advancedEntryUnlocked = NO;
+
+    [self yt_setCardTitle:@"" subtitle:@"" forCard:self.beginnerCard];
+    [self yt_setCardTitle:@"" subtitle:@"" forCard:self.intermediateCard];
+    [self yt_setCardTitle:@"" subtitle:@"" forCard:self.advancedCard];
+
+    for (YTTalkLevelItem *it in items) {
+        NSInteger apiLevel = it.level;
+        YTLevelId lid = YTLevelIdBeginner;
+        if (apiLevel == 1) {
+            lid = YTLevelIdBeginner;
+        } else if (apiLevel == 2) {
+            lid = YTLevelIdIntermediate;
+        } else if (apiLevel == 3) {
+            lid = YTLevelIdAdvanced;
+        } else {
+            continue;
+        }
+
+        CGFloat pct = MAX(0.0, MIN(100.0, (CGFloat)it.progressPercent));
+        CGFloat ratio = pct / 100.0;
+        BOOL badgeDone = (pct >= 100.0 - 1e-5);
+        BOOL entry = it.isUnlocked;
+        NSString *title = it.title ?: @"";
+        NSString *subtitle = it.subtitle ?: @"";
+
+        switch (lid) {
+            case YTLevelIdBeginner:
+                self.beginnerProgressRatio = ratio;
+                self.beginnerBadgeUnlocked = badgeDone;
+                self.beginnerEntryUnlocked = entry;
+                [self yt_setCardTitle:title subtitle:subtitle forCard:self.beginnerCard];
+                break;
+            case YTLevelIdIntermediate:
+                self.intermediateProgressRatio = ratio;
+                self.intermediateBadgeUnlocked = badgeDone;
+                self.intermediateEntryUnlocked = entry;
+                [self yt_setCardTitle:title subtitle:subtitle forCard:self.intermediateCard];
+                break;
+            case YTLevelIdAdvanced:
+                self.advancedProgressRatio = ratio;
+                self.advancedBadgeUnlocked = badgeDone;
+                self.advancedEntryUnlocked = entry;
+                [self yt_setCardTitle:title subtitle:subtitle forCard:self.advancedCard];
+                break;
             default:
                 break;
         }
@@ -903,7 +1004,47 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
         return;
     }
 
-    if (levelId == YTLevelIdIntermediate || levelId == YTLevelIdAdvanced) {
+    NSString *flowSceneId = [self yt_effectiveLearningSceneId];
+
+    if (self.didApplyTalkLevelAPI) {
+        if (levelId == YTLevelIdBeginner && !self.beginnerEntryUnlocked) {
+            [YTTipAlertView showInView:self.view
+                              topTitle:nil
+                           contentText:NSLocalizedString(@"Talk_LevelEntry_Locked", @"")
+                    primaryButtonTitle:NSLocalizedString(@"Talk_Alert_Confirm", @"")
+                   secondaryButtonTitle:nil
+                                onClose:nil
+                             onConfirm:nil
+                              onCancel:nil];
+            return;
+        }
+        if (levelId == YTLevelIdIntermediate && !self.intermediateEntryUnlocked) {
+            NSInteger thresholdPercent = (NSInteger)llround((self.unlockThresholdProgressRatio > 0 ? self.unlockThresholdProgressRatio : 0.6) * 100.0);
+            NSString *msg = [NSString stringWithFormat:NSLocalizedString(@"您需要入门级学习进度完成度为%ld%%才能进入进阶难度", @""), (long)thresholdPercent];
+            [YTTipAlertView showInView:self.view
+                              topTitle:nil
+                           contentText:msg
+                    primaryButtonTitle:NSLocalizedString(@"OK", @"")
+                   secondaryButtonTitle:nil
+                                onClose:nil
+                             onConfirm:nil
+                              onCancel:nil];
+            return;
+        }
+        if (levelId == YTLevelIdAdvanced && !self.advancedEntryUnlocked) {
+            NSInteger thresholdPercent = (NSInteger)llround((self.unlockThresholdProgressRatio > 0 ? self.unlockThresholdProgressRatio : 0.6) * 100.0);
+            NSString *msg = [NSString stringWithFormat:NSLocalizedString(@"您需要进阶难度学习进度完成度为%ld%%才能进入困难难度", @""), (long)thresholdPercent];
+            [YTTipAlertView showInView:self.view
+                              topTitle:nil
+                           contentText:msg
+                    primaryButtonTitle:NSLocalizedString(@"OK", @"")
+                   secondaryButtonTitle:nil
+                                onClose:nil
+                             onConfirm:nil
+                              onCancel:nil];
+            return;
+        }
+    } else if (levelId == YTLevelIdIntermediate || levelId == YTLevelIdAdvanced) {
         YTLevelId previousLevel = (YTLevelId)(levelId - 1);
 
         CGFloat progressRatio = [self yt_talkProgressRatioForLevel:previousLevel];
@@ -933,14 +1074,14 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     [[GlobalHUDManager shared] showSpinnerOnly];
 
     __weak typeof(self) weakSelf = self;
-    [[YTMockLearningFlowBootstrapService shared] fetchBootstrapForSceneId:kTalkTopicSceneId levelId:levelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
+    [[YTMockLearningFlowBootstrapService shared] fetchBootstrapForSceneId:flowSceneId levelId:levelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
         [[GlobalHUDManager shared] hide];
         if (!self) return;
         self.isRequestingUnits = NO;
         if (!bootstrap || error) return;
 
-        TalkLearningFlowViewController *vc = [[TalkLearningFlowViewController alloc] initWithSceneId:kTalkTopicSceneId
+        TalkLearningFlowViewController *vc = [[TalkLearningFlowViewController alloc] initWithSceneId:flowSceneId
                                                                                               levelId:levelId
                                                                                    preloadedBootstrap:bootstrap];
         vc.hidesBottomBarWhenPushed = YES;

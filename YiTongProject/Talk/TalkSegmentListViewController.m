@@ -179,13 +179,50 @@
     return cell;
 }
 
+/// 学习流 mock/本地进度使用的 scene 字符串（与 `sceneCode` 或 id 拼接）
+- (NSString *)yt_learningSceneIdForSceneItem:(YTTalkSceneItem *)m {
+    NSString *code = [m.sceneCode stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (code.length == 0) {
+        if (m.sceneId > 0) {
+            return [NSString stringWithFormat:@"scene_%ld", (long)m.sceneId];
+        }
+        return @"scene_school";
+    }
+    if ([code.lowercaseString hasPrefix:@"scene_"]) {
+        return code;
+    }
+    return [NSString stringWithFormat:@"scene_%@", code];
+}
+
+/// 进入场景首页（与 `TalkTopicHomeViewController` 内学习流登录校验一致，此处先拦列表点击）
+- (void)yt_pushTopicHomeWithSceneItem:(YTTalkSceneItem *)m {
+    if (!m || !self.navigationController) return;
+    TalkTopicHomeViewController *vc = [[TalkTopicHomeViewController alloc] init];
+    vc.talkSceneNumericId = m.sceneId;
+    vc.talkLearningSceneId = [self yt_learningSceneIdForSceneItem:m];
+    vc.scenePageTitle = m.title;
+    vc.scenePageSubtitle = m.subtitle;
+    vc.hidesBottomBarWhenPushed = YES;
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     if (indexPath.row < 0 || indexPath.row >= self.dataSource.count) return;
-    
-    TalkTopicHomeViewController *vc = [[TalkTopicHomeViewController alloc] init];
-    vc.hidesBottomBarWhenPushed = YES;
-    [self.navigationController pushViewController:vc animated:YES];
+
+    YTTalkSceneItem *m = self.dataSource[indexPath.row];
+    if (![[UserModel sharedInstance] isLogin]) {
+        __weak typeof(self) weakSelf = self;
+        [[LoginManager sharedManager] handleLoginExpiredWithCompletion:^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            if ([[UserModel sharedInstance] isLogin]) {
+                [self yt_pushTopicHomeWithSceneItem:m];
+            }
+        }];
+        return;
+    }
+    [self yt_pushTopicHomeWithSceneItem:m];
 }
 
 @end

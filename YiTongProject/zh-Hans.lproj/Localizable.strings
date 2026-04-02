@@ -242,6 +242,7 @@
 "Talk_Continue" = "继续";
 "Talk_SceneList_Action_Learning" = "学习";
 "Talk_SceneList_Action_ViewDetails" = "查看详情";
+"Talk_LevelEntry_Locked" = "该等级暂不可进入。";
 "Talk_Home_Title" = "探索场景";
 "Talk_Home_Banner_Title" = "在真实生活场景中掌握中文";
 "Talk_Home_Banner_Subtitle" = "Master Chinese in Real-life Scenarios";
