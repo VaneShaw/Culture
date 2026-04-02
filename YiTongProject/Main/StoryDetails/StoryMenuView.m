@@ -7,6 +7,7 @@
 
 #import "StoryMenuView.h"
 
+#import "PublicTool.h"
 #import <Masonry/Masonry.h>
 #import "StoryCell.h"
 #import <MediaPlayer/MediaPlayer.h>
@@ -548,14 +549,14 @@ shouldReceiveTouch:(UITouch *)touch {
 #pragma mark - 播放控制方法
 //===================单击播放=========================================
 //==================快退15s===========================================
-- (void)clickCellToTime:(float)start {
+- (void)clickCellToTime:(NSTimeInterval)start {
     NSLog(@"--=--------------start-----[%lf]",start);
     [self delayStartRollingAnimation];
     AVPlayerItem *item = self.playerAudio.currentItem;
     if (!item) return;
     // 如果播放器已经 ready，就直接 seek
     if (item.status == AVPlayerItemStatusReadyToPlay) {
-        CMTime seekTime = CMTimeMakeWithSeconds(start, NSEC_PER_SEC);
+        CMTime seekTime = [PublicTool cmTimeFromSecondsMillisecondPrecision:start];
         [self.playerAudio seekToTime:seekTime
                      toleranceBefore:kCMTimeZero
                       toleranceAfter:kCMTimeZero
@@ -626,7 +627,7 @@ shouldReceiveTouch:(UITouch *)touch {
 }
 //快进 快退 更新进度
 - (void)seekToTime:(Float64)time { //拖动进度条走的方法
-    CMTime seekTime = CMTimeMakeWithSeconds(time, NSEC_PER_SEC);
+    CMTime seekTime = [PublicTool cmTimeFromSecondsMillisecondPrecision:time];
     [self.playerAudio seekToTime:seekTime toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero];
 
     //更新进度条
@@ -1118,7 +1119,7 @@ static inline BOOL YTIsValidDuration(CMTime time, Float64 *outSeconds) {
     //self.playerAudio = [AVPlayer playerWithPlayerItem:newItem];
     //newItem.preferredForwardBufferDuration = 0.1;    //001 改动
     // 存起来，等 KVO 回调 seek
-    self.lastPlaybackTime = CMTimeMakeWithSeconds(targetStartSeconds, NSEC_PER_SEC);
+    self.lastPlaybackTime = [PublicTool cmTimeFromSecondsMillisecondPrecision:targetStartSeconds];
 }
 
 - (void)btnLocationActionState {

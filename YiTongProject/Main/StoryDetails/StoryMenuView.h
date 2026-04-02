@@ -71,7 +71,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)pauseAndCloseAudioControls;
 
 - (void)getMythStory:(int)isFairy;//yes 神话 no成语
-- (void)clickCellToTime:(float )start;
+/// 从该秒数 seek（内部用毫秒精度 CMTime，与安卓时间戳对齐）
+- (void)clickCellToTime:(NSTimeInterval)start;
 - (void)setMainAudioPlayer;//音频初始化
 
 //是否弹出 定位 到音频读的那一行 //yes 显示文字，no 空回收

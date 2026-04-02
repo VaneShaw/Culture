@@ -6,6 +6,7 @@
 //
 
 #import "PublicTool.h"
+#import <math.h>
 //公共类，各种公共数据 请求 判断
 @implementation PublicTool
 + (CGFloat)getStatusBarHeight {
@@ -169,5 +170,37 @@
     // 总秒数 = 分*60 + 秒 + 帧/fps
     CGFloat totalSeconds = minutes * 60 + seconds + (frames / fps);
     return totalSeconds;
+}
+
++ (NSInteger)millisecondsFromColonTimeStringLikeAndroid:(id)raw {
+    if (!raw || raw == (id)[NSNull null]) return 0;
+    NSString *str = nil;
+    if ([raw isKindOfClass:[NSString class]]) {
+        str = [(NSString *)raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    } else if ([raw isKindOfClass:[NSNumber class]]) {
+        str = [(NSNumber *)raw stringValue];
+    }
+    if (str.length == 0) return 0;
+    NSArray<NSString *> *parts = [str componentsSeparatedByString:@":"];
+    if (parts.count != 3) return 0;
+    NSInteger m = [parts[0] integerValue];
+    NSInteger s = [parts[1] integerValue];
+    NSInteger third = [parts[2] integerValue];
+    return m * 60 * 1000 + s * 1000 + third * 10;
+}
+
++ (NSTimeInterval)secondsFromColonTimeStringLikeAndroid:(id)raw {
+    return [self millisecondsFromColonTimeStringLikeAndroid:raw] / 1000.0;
+}
+
++ (CMTime)cmTimeFromSecondsMillisecondPrecision:(NSTimeInterval)seconds {
+    if (!isfinite(seconds) || seconds < 0) {
+        seconds = 0;
+    }
+    int64_t ms = (int64_t)llround(seconds * 1000.0);
+    if (ms < 0) {
+        ms = 0;
+    }
+    return CMTimeMake(ms, 1000);
 }
 @end
