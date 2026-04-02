@@ -35,6 +35,8 @@ Tap to start recording and say this sound out loud
 
 /* Talk - LearningFlow */
 "Talk_Continue" = "Continue";
+"Talk_SceneList_Action_Learning" = "Learning";
+"Talk_SceneList_Action_ViewDetails" = "View details";
 "Talk_Home_Title" = "Explore Scenes";
 "Talk_Home_Banner_Title" = "Master Chinese in Real-life Scenarios";
 "Talk_Home_Banner_Subtitle" = "Structured scene dialogues to improve fast";

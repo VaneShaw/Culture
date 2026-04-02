@@ -8,19 +8,21 @@
 #import "TalkViewController.h"
 #import "TalkSegmentListViewController.h"
 #import "TalkTopicHomeViewController.h"
+#import "YTTalkHomeBannerData.h"
+#import "YTTalkHomeBannerImageItem.h"
+#import "YTTalkHomeSceneTabItem.h"
 #import "HeaderConfig.h"
 #import <JXPagingView/JXPagerView.h>
 #import <JXPagingView/JXPagerListRefreshView.h>
 
 @interface TalkViewController () <JXPagerViewDelegate, JXPagerMainTableViewGestureDelegate, UIScrollViewDelegate>
 @property (nonatomic, strong) JXPagerListRefreshView *pagerView;
-@property (nonatomic, strong) NSArray<NSString *> *segmentTitles;
-@property (nonatomic, strong) NSArray<NSString *> *segmentTypes;
+@property (nonatomic, copy) NSArray<YTTalkHomeSceneTabItem *> *sceneTabItems;
+@property (nonatomic, copy) NSArray<YTTalkHomeBannerImageItem *> *bannerImageItems;
 @property (nonatomic, strong) UIView *segmentBar;
 @property (nonatomic, strong) UIView *indicatorView;
 @property (nonatomic, strong) NSMutableArray<UIButton *> *segButtons;
 @property (nonatomic, strong) UIView *headerContainerView;
-@property (nonatomic, strong) NSArray<NSDictionary<NSString *, NSString *> *> *bannerItems;
 @property (nonatomic, strong) UIScrollView *bannerScrollView;
 @property (nonatomic, strong) UIView *bannerIndicatorContainerView;
 @property (nonatomic, strong) NSMutableArray<UIView *> *bannerIndicatorViews;
@@ -56,13 +58,13 @@
      [super viewDidLoad];
      self.view.backgroundColor = [UIColor whiteColor];
 
-    self.segmentTitles = @[];
-    self.segmentTypes = @[];
+    self.sceneTabItems = @[];
+    self.bannerImageItems = @[];
     self.segButtons = [NSMutableArray array];
     self.currentSegmentIndex = 0;
     self.lastAppliedSegmentIndex = NSNotFound;
 
-    [self yt_fetchSegmentTabsWithCompletion];
+    [self yt_fetchTalkHomeBanner];
  }
 
 - (void)dealloc {
@@ -70,27 +72,40 @@
     [self stopObserveListContainerContentOffsetIfNeeded];
 }
  
-- (void)yt_fetchSegmentTabsWithCompletion {
-    // 模拟后端返回：可能 1/3/5 个 tab
-    NSArray<NSNumber *> *possibleCounts = @[@1, @3, @5];
-    NSInteger count = possibleCounts[arc4random_uniform((uint32_t)possibleCounts.count)].integerValue;
+#pragma mark - /talk/banner
 
-    NSArray<NSString *> *allTypes = @[@"all", @"hot", @"new", @"nearby", @"recommended"];
-    NSArray<NSString *> *allTitles = @[
-        NSLocalizedString(@"Talk_Home_Tab_AllScenes", @""),
-        NSLocalizedString(@"Talk_Home_Tab_HotScenes", @""),
-        NSLocalizedString(@"Talk_Home_Tab_NewScenes", @""),
-        NSLocalizedString(@"Talk_Home_Tab_NearbyScenes", @""),
-        NSLocalizedString(@"Talk_Home_Tab_RecommendedScenes", @"")
-    ];
+- (void)yt_applyHomeBannerData:(YTTalkHomeBannerData *)data {
+    if (!data) {
+        data = [YTTalkHomeBannerData emptyDefaultAllTabOnly];
+    }
+    self.sceneTabItems = data.sceneTabs ?: @[];
+    self.bannerImageItems = data.bannerImages ?: @[];
+}
 
-    if (count <= 0) count = 1;
-    if (count > allTypes.count) count = allTypes.count;
-
-    self.segmentTypes = [allTypes subarrayWithRange:NSMakeRange(0, count)];
-    self.segmentTitles = [allTitles subarrayWithRange:NSMakeRange(0, count)];
-
-    [self yt_setupPagerViewIfNeeded];
+- (void)yt_fetchTalkHomeBanner {
+    NSMutableDictionary *params = [NSMutableDictionary dictionary];
+    params = [LanguageHelper currentLanguageParams:params];
+    [[GlobalHUDManager shared] showSpinnerOnly];
+    __weak typeof(self) weakSelf = self;
+    [HttpTools postRequest:@"/talk/banner" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        [[GlobalHUDManager shared] hide];
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        YTTalkHomeBannerData *model = nil;
+        if (success) {
+            model = [YTTalkHomeBannerData dataByParsingAPIDictionary:response.data];
+        } else {
+            model = [YTTalkHomeBannerData emptyDefaultAllTabOnly];
+        }
+        [self yt_applyHomeBannerData:model];
+        [self yt_setupPagerViewIfNeeded];
+    } failure:^(NSError * _Nonnull error) {
+        [[GlobalHUDManager shared] hide];
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        [self yt_applyHomeBannerData:[YTTalkHomeBannerData emptyDefaultAllTabOnly]];
+        [self yt_setupPagerViewIfNeeded];
+    }];
 }
 
 - (void)yt_setupPagerViewIfNeeded {
@@ -122,7 +137,9 @@
 }
 
 - (NSUInteger)tableHeaderViewHeightInPagerView:(JXPagerView *)pagerView {
-    return 322;
+    NSUInteger titleH = 73;
+    NSUInteger bannerBlock = (self.bannerImageItems.count > 0) ? (7 + 220) : 0;
+    return titleH + bannerBlock;
 }
 
 - (NSUInteger)heightForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
@@ -145,7 +162,7 @@
     self.segmentContentView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenW, headerH)];
     [self.segmentScrollView addSubview:self.segmentContentView];
 
-    NSInteger count = self.segmentTitles.count;
+    NSInteger count = self.sceneTabItems.count;
     if (count == 0) return segment;
 
     CGFloat btnH = 30;
@@ -157,7 +174,7 @@
 
     for (NSInteger i = 0; i < count; i++) {
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-        NSString *title = self.segmentTitles[i] ?: @"";
+        NSString *title = [self.sceneTabItems[i] displayTitle] ?: @"";
         CGSize textSize = [title boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, btnH)
                                               options:NSStringDrawingUsesLineFragmentOrigin
                                            attributes:@{NSFontAttributeName: btnFont}
@@ -199,14 +216,14 @@
 }
 
 - (NSInteger)numberOfListsInPagerView:(JXPagerView *)pagerView {
-    return self.segmentTitles.count;
+    return self.sceneTabItems.count;
 }
 
 - (id)pagerView:(JXPagerView *)pagerView initListAtIndex:(NSInteger)index {
-    if (index < 0 || index >= self.segmentTypes.count) {
+    if (index < 0 || index >= self.sceneTabItems.count) {
         return nil;
     }
-    NSString *type = self.segmentTypes[index];
+    NSString *type = self.sceneTabItems[index].typeIdentifier;
     TalkSegmentListViewController *vc = [[TalkSegmentListViewController alloc] initWithType:type];
     return vc;
  }
@@ -221,7 +238,11 @@
 
 - (UIView *)buildHeaderView {
     CGFloat screenW = UIScreen.mainScreen.bounds.size.width;
-    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenW, 322)];
+    NSInteger n = self.bannerImageItems.count;
+    BOOL hasBanner = (n > 0);
+    CGFloat bannerH = hasBanner ? 220.0 : 0.0;
+    CGFloat headerTotalH = 73.0 + (hasBanner ? (7.0 + bannerH) : 0.0);
+    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenW, headerTotalH)];
     header.backgroundColor = [UIColor whiteColor];
 
     UILabel *titleLabel = [[UILabel alloc] init];
@@ -235,14 +256,15 @@
 
     CGFloat bannerX = 12.0;
     CGFloat bannerW = screenW - 24.0;
-    BOOL shouldEnableBannerPaging = (self.bannerItems.count > 1);
+    BOOL shouldEnableBannerPaging = (n > 1);
     self.bannerScrollView.scrollEnabled = shouldEnableBannerPaging;
     self.bannerScrollView.pagingEnabled = shouldEnableBannerPaging;
+    self.bannerScrollView.hidden = !hasBanner;
     self.bannerIndicatorContainerView.hidden = !shouldEnableBannerPaging;
 
-    for (NSInteger i = 0; i < self.bannerItems.count; i++) {
-        NSDictionary<NSString *, NSString *> *item = self.bannerItems[i];
-        UIView *bannerItemView = [self buildBannerItemView:item index:i frame:CGRectMake((bannerW * i), 0, bannerW, 220)];
+    for (NSInteger i = 0; i < n; i++) {
+        YTTalkHomeBannerImageItem *item = self.bannerImageItems[i];
+        UIView *bannerItemView = [self buildBannerItemViewWithItem:item index:i frame:CGRectMake((bannerW * i), 0, bannerW, bannerH)];
         [self.bannerScrollView addSubview:bannerItemView];
 
         if (shouldEnableBannerPaging) {
@@ -253,7 +275,7 @@
             [self.bannerIndicatorViews addObject:indicatorView];
         }
     }
-    self.bannerScrollView.contentSize = CGSizeMake(bannerW * self.bannerItems.count, 220);
+    self.bannerScrollView.contentSize = CGSizeMake(bannerW * MAX(n, 1), bannerH);
     self.currentBannerIndex = 0;
     [self yt_updateBannerIndicatorForIndex:0];
 
@@ -267,17 +289,17 @@
     [self.bannerScrollView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(header).offset(bannerX);
         make.right.equalTo(header).offset(-bannerX);
-        make.top.equalTo(titleLabel.mas_bottom).offset(7);
-        make.height.mas_equalTo(220);
+        make.top.equalTo(titleLabel.mas_bottom).offset(hasBanner ? 7 : 0);
+        make.height.mas_equalTo(bannerH);
     }];
 
+    NSUInteger indicatorSlotCount = (NSUInteger)MAX(n, 0);
+    CGFloat indicatorTotalW = (n > 1) ? ((CGFloat)((16 * indicatorSlotCount) + (4 * (indicatorSlotCount - 1)))) : 0;
     [self.bannerIndicatorContainerView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.centerX.equalTo(self.bannerScrollView);
-        // 指示器叠放在 banner 内部，距离 banner 底边 10
         make.bottom.equalTo(self.bannerScrollView.mas_bottom).offset(-10);
         make.height.mas_equalTo(4);
-        // 指示器内部间隔 4
-        make.width.mas_equalTo((16 * self.bannerItems.count) + (4 * (self.bannerItems.count - 1)));
+        make.width.mas_equalTo(indicatorTotalW);
     }];
 
     if (shouldEnableBannerPaging) {
@@ -303,10 +325,11 @@
     return header;
 }
 
-- (UIView *)buildBannerItemView:(NSDictionary<NSString *, NSString *> *)item
-                          index:(NSInteger)index
-                          frame:(CGRect)frame {
+- (UIView *)buildBannerItemViewWithItem:(YTTalkHomeBannerImageItem *)item
+                                  index:(NSInteger)index
+                                  frame:(CGRect)frame {
     UIView *itemView = [[UIView alloc] initWithFrame:frame];
+    if (!item) return itemView;
 
     UIButton *bannerButton = [UIButton buttonWithType:UIButtonTypeCustom];
     bannerButton.frame = itemView.bounds;
@@ -320,7 +343,7 @@
 
     UIImageView *bgImageView = [[UIImageView alloc] init];
     UIImage *placeholder = [UIImage imageNamed:@"talk_topic_bg"];
-    NSString *imageUrlStr = item[@"imageUrl"];
+    NSString *imageUrlStr = item.imageURLString;
     if (imageUrlStr.length > 0) {
         [bgImageView sd_setImageWithURL:[NSURL URLWithString:imageUrlStr] placeholderImage:placeholder];
     } else {
@@ -335,16 +358,18 @@
     [bannerButton addSubview:maskView];
 
     UILabel *bannerTitleLabel = [[UILabel alloc] init];
-    bannerTitleLabel.text = item[@"title"];
+    bannerTitleLabel.text = item.title ?: @"";
     bannerTitleLabel.textColor = [UIColor whiteColor];
     bannerTitleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:30];
     bannerTitleLabel.numberOfLines = 2;
+    bannerTitleLabel.hidden = (bannerTitleLabel.text.length == 0);
     [bannerButton addSubview:bannerTitleLabel];
 
     UILabel *bannerSubtitleLabel = [[UILabel alloc] init];
-    bannerSubtitleLabel.text = item[@"subtitle"];
+    bannerSubtitleLabel.text = item.subtitle ?: @"";
     bannerSubtitleLabel.textColor = [UIColor colorWithWhite:1 alpha:0.88];
     bannerSubtitleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:14];
+    bannerSubtitleLabel.hidden = (bannerSubtitleLabel.text.length == 0);
     [bannerButton addSubview:bannerSubtitleLabel];
 
     UIView *tagContainer = [[UIView alloc] init];
@@ -355,10 +380,11 @@
     [bannerButton addSubview:tagContainer];
 
     UILabel *tagLabel = [[UILabel alloc] init];
-    tagLabel.text = item[@"tag"];
+    tagLabel.text = item.tagText ?: @"";
     tagLabel.textColor = [UIColor whiteColor];
     tagLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:11];
     [tagContainer addSubview:tagLabel];
+    tagContainer.hidden = (tagLabel.text.length == 0);
 
     [bgImageView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.edges.equalTo(bannerButton);
@@ -373,11 +399,15 @@
     }];
     [bannerSubtitleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(bannerTitleLabel);
-        make.top.equalTo(bannerTitleLabel.mas_bottom).offset(4);
+        if (bannerTitleLabel.hidden) {
+            make.top.equalTo(bannerButton).offset(16);
+        } else {
+            make.top.equalTo(bannerTitleLabel.mas_bottom).offset(4);
+        }
         make.right.lessThanOrEqualTo(bannerButton).offset(-16);
     }];
     [tagContainer mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(bannerTitleLabel);
+        make.left.equalTo(bannerButton).offset(16);
         make.bottom.equalTo(bannerButton).offset(-12);
         make.height.mas_equalTo(22);
     }];
@@ -418,15 +448,15 @@
 
 - (void)yt_updateBannerCurrentIndexWithScrollView:(UIScrollView *)scrollView {
     CGFloat pageWidth = CGRectGetWidth(scrollView.bounds);
-    if (pageWidth <= 0 || self.bannerItems.count == 0) return;
+    if (pageWidth <= 0 || self.bannerImageItems.count == 0) return;
     NSInteger index = (NSInteger)llround(scrollView.contentOffset.x / pageWidth);
-    index = MAX(0, MIN(index, self.bannerItems.count - 1));
+    index = MAX(0, MIN(index, self.bannerImageItems.count - 1));
     self.currentBannerIndex = index;
     [self yt_updateBannerIndicatorForIndex:index];
 }
 
 - (void)yt_startBannerAutoScrollIfNeeded {
-    if (self.bannerItems.count <= 1) return;
+    if (self.bannerImageItems.count <= 1) return;
     if (self.bannerAutoScrollTimer) return;
     __weak typeof(self) weakSelf = self;
     self.bannerAutoScrollTimer = [NSTimer timerWithTimeInterval:3.0
@@ -449,42 +479,16 @@
 }
 
 - (void)yt_autoScrollBanner {
-    if (self.bannerItems.count <= 1) return;
+    if (self.bannerImageItems.count <= 1) return;
     CGFloat pageWidth = CGRectGetWidth(self.bannerScrollView.bounds);
     if (pageWidth <= 0) return;
 
     NSInteger nextIndex = self.currentBannerIndex + 1;
-    if (nextIndex >= self.bannerItems.count) {
+    if (nextIndex >= self.bannerImageItems.count) {
         nextIndex = 0;
     }
     CGPoint offset = CGPointMake(nextIndex * pageWidth, 0);
     [self.bannerScrollView setContentOffset:offset animated:YES];
-}
-
-- (NSArray<NSDictionary<NSString *,NSString *> *> *)bannerItems {
-    if (!_bannerItems) {
-        _bannerItems = @[
-            @{
-                @"title": NSLocalizedString(@"Talk_Home_Banner_Title", @""),
-                @"subtitle": NSLocalizedString(@"Talk_Home_Banner_Subtitle", @""),
-                @"tag": NSLocalizedString(@"Talk_Home_Banner_Tag", @""),
-                @"imageUrl": @"https://picsum.photos/seed/talk_banner_1/800/450"
-            },
-            @{
-                @"title": NSLocalizedString(@"Talk_Home_Banner_Title_2", @""),
-                @"subtitle": NSLocalizedString(@"Talk_Home_Banner_Subtitle_2", @""),
-                @"tag": NSLocalizedString(@"Talk_Home_Banner_Tag_2", @""),
-                @"imageUrl": @"https://picsum.photos/seed/talk_banner_2/800/450"
-            },
-            @{
-                @"title": NSLocalizedString(@"Talk_Home_Banner_Title_3", @""),
-                @"subtitle": NSLocalizedString(@"Talk_Home_Banner_Subtitle_3", @""),
-                @"tag": NSLocalizedString(@"Talk_Home_Banner_Tag_3", @""),
-                @"imageUrl": @"https://picsum.photos/seed/talk_banner_3/800/450"
-            }
-        ];
-    }
-    return _bannerItems;
 }
 
 - (UIScrollView *)bannerScrollView {
@@ -590,7 +594,7 @@
         return;
     }
     if (object != self.observedListContentScrollView) return;
-    if (self.segmentTitles.count == 0) return;
+    if (self.sceneTabItems.count == 0) return;
     if (!self.indicatorView) return;
     
     UIScrollView *scrollView = (UIScrollView *)object;

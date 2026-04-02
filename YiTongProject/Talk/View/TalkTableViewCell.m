@@ -176,7 +176,9 @@
         self.actionLabel.textAlignment = NSTextAlignmentCenter;
         self.actionLabel.textColor = BLACK_COLOR_1F;
         self.actionLabel.font = [UIFont fontWithName:FONT_NAME_Medium size:16];
-        self.actionLabel.text = @"learning";
+        self.actionLabel.adjustsFontSizeToFitWidth = YES;
+        self.actionLabel.minimumScaleFactor = 0.78;
+        self.actionLabel.text = NSLocalizedString(@"Talk_SceneList_Action_Learning", @"");
         [self.actionCapsuleImageView addSubview:self.actionLabel];
     }
     return _cellView;
@@ -200,6 +202,18 @@
     return YTTalkSceneCellStatusInProgress;
 }
 
+/// 胶囊主文案：与角标（箭头 / 百分比+%% / ✅）同一套 `scene_progress_percent` 规则——0 未开始、0～100 进行中、100 完成
+- (NSString *)yt_localizedActionTitleForCellStatus:(YTTalkSceneCellStatus)status {
+    switch (status) {
+        case YTTalkSceneCellStatusNotStarted:
+            return NSLocalizedString(@"Talk_SceneList_Action_Learning", @"");
+        case YTTalkSceneCellStatusInProgress:
+            return NSLocalizedString(@"Talk_Continue", @"");
+        case YTTalkSceneCellStatusCompleted:
+            return NSLocalizedString(@"Talk_SceneList_Action_ViewDetails", @"");
+    }
+}
+
 - (CGFloat)yt_progressRatioForPercent:(CGFloat)progressPercent {
     CGFloat ratio = progressPercent / 100.0;
     ratio = MAX(0.0, MIN(1.0, ratio));
@@ -211,7 +225,7 @@
     self.lblTitle.text = @"";
     self.lblSubtitle.text = @"";
     self.imgView.image = nil;
-    self.actionLabel.text = @"learning";
+    self.actionLabel.text = NSLocalizedString(@"Talk_SceneList_Action_Learning", @"");
     self.cellStatus = YTTalkSceneCellStatusNotStarted;
     self.progressPercent = 0.0;
     self.bottomStatusView.backgroundColor = [self yt_colorForStatus:self.cellStatus];
@@ -250,7 +264,7 @@
         self.imgView.image = placeholder;
     }
 
-    self.actionLabel.text = NSLocalizedString(@"learning", @"");
+    self.actionLabel.text = [self yt_localizedActionTitleForCellStatus:self.cellStatus];
 
     [self yt_updateCapsuleProgress];
     [self yt_updateCornerProgress];

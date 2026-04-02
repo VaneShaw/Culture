@@ -38,6 +38,10 @@
 		3D437D372EE80D0900EFBEE1 /* MembershipTransferView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D437D362EE80D0900EFBEE1 /* MembershipTransferView.m */; };
 		3D437D3A2EE8144400EFBEE1 /* SubscriptionSetViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D437D392EE8144400EFBEE1 /* SubscriptionSetViewController.m */; };
 		3D46C9052F512F800090B431 /* TalkViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D46C9012F512F800090B431 /* TalkViewController.m */; };
+		3D46C9242F512FA00090B431 /* YTTalkHomeBannerImageItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D46C9222F512FA00090B431 /* YTTalkHomeBannerImageItem.m */; };
+		3D46C9252F512FA00090B431 /* YTTalkHomeSceneTabItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D46C9202F512FA00090B431 /* YTTalkHomeSceneTabItem.m */; };
+		3D46C9262F512FA00090B431 /* YTTalkHomeBannerData.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D46C91E2F512FA00090B431 /* YTTalkHomeBannerData.m */; };
+		3DCE4D602F7A2D0C00A1B2C4 /* YTTalkSceneItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DCE4D622F7A2D0C00A1B2C6 /* YTTalkSceneItem.m */; };
 		3D47D59B2EE65953003DC597 /* ReceiptSyncManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D47D59A2EE65953003DC597 /* ReceiptSyncManager.m */; };
 		3D47D59E2EE6CB72003DC597 /* DateHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D47D59D2EE6CB72003DC597 /* DateHelper.m */; };
 		3D4830A52E7BE27A00E6BFAD /* NoNetworkView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D4830A42E7BE27A00E6BFAD /* NoNetworkView.m */; };
@@ -116,6 +120,7 @@
 		3DD025A82EA08D47005A8F33 /* VideoManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD025A72EA08D47005A8F33 /* VideoManager.m */; };
 		3DD2A0E92ED94072006FBB02 /* PaymentFooterView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD2A0E82ED94072006FBB02 /* PaymentFooterView.m */; };
 		3DD38A752E73BA8900D7B6D1 /* NSArray+JSON.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD38A742E73BA8900D7B6D1 /* NSArray+JSON.m */; };
+		3DD38A7C2E73BA8900D7B6D1 /* NSDictionary+YTSafe.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD38A7B2E73BA8900D7B6D1 /* NSDictionary+YTSafe.m */; };
 		3DD8F8322F52BEAE009E70CE /* ProgressContainerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD8F8312F52BEAE009E70CE /* ProgressContainerView.m */; };
 		3DDE26172E667D9100B660BC /* VideoFullScreenViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DDE26162E667D9100B660BC /* VideoFullScreenViewController.m */; };
 		3DE34F212EF5282600DDF162 /* GlobalHUDManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DE34F202EF5282600DDF162 /* GlobalHUDManager.m */; };
@@ -291,6 +296,14 @@
 		3D437D392EE8144400EFBEE1 /* SubscriptionSetViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SubscriptionSetViewController.m; sourceTree = "<group>"; };
 		3D46C9002F512F800090B431 /* TalkViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkViewController.h; sourceTree = "<group>"; };
 		3D46C9012F512F800090B431 /* TalkViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkViewController.m; sourceTree = "<group>"; };
+		3D46C91C2F512FA00090B431 /* YTTalkHomeBannerData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkHomeBannerData.h; sourceTree = "<group>"; };
+		3D46C91E2F512FA00090B431 /* YTTalkHomeBannerData.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkHomeBannerData.m; sourceTree = "<group>"; };
+		3DCE4D612F7A2D0C00A1B2C5 /* YTTalkSceneItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkSceneItem.h; sourceTree = "<group>"; };
+		3DCE4D622F7A2D0C00A1B2C6 /* YTTalkSceneItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkSceneItem.m; sourceTree = "<group>"; };
+		3D46C91F2F512FA00090B431 /* YTTalkHomeSceneTabItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkHomeSceneTabItem.h; sourceTree = "<group>"; };
+		3D46C9202F512FA00090B431 /* YTTalkHomeSceneTabItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkHomeSceneTabItem.m; sourceTree = "<group>"; };
+		3D46C9212F512FA00090B431 /* YTTalkHomeBannerImageItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkHomeBannerImageItem.h; sourceTree = "<group>"; };
+		3D46C9222F512FA00090B431 /* YTTalkHomeBannerImageItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkHomeBannerImageItem.m; sourceTree = "<group>"; };
 		3D47D5992EE65953003DC597 /* ReceiptSyncManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ReceiptSyncManager.h; sourceTree = "<group>"; };
 		3D47D59A2EE65953003DC597 /* ReceiptSyncManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ReceiptSyncManager.m; sourceTree = "<group>"; };
 		3D47D59C2EE6CB72003DC597 /* DateHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DateHelper.h; sourceTree = "<group>"; };
@@ -444,6 +457,8 @@
 		3DD2A0E82ED94072006FBB02 /* PaymentFooterView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PaymentFooterView.m; sourceTree = "<group>"; };
 		3DD38A732E73BA8900D7B6D1 /* NSArray+JSON.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSArray+JSON.h"; sourceTree = "<group>"; };
 		3DD38A742E73BA8900D7B6D1 /* NSArray+JSON.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSArray+JSON.m"; sourceTree = "<group>"; };
+		3DD38A7A2E73BA8900D7B6D1 /* NSDictionary+YTSafe.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSDictionary+YTSafe.h"; sourceTree = "<group>"; };
+		3DD38A7B2E73BA8900D7B6D1 /* NSDictionary+YTSafe.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSDictionary+YTSafe.m"; sourceTree = "<group>"; };
 		3DD8F8302F52BEAE009E70CE /* ProgressContainerView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ProgressContainerView.h; sourceTree = "<group>"; };
 		3DD8F8312F52BEAE009E70CE /* ProgressContainerView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ProgressContainerView.m; sourceTree = "<group>"; };
 		3DDE26152E667D9100B660BC /* VideoFullScreenViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VideoFullScreenViewController.h; sourceTree = "<group>"; };
@@ -724,6 +739,8 @@
 				3DFF50282E659E3A000B3D4C /* UITableView+Empty.m */,
 				3DD38A732E73BA8900D7B6D1 /* NSArray+JSON.h */,
 				3DD38A742E73BA8900D7B6D1 /* NSArray+JSON.m */,
+				3DD38A7A2E73BA8900D7B6D1 /* NSDictionary+YTSafe.h */,
+				3DD38A7B2E73BA8900D7B6D1 /* NSDictionary+YTSafe.m */,
 				42D6C7D32E4B2701007CA69F /* UIViewController+BackButton.h */,
 				42D6C7D42E4B2701007CA69F /* UIViewController+BackButton.m */,
 				42C84B782E4ADB16004A7814 /* KeyboardAvoidingManager.h */,
@@ -820,12 +837,28 @@
 			path = SecurityManager;
 			sourceTree = "<group>";
 		};
+		3D46C91D2F512FA00090B431 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				3D46C9212F512FA00090B431 /* YTTalkHomeBannerImageItem.h */,
+				3D46C9222F512FA00090B431 /* YTTalkHomeBannerImageItem.m */,
+				3D46C91F2F512FA00090B431 /* YTTalkHomeSceneTabItem.h */,
+				3D46C9202F512FA00090B431 /* YTTalkHomeSceneTabItem.m */,
+				3D46C91C2F512FA00090B431 /* YTTalkHomeBannerData.h */,
+				3D46C91E2F512FA00090B431 /* YTTalkHomeBannerData.m */,
+				3DCE4D612F7A2D0C00A1B2C5 /* YTTalkSceneItem.h */,
+				3DCE4D622F7A2D0C00A1B2C6 /* YTTalkSceneItem.m */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
 		3D6DB2BF2F501FA40003DD9C /* Talk */ = {
 			isa = PBXGroup;
 			children = (
 				3DA50C342F72361200BDDF97 /* a2_LetterRecording.m4a */,
 				3DD8F82F2F52BEA2009E70CE /* View */,
 				6A7E0D7B8A2A4C9AA1B3C101 /* LearningFlow */,
+				3D46C91D2F512FA00090B431 /* Model */,
 				3D46C9002F512F800090B431 /* TalkViewController.h */,
 				3D46C9012F512F800090B431 /* TalkViewController.m */,
 				3DCE4D492F7A2D0B00A1B2C3 /* TalkSegmentListViewController.h */,
@@ -1656,6 +1689,10 @@
 				3D24A7602E7A424F0031E5F1 /* HanziCardViewController.m in Sources */,
 				3D8D20D02F02530300BA85AB /* CardElementViewController.m in Sources */,
 				3D46C9052F512F800090B431 /* TalkViewController.m in Sources */,
+				3D46C9242F512FA00090B431 /* YTTalkHomeBannerImageItem.m in Sources */,
+				3D46C9252F512FA00090B431 /* YTTalkHomeSceneTabItem.m in Sources */,
+				3D46C9262F512FA00090B431 /* YTTalkHomeBannerData.m in Sources */,
+				3DCE4D602F7A2D0C00A1B2C4 /* YTTalkSceneItem.m in Sources */,
 				3DCE4D4B2F7A2D0B00A1B2C3 /* TalkSegmentListViewController.m in Sources */,
 				3DCE4D512F7B22A100A1B2C3 /* TalkTopicHomeViewController.m in Sources */,
 				6A7E0D898A2A4C9AA1B3C10F /* TalkLearningFlowViewController.m in Sources */,
@@ -1730,6 +1767,7 @@
 				3D1A962C2E652C4000324037 /* PhoneLoginViewController.m in Sources */,
 				3D3219512E45975C00CACA70 /* ReadyLogOutView.m in Sources */,
 				3DD38A752E73BA8900D7B6D1 /* NSArray+JSON.m in Sources */,
+				3DD38A7C2E73BA8900D7B6D1 /* NSDictionary+YTSafe.m in Sources */,
 				3DBCCC6A2E5D38A100C5F2A1 /* SettingsViewController.m in Sources */,
 				3DA6F95D2E67CD8800A1EE33 /* AgreementConsentView.m in Sources */,
 				3D8288642F52CE1C00935C14 /* EllipseGradientView.m in Sources */,

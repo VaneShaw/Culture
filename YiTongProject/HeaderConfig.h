@@ -209,7 +209,7 @@ isPhoneX = [[UIApplication sharedApplication] delegate].window.safeAreaInsets.bo
 
 // Host配置 - 根据构建配置和版本自动选择
 // 测试环境
-#define HOST_TEST @"https://testapi.shiyi-yitong.com"
+#define HOST_TEST @"https://api-test.shiyi-yitong.com"
 // 正式环境 - 海外版
 #define HOST_PRODUCTION_OVERSEAS @"https://api.shiyi-yitong.com"
 // 正式环境 - 国内版

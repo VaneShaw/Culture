@@ -8,22 +8,14 @@
 #import "TalkSegmentListViewController.h"
 #import "TalkTableViewCell.h"
 #import "TalkTopicHomeViewController.h"
+#import "YTTalkSceneItem.h"
+#import "HeaderConfig.h"
 #import <MJRefresh/MJRefresh.h>
-
-@interface YTTalkSceneListItemModel : NSObject
-@property (nonatomic, copy) NSString *title;
-@property (nonatomic, copy) NSString *subtitle;
-@property (nonatomic, copy) NSString *imageUrl;
-@property (nonatomic, assign) NSInteger progressPercent;
-@end
-
-@implementation YTTalkSceneListItemModel
-@end
 
 @interface TalkSegmentListViewController ()
 
 @property (nonatomic, strong) UITableView *tableView;
-@property (nonatomic, strong) NSMutableArray<YTTalkSceneListItemModel *> *dataSource;
+@property (nonatomic, strong) NSMutableArray<YTTalkSceneItem *> *dataSource;
 @property (nonatomic, copy) NSString *type;
 @property (nonatomic, copy) void (^scrollCallback)(UIScrollView *scrollView);
 @property (nonatomic, assign) BOOL isRequesting;
@@ -70,7 +62,7 @@
 
 - (void)reloadData {
     __weak typeof(self) weakSelf = self;
-    [self yt_fetchSceneCardsWithType:self.type completion:^(NSArray<YTTalkSceneListItemModel *> *models) {
+    [self yt_fetchSceneCardsWithType:self.type completion:^(NSArray<YTTalkSceneItem *> *models) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
         if (models) {
@@ -81,84 +73,62 @@
     }];
 }
 
-#pragma mark - 数据获取（模拟接口）
+/// 相对路径 `cover_image` 与完整 URL 统一为可加载地址（与 HOST 拼接）
+- (NSString *)yt_fullImageURLStringFromCoverPath:(nullable NSString *)coverPath {
+    NSString *raw = [coverPath stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (raw.length == 0) return @"";
+    if ([raw.lowercaseString hasPrefix:@"http://"] || [raw.lowercaseString hasPrefix:@"https://"]) {
+        return raw;
+    }
+    NSString *host = [HOST copy];
+    while ([host hasSuffix:@"/"]) {
+        host = [host substringToIndex:host.length - 1];
+    }
+    NSString *path = raw;
+    if (![path hasPrefix:@"/"]) {
+        path = [NSString stringWithFormat:@"/%@", path];
+    }
+    return [NSString stringWithFormat:@"%@%@", host, path];
+}
 
-- (void)yt_fetchSceneCardsWithType:(NSString *)type completion:(void (^)(NSArray<YTTalkSceneListItemModel *> *models))completion {
+/// 将 banner tab 的 type 映射为接口 `tab_type`（仅 all/hot/new 为文档约定，其余走 all 避免无效请求）
+- (NSString *)yt_tabTypeBodyValueForSegmentType:(NSString *)type {
+    NSString *t = [type stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]].lowercaseString;
+    if (t.length == 0) return @"all";
+    if ([t isEqualToString:@"hot"] || [t isEqualToString:@"new"] || [t isEqualToString:@"all"]) {
+        return t;
+    }
+    return @"all";
+}
+
+/// 请求当前 tab 下的场景列表（POST `/talk/scene`，Body：`lang`、`tab_type`）
+- (void)yt_fetchSceneCardsWithType:(NSString *)type completion:(void (^)(NSArray<YTTalkSceneItem *> *models))completion {
     if (self.isRequesting) {
         if (completion) completion(nil);
         return;
     }
     self.isRequesting = YES;
 
-    // TODO: 对接真实接口时：把本地 yt_localModelsForType 替换为网络请求回调即可
+    NSMutableDictionary *params = [NSMutableDictionary dictionary];
+    params = [LanguageHelper currentLanguageParams:params];
+    params[@"tab_type"] = [self yt_tabTypeBodyValueForSegmentType:type];
+
     __weak typeof(self) weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.7 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    [HttpTools postRequest:@"/talk/scene" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
         __strong typeof(weakSelf) self = weakSelf;
-        NSArray<YTTalkSceneListItemModel *> *models = @[];
-        if (self) {
-            models = [self yt_localModelsForType:type] ?: @[];
-            self.isRequesting = NO;
+        if (!self) return;
+        self.isRequesting = NO;
+        NSArray<YTTalkSceneItem *> *list = @[];
+        if (success) {
+            list = [YTTalkSceneItem itemsByParsingAPIData:response.data];
         }
-        if (completion) completion(models);
-    });
-}
-
-- (NSArray<YTTalkSceneListItemModel *> *)yt_localModelsForType:(NSString *)type {
-    // 本地数据源：用于接口对接前的 UI 验证
-    // NOTE: imageUrl 使用网络占位地址（实际接入时替换为后端下发）
-    NSMutableArray<YTTalkSceneListItemModel *> *arr = [NSMutableArray array];
-
-    NSArray<NSDictionary *> *items = nil;
-    if ([type isEqualToString:@"hot"]) {
-        items = @[
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_0/300/200", @"progressPercent":@(0)},
-            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_1/300/200", @"progressPercent":@(60)},
-            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_2/300/200", @"progressPercent":@(100)},
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_3/300/200", @"progressPercent":@(60)},
-            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_hot_4/300/200", @"progressPercent":@(0)}
-        ];
-    } else if ([type isEqualToString:@"new"]) {
-        items = @[
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_new_0/300/200", @"progressPercent":@(60)},
-            @{@"title":@"At Library", @"subtitle":@"Mastering Library\nStudy & Talk", @"imageUrl":@"https://picsum.photos/seed/talk_list_new_1/300/200", @"progressPercent":@(0)},
-            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nReal-life Dialogue", @"imageUrl":@"https://picsum.photos/seed/talk_list_new_2/300/200", @"progressPercent":@(100)},
-            @{@"title":@"At Library", @"subtitle":@"Mastering Library\nStudy & Talk", @"imageUrl":@"https://picsum.photos/seed/talk_list_new_3/300/200", @"progressPercent":@(60)}
-        ];
-    } else if ([type isEqualToString:@"nearby"]) {
-        items = @[
-            @{@"title":@"At Park", @"subtitle":@"Talking nearby with confidence", @"imageUrl":@"https://picsum.photos/seed/talk_list_nearby_0/300/200", @"progressPercent":@(0)},
-            @{@"title":@"At Cafe", @"subtitle":@"Small talk in everyday life", @"imageUrl":@"https://picsum.photos/seed/talk_list_nearby_1/300/200", @"progressPercent":@(60)},
-            @{@"title":@"At Bookstore", @"subtitle":@"Ask about books & suggestions", @"imageUrl":@"https://picsum.photos/seed/talk_list_nearby_2/300/200", @"progressPercent":@(100)},
-            @{@"title":@"At Park", @"subtitle":@"Practice common phrases", @"imageUrl":@"https://picsum.photos/seed/talk_list_nearby_3/300/200", @"progressPercent":@(60)}
-        ];
-    } else if ([type isEqualToString:@"recommended"]) {
-        items = @[
-            @{@"title":@"Recommended", @"subtitle":@"Start with what fits you best", @"imageUrl":@"https://picsum.photos/seed/talk_list_rec_0/300/200", @"progressPercent":@(60)},
-            @{@"title":@"Quick Win", @"subtitle":@"Short lessons, fast improvement", @"imageUrl":@"https://picsum.photos/seed/talk_list_rec_1/300/200", @"progressPercent":@(0)},
-            @{@"title":@"Keep Growing", @"subtitle":@"Next steps for better fluency", @"imageUrl":@"https://picsum.photos/seed/talk_list_rec_2/300/200", @"progressPercent":@(100)},
-            @{@"title":@"Recommended", @"subtitle":@"More scenes, more practice", @"imageUrl":@"https://picsum.photos/seed/talk_list_rec_3/300/200", @"progressPercent":@(60)}
-        ];
-    } else {
-        items = @[
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_0/300/200", @"progressPercent":@(0)},
-            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_1/300/200", @"progressPercent":@(60)},
-            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_2/300/200", @"progressPercent":@(100)},
-            @{@"title":@"At School", @"subtitle":@"Mastering School\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_3/300/200", @"progressPercent":@(0)},
-            @{@"title":@"At Home", @"subtitle":@"Mastering Home\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_4/300/200", @"progressPercent":@(60)},
-            @{@"title":@"At Restaurant", @"subtitle":@"Mastering Dining\nCommunication Skills", @"imageUrl":@"https://picsum.photos/seed/talk_list_all_5/300/200", @"progressPercent":@(100)}
-        ];
-    }
-
-    for (NSDictionary *dic in items) {
-        YTTalkSceneListItemModel *m = [[YTTalkSceneListItemModel alloc] init];
-        m.title = dic[@"title"] ?: @"";
-        m.subtitle = dic[@"subtitle"] ?: @"";
-        m.imageUrl = dic[@"imageUrl"] ?: @"";
-        m.progressPercent = [dic[@"progressPercent"] integerValue];
-        [arr addObject:m];
-    }
-
-    return arr;
+        if (completion) completion(list);
+    } failure:^(NSError * _Nonnull error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        self.isRequesting = NO;
+        if (completion) completion(@[]);
+    }];
 }
 
 #pragma mark - JXPagerViewListViewDelegate
@@ -204,8 +174,8 @@
         return cell;
     }
 
-    YTTalkSceneListItemModel *m = self.dataSource[indexPath.row];
-    [cell configureWithTitle:m.title subtitle:m.subtitle imageUrl:m.imageUrl progressPercent:m.progressPercent];
+    YTTalkSceneItem *m = self.dataSource[indexPath.row];
+    [cell configureWithTitle:m.title ?: @"" subtitle:m.subtitle ?: @"" imageUrl:[self yt_fullImageURLStringFromCoverPath:m.coverImagePath] progressPercent:m.sceneProgressPercent];
     return cell;
 }
 
