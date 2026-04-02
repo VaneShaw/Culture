@@ -1,18 +1,18 @@
 PODS:
-  - AFNetworking (3.2.1):
-    - AFNetworking/NSURLSession (= 3.2.1)
-    - AFNetworking/Reachability (= 3.2.1)
-    - AFNetworking/Security (= 3.2.1)
-    - AFNetworking/Serialization (= 3.2.1)
-    - AFNetworking/UIKit (= 3.2.1)
-  - AFNetworking/NSURLSession (3.2.1):
+  - AFNetworking (4.0.1):
+    - AFNetworking/NSURLSession (= 4.0.1)
+    - AFNetworking/Reachability (= 4.0.1)
+    - AFNetworking/Security (= 4.0.1)
+    - AFNetworking/Serialization (= 4.0.1)
+    - AFNetworking/UIKit (= 4.0.1)
+  - AFNetworking/NSURLSession (4.0.1):
     - AFNetworking/Reachability
     - AFNetworking/Security
     - AFNetworking/Serialization
-  - AFNetworking/Reachability (3.2.1)
-  - AFNetworking/Security (3.2.1)
-  - AFNetworking/Serialization (3.2.1)
-  - AFNetworking/UIKit (3.2.1):
+  - AFNetworking/Reachability (4.0.1)
+  - AFNetworking/Security (4.0.1)
+  - AFNetworking/Serialization (4.0.1)
+  - AFNetworking/UIKit (4.0.1):
     - AFNetworking/NSURLSession
   - AppsFlyerFramework (6.17.6):
     - AppsFlyerFramework/Main (= 6.17.6)
@@ -141,7 +141,7 @@ PODS:
   - UMDevice (3.4.0)
 
 DEPENDENCIES:
-  - AFNetworking (= 3.2.1)
+  - AFNetworking (~> 4.0)
   - AppsFlyerFramework (~> 6.17.6)
   - FBSDKCoreKit (~> 18)
   - Firebase/Analytics (~> 11.15.0)
@@ -191,7 +191,7 @@ SPEC REPOS:
     - UMDevice
 
 SPEC CHECKSUMS:
-  AFNetworking: cb604b1c2bded0871f5f61f5d53653739e841d6b
+  AFNetworking: 3bd23d814e976cd148d7d44c3ab78017b744cd58
   AppsFlyerFramework: c2a11846e1f716132449810e0fb5f191f4f1bf4c
   FBAEMKit: 56a4f5a9607957b547b6458b17a98c5bb2736367
   FBSDKCoreKit: 54f1240567e16862ab71c53c33dc347db5c524c5
@@ -220,6 +220,6 @@ SPEC CHECKSUMS:
   UMCommon: 3b850836e8bc162b4e7f6b527d30071ed8ea75a1
   UMDevice: dcdf7ec167387837559d149fbc7d793d984faf82
 
-PODFILE CHECKSUM: d11bd6d96dc444674cff8e5addd050fc8a0ecb20
+PODFILE CHECKSUM: 70c8ab21e01ff1d7c31234acf27182fa96ad648e
 
 COCOAPODS: 1.16.2

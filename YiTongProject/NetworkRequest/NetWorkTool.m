@@ -104,7 +104,7 @@
 }
 #pragma mark - 自定义GET
 - (void)requestGET:(NSString *)urlString parames:(id)parames success:(void (^)(id responseObj))success failure:(void (^)(NSError *error))failure{
-    [self GET:urlString parameters:parames progress:^(NSProgress * _Nonnull downloadProgress) {
+    [self GET:urlString parameters:parames headers:nil progress:^(NSProgress * _Nonnull downloadProgress) {
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         success(responseObject);
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
@@ -115,7 +115,7 @@
 #pragma mark - 自定义POST
 - (void)requestPOST:(NSString *)urlString parames:(id)parames success:(void (^)(NSURLSessionDataTask * _Nonnull task,id responseObj))success failure:(void (^)(NSError *error))failure{
     
-    [self POST:urlString parameters:parames progress:^(NSProgress * _Nonnull uploadProgress) {
+    [self POST:urlString parameters:parames headers:nil progress:^(NSProgress * _Nonnull uploadProgress) {
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
     success(task,responseObject);
         //NSString* responseString = [[NSString alloc] initWithData:responseObject encoding:NSUTF8StringEncoding];
@@ -140,7 +140,7 @@
     return hex;
 }
 - (void)uploadImageWithURL:(NSString *)url image:(UIImage *)image params:(NSDictionary *)params success:(void (^)(BaseDataModel *result))success failure:(void (^)(NSError *))failure{
-    [self POST:url parameters:params constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    [self POST:url parameters:params headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         NSData *imageData =UIImageJPEGRepresentation(image,0.1);
         NSDateFormatter *formatter = [[NSDateFormatter alloc]init];
         formatter.dateFormat =@"yyyyMMddHHmmss";
@@ -168,7 +168,7 @@
     }];
 }
 -(void)uploadImageWithURL:(NSString *)url images:(NSArray <UIImage *> *)images params:(NSDictionary *)params success:(void (^)(BaseDataModel *result))success failure:(void (^)(NSError *))failure{
-    [self POST:url parameters:params constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    [self POST:url parameters:params headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
          [MBProgressHUD showMessage:@"正在上传"];
         for (int i = 0; i < images.count; i ++) {
             NSDateFormatter *formatter=[[NSDateFormatter alloc]init];
@@ -203,7 +203,7 @@
                   success:(void (^)(BaseDataModel *result))success
                   failure:(void (^)(NSError *))failure {
     
-    [self POST:url parameters:params constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    [self POST:url parameters:params headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         // 创建唯一文件名（使用时间戳）
         NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
         formatter.dateFormat = @"yyyyMMddHHmmss";

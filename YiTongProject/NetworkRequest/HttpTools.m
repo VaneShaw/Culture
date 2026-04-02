@@ -162,7 +162,7 @@
 + (void)uploadImageWithURL:(NSString *)url images:(NSArray <UIImage *> *)images params:(NSMutableDictionary *)params imageParamsName:(NSString *)imageParamsName success:(void (^)(BaseDataModel *result))success failure:(void (^)(NSError *))failure {
     //NSString *host = [AppConfig sharedConfig].main_host;
     NSString *host = HOST;
-    [[NetWorkTool sharedToolPostAuthorization] POST:[NSString stringWithFormat:@"%@%@",host,url] parameters:[self md5Parames:params] constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    [[NetWorkTool sharedToolPostAuthorization] POST:[NSString stringWithFormat:@"%@%@",host,url] parameters:[self md5Parames:params] headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         
         for (int i = 0; i < images.count; i ++) {
             NSDateFormatter *formatter=[[NSDateFormatter alloc]init];

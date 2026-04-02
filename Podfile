@@ -8,7 +8,7 @@ use_modular_headers!
  pod 'MBProgressHUD'
  pod 'Masonry'
  
- pod 'AFNetworking', '3.2.1'
+ pod 'AFNetworking', '~> 4.0'
  pod 'MJExtension'
  pod 'MJRefresh'
  pod 'FLAnimatedImage'
