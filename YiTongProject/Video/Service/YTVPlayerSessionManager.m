@@ -10,6 +10,7 @@
 
 static void *kYTVPlayerItemStatusContext = &kYTVPlayerItemStatusContext;
 static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDisplayContext;
+static NSString * const kYTVPlayerSessionLogPrefix = @"[YTVPlayerSession]";
 
 @interface YTVPlayerSessionManager ()
 @property (nonatomic, strong, readwrite) AVPlayer *player;
@@ -20,6 +21,7 @@ static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDis
 @property (nonatomic, assign) NSUInteger pendingReadyRequestId;
 @property (nonatomic, assign) NSUInteger firstFrameRequestId;
 @property (nonatomic, assign) BOOL firstFrameDeliveredForCurrentRequest;
+@property (nonatomic, strong) NSDate *currentReplaceStartDate;
 @end
 
 @implementation YTVPlayerSessionManager
@@ -85,7 +87,9 @@ static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDis
     }
     self.currentRequestId += 1;
     NSUInteger requestId = self.currentRequestId;
+    self.currentReplaceStartDate = [NSDate date];
     self.firstFrameDeliveredForCurrentRequest = NO;
+    NSLog(@"%@ replace start request=%lu url=%@", kYTVPlayerSessionLogPrefix, (unsigned long)requestId, url.absoluteString ?: @"<nil>");
     [self ytv_bindPlayerLayerForFirstFrameObservation:playerLayer requestId:requestId];
     [self ytv_installObservedPlayerItem:item requestId:requestId completion:completion];
     return requestId;
@@ -155,6 +159,10 @@ static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDis
         return;
     }
     self.firstFrameDeliveredForCurrentRequest = YES;
+    NSLog(@"%@ first frame rendered request=%lu elapsed=%.0fms",
+          kYTVPlayerSessionLogPrefix,
+          (unsigned long)self.firstFrameRequestId,
+          [self ytv_elapsedMillisecondsSinceCurrentReplaceStart]);
     [self ytv_emitEvent:YTVPlayerSessionEventTypeFirstFrameRendered requestId:self.firstFrameRequestId error:nil];
 }
 
@@ -165,6 +173,10 @@ static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDis
     }
     switch (item.status) {
         case AVPlayerItemStatusReadyToPlay:
+            NSLog(@"%@ item ready request=%lu elapsed=%.0fms",
+                  kYTVPlayerSessionLogPrefix,
+                  (unsigned long)self.pendingReadyRequestId,
+                  [self ytv_elapsedMillisecondsSinceCurrentReplaceStart]);
             [self ytv_emitEvent:YTVPlayerSessionEventTypeItemReady requestId:self.pendingReadyRequestId error:nil];
             [self ytv_deliverPendingWithError:nil];
             break;
@@ -172,6 +184,11 @@ static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDis
             NSError *err = item.error ?: [NSError errorWithDomain:@"YTVPlayerSessionManager"
                                                              code:-2
                                                          userInfo:@{NSLocalizedDescriptionKey: @"AVPlayerItem failed"}];
+            NSLog(@"%@ play failed request=%lu elapsed=%.0fms error=%@",
+                  kYTVPlayerSessionLogPrefix,
+                  (unsigned long)self.pendingReadyRequestId,
+                  [self ytv_elapsedMillisecondsSinceCurrentReplaceStart],
+                  err.localizedDescription ?: @"<nil>");
             [self ytv_emitEvent:YTVPlayerSessionEventTypePlayFailed requestId:self.pendingReadyRequestId error:err];
             [self ytv_deliverPendingWithError:err];
             break;
@@ -202,6 +219,11 @@ static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDis
     NSError *out = err ?: [NSError errorWithDomain:@"YTVPlayerSessionManager"
                                               code:-3
                                           userInfo:@{NSLocalizedDescriptionKey: @"Playback failed"}];
+    NSLog(@"%@ play failed notification request=%lu elapsed=%.0fms error=%@",
+          kYTVPlayerSessionLogPrefix,
+          (unsigned long)(self.pendingReadyRequestId ?: self.currentRequestId),
+          [self ytv_elapsedMillisecondsSinceCurrentReplaceStart],
+          out.localizedDescription ?: @"<nil>");
     [self ytv_emitEvent:YTVPlayerSessionEventTypePlayFailed requestId:self.pendingReadyRequestId ?: self.currentRequestId error:out];
     if (self.pendingReadyCompletion) {
         [self ytv_deliverPendingWithError:out];
@@ -222,6 +244,14 @@ static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDis
         }
         [self.player play];
     }];
+}
+
+/// 当前切源启动到现在的耗时，便于观察 item ready 与首帧的差距。
+- (NSTimeInterval)ytv_elapsedMillisecondsSinceCurrentReplaceStart {
+    if (!self.currentReplaceStartDate) {
+        return 0;
+    }
+    return [[NSDate date] timeIntervalSinceDate:self.currentReplaceStartDate] * 1000.0;
 }
 
 /// 将播放事件统一派发到主线程，供 VC 校验 requestId 后更新 UI。
@@ -290,6 +320,7 @@ static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDis
     self.pendingReadyCompletion = nil;
     self.pendingReadyRequestId = 0;
     self.firstFrameDeliveredForCurrentRequest = NO;
+    self.currentReplaceStartDate = nil;
     [self.player pause];
     [self.player replaceCurrentItemWithPlayerItem:nil];
 }

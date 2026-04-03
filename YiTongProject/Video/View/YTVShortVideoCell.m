@@ -65,6 +65,7 @@
     self.titleLabel.frame = CGRectMake(16, titleY, w - 32, 36);
 }
 
+/// 短视频首显只读取已预取到缓存里的封面，不在 cell 露出瞬间再发起网络请求，避免拖慢滑动手势。
 - (void)configureWithItem:(YTVVideoFeedItem *)item {
     if (!item) {
         self.titleLabel.text = @"";
@@ -76,17 +77,23 @@
     self.titleLabel.text = item.title.length ? item.title : @"";
     [self ytv_showCoverImmediately];
     [self ytv_clearPlaybackFailureState];
-    if (item.coverURL.length > 0) {
-        NSURL *u = [NSURL URLWithString:item.coverURL];
-        if (u) {
-            [self.coverImageView sd_setImageWithURL:u placeholderImage:nil];
-        } else {
-            [self.coverImageView sd_cancelCurrentImageLoad];
-            self.coverImageView.image = nil;
-        }
-    } else {
-        [self.coverImageView sd_cancelCurrentImageLoad];
-        self.coverImageView.image = nil;
+    [self.coverImageView sd_cancelCurrentImageLoad];
+    self.coverImageView.image = nil;
+    if (item.coverURL.length == 0) {
+        return;
+    }
+    NSURL *coverURL = [NSURL URLWithString:item.coverURL];
+    if (!coverURL) {
+        return;
+    }
+    NSString *coverPathExtension = coverURL.pathExtension.lowercaseString;
+    if ([coverPathExtension isEqualToString:@"gif"]) {
+        return;
+    }
+    NSString *cacheKey = [[SDWebImageManager sharedManager] cacheKeyForURL:coverURL];
+    UIImage *cachedImage = [[SDImageCache sharedImageCache] imageFromMemoryCacheForKey:cacheKey];
+    if (cachedImage) {
+        self.coverImageView.image = cachedImage;
     }
 }
 
