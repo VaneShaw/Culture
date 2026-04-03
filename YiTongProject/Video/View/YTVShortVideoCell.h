@@ -15,15 +15,21 @@ NS_ASSUME_NONNULL_BEGIN
 @interface YTVShortVideoCell : UICollectionViewCell
 
 @property (nonatomic, strong, readonly) YTVVideoRenderView *renderView;
-/// 点击 16:9 视频区域：暂停/播放切换（由 VC 绑定）
+/// 点击整页任意区域：暂停/播放切换（由 VC 绑定）。
 @property (nonatomic, copy, nullable) void (^ytv_onVideoAreaTap)(YTVShortVideoCell *cell);
-/// 点击视频外区域（上下黑边、标题区等）：仅用于暂停态下继续播放（由 VC 绑定）
-@property (nonatomic, copy, nullable) void (^ytv_onOutsideVideoResumeTap)(YTVShortVideoCell *cell);
 
 - (void)configureWithItem:(nullable YTVVideoFeedItem *)item;
 
-/// 首帧就绪后隐藏封面（技术设计 §5 封面→画面）
+/// 首帧就绪后隐藏封面（技术设计 §5 封面→画面）。
 - (void)ytv_setCoverHidden:(BOOL)hidden animated:(BOOL)animated;
+/// 切源前立即恢复封面，避免 ready 但未出帧时露底。
+- (void)ytv_showCoverImmediately;
+/// 首帧到达后再隐藏封面。
+- (void)ytv_hideCoverAfterFirstFrameAnimated:(BOOL)animated;
+/// 播放失败时保留封面并重置额外态。
+- (void)ytv_showPlaybackFailureState;
+/// 进入新绑定前清理失败态。
+- (void)ytv_clearPlaybackFailureState;
 
 /// 用户暂停时显示中央「播放」提示；继续播放时隐藏
 - (void)ytv_setPausedPlayHintVisible:(BOOL)visible;

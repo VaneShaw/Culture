@@ -13,8 +13,7 @@
 @property (nonatomic, strong, readwrite) YTVVideoRenderView *renderView;
 @property (nonatomic, strong) UIImageView *coverImageView;
 @property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UIView *outsideResumeTapView;
-@property (nonatomic, strong) UIView *videoTapOverlay;
+@property (nonatomic, strong) UIView *fullScreenTapView;
 @property (nonatomic, strong) UIImageView *pausedPlayHintView;
 @end
 
@@ -24,18 +23,15 @@
     self = [super initWithFrame:frame];
     if (self) {
         self.contentView.backgroundColor = [UIColor blackColor];
-        [self.contentView addSubview:self.outsideResumeTapView];
         [self.contentView addSubview:self.renderView];
         [self.contentView addSubview:self.coverImageView];
-        [self.contentView addSubview:self.videoTapOverlay];
-        [self.videoTapOverlay addSubview:self.pausedPlayHintView];
         [self.contentView addSubview:self.titleLabel];
+        [self.contentView addSubview:self.fullScreenTapView];
+        [self.fullScreenTapView addSubview:self.pausedPlayHintView];
         self.titleLabel.userInteractionEnabled = NO;
         self.renderView.playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
-        UITapGestureRecognizer *outTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(ytv_onOutsideResumeTap:)];
-        [self.outsideResumeTapView addGestureRecognizer:outTap];
-        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(ytv_onVideoTapOverlay:)];
-        [self.videoTapOverlay addGestureRecognizer:tap];
+        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(ytv_onFullScreenTap:)];
+        [self.fullScreenTapView addGestureRecognizer:tap];
     }
     return self;
 }
@@ -45,28 +41,26 @@
     [self.renderView attachPlayer:nil];
     [self.coverImageView sd_cancelCurrentImageLoad];
     self.coverImageView.image = nil;
-    self.coverImageView.hidden = NO;
-    self.coverImageView.alpha = 1;
+    [self ytv_showCoverImmediately];
+    [self ytv_clearPlaybackFailureState];
     self.titleLabel.text = @"";
     self.pausedPlayHintView.hidden = YES;
     self.ytv_onVideoAreaTap = nil;
-    self.ytv_onOutsideVideoResumeTap = nil;
 }
 
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGFloat w = CGRectGetWidth(self.contentView.bounds);
     CGFloat h = CGRectGetHeight(self.contentView.bounds);
-    self.outsideResumeTapView.frame = self.contentView.bounds;
+    self.fullScreenTapView.frame = self.contentView.bounds;
     CGFloat videoH = w * 9.0 / 16.0;
     CGFloat y = (h - videoH) * 0.5;
     self.renderView.frame = CGRectMake(0, y, w, videoH);
     self.coverImageView.frame = self.renderView.frame;
-    self.videoTapOverlay.frame = self.renderView.frame;
-    CGFloat hintSide = MIN(88, MIN(CGRectGetWidth(self.videoTapOverlay.bounds), CGRectGetHeight(self.videoTapOverlay.bounds)) * 0.28);
+    CGFloat hintSide = MIN(88, MIN(CGRectGetWidth(self.fullScreenTapView.bounds), CGRectGetHeight(self.fullScreenTapView.bounds)) * 0.28);
     hintSide = MAX(hintSide, 56);
     self.pausedPlayHintView.bounds = CGRectMake(0, 0, hintSide, hintSide);
-    self.pausedPlayHintView.center = CGPointMake(CGRectGetMidX(self.videoTapOverlay.bounds), CGRectGetMidY(self.videoTapOverlay.bounds));
+    self.pausedPlayHintView.center = CGPointMake(CGRectGetMidX(self.fullScreenTapView.bounds), CGRectGetMidY(self.fullScreenTapView.bounds));
     CGFloat titleY = CGRectGetMaxY(self.renderView.frame) + 8;
     self.titleLabel.frame = CGRectMake(16, titleY, w - 32, 36);
 }
@@ -76,13 +70,12 @@
         self.titleLabel.text = @"";
         [self.coverImageView sd_cancelCurrentImageLoad];
         self.coverImageView.image = nil;
-        self.coverImageView.hidden = NO;
-        self.coverImageView.alpha = 1;
+        [self ytv_showCoverImmediately];
         return;
     }
     self.titleLabel.text = item.title.length ? item.title : @"";
-    self.coverImageView.hidden = NO;
-    self.coverImageView.alpha = 1;
+    [self ytv_showCoverImmediately];
+    [self ytv_clearPlaybackFailureState];
     if (item.coverURL.length > 0) {
         NSURL *u = [NSURL URLWithString:item.coverURL];
         if (u) {
@@ -115,12 +108,29 @@
     }
 }
 
+- (void)ytv_showCoverImmediately {
+    [self ytv_setCoverHidden:NO animated:NO];
+}
+
+- (void)ytv_hideCoverAfterFirstFrameAnimated:(BOOL)animated {
+    [self ytv_setCoverHidden:YES animated:animated];
+}
+
+- (void)ytv_showPlaybackFailureState {
+    [self ytv_showCoverImmediately];
+    [self ytv_setPausedPlayHintVisible:NO];
+}
+
+- (void)ytv_clearPlaybackFailureState {
+    // 第一版失败态仅保留封面，不额外增加控件。
+}
+
 - (void)ytv_setPausedPlayHintVisible:(BOOL)visible {
     self.pausedPlayHintView.hidden = !visible;
     self.pausedPlayHintView.alpha = visible ? 1 : 0;
 }
 
-- (void)ytv_onVideoTapOverlay:(UITapGestureRecognizer *)gr {
+- (void)ytv_onFullScreenTap:(UITapGestureRecognizer *)gr {
     if (gr.state != UIGestureRecognizerStateEnded) {
         return;
     }
@@ -129,32 +139,16 @@
     }
 }
 
-- (void)ytv_onOutsideResumeTap:(UITapGestureRecognizer *)gr {
-    if (gr.state != UIGestureRecognizerStateEnded) {
-        return;
+
+- (UIView *)fullScreenTapView {
+    if (!_fullScreenTapView) {
+        _fullScreenTapView = [[UIView alloc] init];
+        _fullScreenTapView.backgroundColor = [UIColor clearColor];
+        _fullScreenTapView.userInteractionEnabled = YES;
     }
-    if (self.ytv_onOutsideVideoResumeTap) {
-        self.ytv_onOutsideVideoResumeTap(self);
-    }
+    return _fullScreenTapView;
 }
 
-- (UIView *)outsideResumeTapView {
-    if (!_outsideResumeTapView) {
-        _outsideResumeTapView = [[UIView alloc] init];
-        _outsideResumeTapView.backgroundColor = [UIColor clearColor];
-        _outsideResumeTapView.userInteractionEnabled = YES;
-    }
-    return _outsideResumeTapView;
-}
-
-- (UIView *)videoTapOverlay {
-    if (!_videoTapOverlay) {
-        _videoTapOverlay = [[UIView alloc] init];
-        _videoTapOverlay.backgroundColor = [UIColor clearColor];
-        _videoTapOverlay.userInteractionEnabled = YES;
-    }
-    return _videoTapOverlay;
-}
 
 - (UIImageView *)pausedPlayHintView {
     if (!_pausedPlayHintView) {

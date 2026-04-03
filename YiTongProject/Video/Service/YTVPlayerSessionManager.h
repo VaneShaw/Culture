@@ -11,19 +11,36 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class AVPlayer;
 @class AVPlayerItem;
+@class AVPlayerLayer;
+
+typedef NS_ENUM(NSInteger, YTVPlayerSessionEventType) {
+    YTVPlayerSessionEventTypeItemReady = 0,
+    YTVPlayerSessionEventTypeFirstFrameRendered,
+    YTVPlayerSessionEventTypePlayFailed,
+};
+
+typedef void (^YTVPlayerSessionEventHandler)(YTVPlayerSessionEventType eventType, NSUInteger requestId, NSError * _Nullable error);
 
 /// 维护单个 AVPlayer 与当前 AVPlayerItem，负责切换资源、KVO 与通知清理，避免与旧播放器互相影响
 @interface YTVPlayerSessionManager : NSObject
 
 @property (nonatomic, strong, readonly) AVPlayer *player;
+/// 当前播放请求编号；每次 replace 都会递增，用于过滤旧回调。
+@property (nonatomic, assign, readonly) NSUInteger currentRequestId;
+/// 会话级播放事件回调：item ready / 首帧显示 / 播放失败。
+@property (nonatomic, copy, nullable) YTVPlayerSessionEventHandler eventHandler;
 
-/// 替换播放地址并在可播或失败时于主线程回调 completion（成功 error 为 nil）
+/// 替换播放地址并在可播或失败时于主线程回调 completion（成功 error 为 nil）。
 - (void)replacePlaybackWithURL:(NSURL *)url completion:(void (^)(NSError * _Nullable error))completion;
 
-/// 若 `prewarmedItem` 与 url 同源则复用预热项，否则等同仅传 url（技术设计 §5 媒体预热）
-- (void)replacePlaybackWithURL:(NSURL *)url
-    preferredPrewarmedPlayerItem:(nullable AVPlayerItem *)prewarmedItem
-                      completion:(void (^)(NSError * _Nullable error))completion;
+/// 若 `prewarmedItem` 与 url 同源则复用预热项，否则等同仅传 url（技术设计 §5 媒体预热）。
+- (NSUInteger)replacePlaybackWithURL:(NSURL *)url
+          preferredPrewarmedPlayerItem:(nullable AVPlayerItem *)prewarmedItem
+                            playerLayer:(nullable AVPlayerLayer *)playerLayer
+                             completion:(void (^)(NSError * _Nullable error))completion;
+
+/// 更新首帧监听所依附的渲染层；切 cell 重绑同一 player 时调用。
+- (void)bindPlayerLayerForFirstFrameObservation:(nullable AVPlayerLayer *)playerLayer;
 
 - (void)play;
 - (void)pause;
