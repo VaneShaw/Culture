@@ -360,6 +360,9 @@
 "YTV_favorite" = "收藏";
 "YTV_favorited" = "已收藏";
 "YTV_share" = "分享";
+"YTV_PRD_share_activity_body" = "我在实亿易通发现了一个超有趣的动画，看视频就能学中文、懂中国文化！快来下载APP一起学。下载链接：https://shiyi.yitong.com/download";
+"YTV_PRD_copy_download_toast" = "已复制下载链接";
+"YTV_PRD_copy_link_button" = "复制链接";
 "YTV_full_text_entry" = "查看全部";
 "YTV_full_text_title" = "全文";
 "YTV_favorite_failed" = "收藏失败，请稍后重试";

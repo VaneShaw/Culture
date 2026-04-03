@@ -21,6 +21,7 @@
     if (self) {
         self.playerLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
         self.backgroundColor = [UIColor blackColor];
+        self.userInteractionEnabled = NO;
     }
     return self;
 }
@@ -30,6 +31,7 @@
     if (self) {
         self.playerLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
         self.backgroundColor = [UIColor blackColor];
+        self.userInteractionEnabled = NO;
     }
     return self;
 }

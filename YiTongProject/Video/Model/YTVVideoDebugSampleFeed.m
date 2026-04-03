@@ -33,32 +33,49 @@ static NSString * const kYTVUDSampleFeed = @"YTVDebugVideoSampleFeed";
     static NSArray<NSString *> *urls;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        /* 已在 CI 网络用 curl -I -L 抽检：Apple 示例流 + 若干公网 MP4 返回 200 且类型合理。
-         * GCS gtv-videos-bucket 在该环境超时；techslides 500；radiantmediaplayer 403。 */
-        urls = @[
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8",
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8",
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8",
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8",
-            @"https://www.w3schools.com/html/mov_bbb.mp4",
-            @"https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4",
-            @"https://filesamples.com/samples/video/mp4/sample_640x360.mp4",
-            @"https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-            @"https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-mp4-file.mp4",
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8",
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8",
-            @"https://www.w3schools.com/html/mov_bbb.mp4",
-            @"https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4",
-            @"https://filesamples.com/samples/video/mp4/sample_640x360.mp4",
-            @"https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-            @"https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-mp4-file.mp4",
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8",
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
-            @"https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8",
+        /* DEBUG 样例流：测试环境汉字视频 MP4（与真实接口路径一致，便于联调）。 */
+        NSString *host = @"https://testoss.shiyi-yitong.com";
+        NSArray<NSString *> *paths = @[
+            @"/hanzi/videos/jiu3_9.mp4",
+            @"/hanzi/videos/shi2_10.mp4",
+            @"/hanzi/videos/shang4_11.mp4",
+            @"/hanzi/videos/xia4_12.mp4",
+            @"/hanzi/videos/zuo3_13.mp4",
+            @"/hanzi/videos/you4_14.mp4",
+            @"/hanzi/videos/zhong1_15.mp4",
+            @"/hanzi/videos/shi2_16.mp4",
+            @"/hanzi/videos/fen1_17.mp4",
+            @"/hanzi/videos/miao3_18.mp4",
+            @"/hanzi/videos/ri4_19.mp4",
+            @"/hanzi/videos/yue4_20.mp4",
+            @"/hanzi/videos/wo3_21.mp4",
+            @"/hanzi/videos/ni3_22.mp4",
+            @"/hanzi/videos/ta1_23.mp4",
+            @"/hanzi/videos/ta1_24.mp4",
         ];
+        NSMutableArray<NSString *> *built = [NSMutableArray arrayWithCapacity:paths.count];
+        for (NSString *p in paths) {
+            NSString *trim = [p stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]];
+            if (trim.length == 0) {
+                continue;
+            }
+            [built addObject:[NSString stringWithFormat:@"%@/%@", host, trim]];
+        }
+        urls = [built copy];
     });
     return urls;
+}
+
+/// 测试 OSS 上汉字视频与同目录 GIF 封面同名（与字卡 `hanzi/videos/*.gif` 约定一致），供跟手滑动时 SD 预取与 Cell 占位
++ (NSString *)ytv_debugCoverURLForPlayURL:(NSString *)playURL {
+    if (playURL.length == 0) {
+        return @"";
+    }
+    NSRange r = [playURL rangeOfString:@".mp4" options:NSCaseInsensitiveSearch];
+    if (r.location == NSNotFound) {
+        return playURL;
+    }
+    return [playURL stringByReplacingCharactersInRange:r withString:@".gif"];
 }
 
 + (NSArray<YTVVideoFeedItem *> *)allSampleItems {
@@ -71,7 +88,7 @@ static NSString * const kYTVUDSampleFeed = @"YTVDebugVideoSampleFeed";
         it.category = @"debug";
         it.summary = @"本地调试样例";
         it.playURL = url;
-        it.coverURL = @"https://peach.blender.org/wp-content/uploads/bbb-splash.png";
+        it.coverURL = [self ytv_debugCoverURLForPlayURL:url];
         it.isFavorite = NO;
         it.favoritesCount = -1;
         it.shareURL = [NSString stringWithFormat:@"https://shiyi.yitong.com/app/video?id=%@&from=share", it.videoId];

@@ -48,6 +48,9 @@ Tap to start recording and say this sound out loud
 "YTV_favorite" = "Save";
 "YTV_favorited" = "Saved";
 "YTV_share" = "Share";
+"YTV_PRD_share_activity_body" = "I just found a super fun animation on Shiyi – learn Chinese and understand Chinese culture through videos! Download the app and join me. Link: https://shiyi.yitong.com/download";
+"YTV_PRD_copy_download_toast" = "Download link copied";
+"YTV_PRD_copy_link_button" = "Copy link";
 "YTV_full_text_entry" = "Read more";
 "YTV_full_text_title" = "Full text";
 "YTV_favorite_failed" = "Could not update favorite. Try again.";

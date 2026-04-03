@@ -196,7 +196,7 @@
 		7A7013022E8B040100ABCD02 /* YTVFavoritesListViewModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013082E8B040100ABCD08 /* YTVFavoritesListViewModel.m */; };
 		7A7013032E8B040100ABCD03 /* YTVFavoritesListCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70130A2E8B040100ABCD0A /* YTVFavoritesListCell.m */; };
 		7A7013042E8B040100ABCD04 /* YTVFavoritesListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70130C2E8B040100ABCD0C /* YTVFavoritesListViewController.m */; };
-		7A7013102E8C040100ABCD10 /* YTVVideoShareSheet.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013122E8C040100ABCD12 /* YTVVideoShareSheet.m */; };
+		7A7013162E8C040100ABCD16 /* YTVVideoPRDShareHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013182E8C040100ABCD18 /* YTVVideoPRDShareHelper.m */; };
 		7A7013182E8D040100ABCD18 /* YTVVideoDeepLinkRouter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70131B2E8D040100ABCD1B /* YTVVideoDeepLinkRouter.m */; };
 		7A7013192E8D040100ABCD19 /* YTVFeedCoordinator.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70131D2E8D040100ABCD1D /* YTVFeedCoordinator.m */; };
 		7A7013242E8E040100ABCD20 /* YTVFeedFullscreenViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013262E8E040100ABCD22 /* YTVFeedFullscreenViewController.m */; };
@@ -592,8 +592,8 @@
 		7A70130A2E8B040100ABCD0A /* YTVFavoritesListCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFavoritesListCell.m; sourceTree = "<group>"; };
 		7A70130B2E8B040100ABCD0B /* YTVFavoritesListViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVFavoritesListViewController.h; sourceTree = "<group>"; };
 		7A70130C2E8B040100ABCD0C /* YTVFavoritesListViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFavoritesListViewController.m; sourceTree = "<group>"; };
-		7A7013112E8C040100ABCD11 /* YTVVideoShareSheet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoShareSheet.h; sourceTree = "<group>"; };
-		7A7013122E8C040100ABCD12 /* YTVVideoShareSheet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoShareSheet.m; sourceTree = "<group>"; };
+		7A7013172E8C040100ABCD17 /* YTVVideoPRDShareHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoPRDShareHelper.h; sourceTree = "<group>"; };
+		7A7013182E8C040100ABCD18 /* YTVVideoPRDShareHelper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoPRDShareHelper.m; sourceTree = "<group>"; };
 		7A70131A2E8D040100ABCD1A /* YTVVideoDeepLinkRouter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoDeepLinkRouter.h; sourceTree = "<group>"; };
 		7A70131B2E8D040100ABCD1B /* YTVVideoDeepLinkRouter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoDeepLinkRouter.m; sourceTree = "<group>"; };
 		7A70131C2E8D040100ABCD1C /* YTVFeedCoordinator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVFeedCoordinator.h; sourceTree = "<group>"; };
@@ -849,8 +849,8 @@
 				7A70130A2E8B040100ABCD0A /* YTVFavoritesListCell.m */,
 				7A70130B2E8B040100ABCD0B /* YTVFavoritesListViewController.h */,
 				7A70130C2E8B040100ABCD0C /* YTVFavoritesListViewController.m */,
-				7A7013112E8C040100ABCD11 /* YTVVideoShareSheet.h */,
-				7A7013122E8C040100ABCD12 /* YTVVideoShareSheet.m */,
+				7A7013172E8C040100ABCD17 /* YTVVideoPRDShareHelper.h */,
+				7A7013182E8C040100ABCD18 /* YTVVideoPRDShareHelper.m */,
 				7A7013252E8E040100ABCD21 /* YTVFeedFullscreenViewController.h */,
 				7A7013262E8E040100ABCD22 /* YTVFeedFullscreenViewController.m */,
 			);
@@ -1689,7 +1689,7 @@
 				7A7013022E8B040100ABCD02 /* YTVFavoritesListViewModel.m in Sources */,
 				7A7013032E8B040100ABCD03 /* YTVFavoritesListCell.m in Sources */,
 				7A7013042E8B040100ABCD04 /* YTVFavoritesListViewController.m in Sources */,
-				7A7013102E8C040100ABCD10 /* YTVVideoShareSheet.m in Sources */,
+				7A7013162E8C040100ABCD16 /* YTVVideoPRDShareHelper.m in Sources */,
 				7A7013182E8D040100ABCD18 /* YTVVideoDeepLinkRouter.m in Sources */,
 				7A7013192E8D040100ABCD19 /* YTVFeedCoordinator.m in Sources */,
 				7A7013242E8E040100ABCD20 /* YTVFeedFullscreenViewController.m in Sources */,

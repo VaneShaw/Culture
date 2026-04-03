@@ -8,11 +8,12 @@
 #import "HeaderConfig.h"
 #import <AVFoundation/AVFoundation.h>
 
-static const NSUInteger kYTVMediaWarmMaxItems = 4;
+static const NSUInteger kYTVMediaWarmMaxItems = 8;
 
 @interface YTVVideoPreloadManager ()
 @property (nonatomic, strong) NSMutableDictionary<NSString *, AVPlayerItem *> *warmByVideoId;
 @property (nonatomic, strong) NSMutableOrderedSet<NSString *> *warmAccessOrder;
+@property (nonatomic, copy, nullable) NSString *protectedPlaybackVideoId;
 @end
 
 @implementation YTVVideoPreloadManager
@@ -71,11 +72,11 @@ static const NSUInteger kYTVMediaWarmMaxItems = 4;
         return;
     }
     while (self.warmAccessOrder.count >= kYTVMediaWarmMaxItems) {
-        NSString *evict = self.warmAccessOrder.firstObject;
+        NSString *evict = [self ytv_nextLRUEvictVideoIdSkippingProtected];
         if (!evict) {
-            break;
+            return;
         }
-        [self.warmAccessOrder removeObjectAtIndex:0];
+        [self.warmAccessOrder removeObject:evict];
         [self.warmByVideoId removeObjectForKey:evict];
     }
     AVPlayerItem *pi = [AVPlayerItem playerItemWithURL:url];
@@ -99,12 +100,47 @@ static const NSUInteger kYTVMediaWarmMaxItems = 4;
     if (![assetURL.absoluteString isEqualToString:playURL]) {
         return nil;
     }
-    [self.warmByVideoId removeObjectForKey:videoId];
     [self.warmAccessOrder removeObject:videoId];
+    [self.warmAccessOrder addObject:videoId];
     return pi;
 }
 
+- (void)setProtectedPlaybackVideoId:(NSString *)videoId {
+    _protectedPlaybackVideoId = videoId.length > 0 ? [videoId copy] : nil;
+}
+
+- (void)touchWarmEntryForVideoId:(NSString *)videoId playURL:(NSString *)playURL {
+    if (videoId.length == 0) {
+        return;
+    }
+    AVPlayerItem *pi = self.warmByVideoId[videoId];
+    if (!pi) {
+        return;
+    }
+    NSURL *assetURL = [(AVURLAsset *)pi.asset URL];
+    if (!assetURL || playURL.length == 0) {
+        return;
+    }
+    if (![assetURL.absoluteString isEqualToString:playURL]) {
+        return;
+    }
+    [self.warmAccessOrder removeObject:videoId];
+    [self.warmAccessOrder addObject:videoId];
+}
+
+- (nullable NSString *)ytv_nextLRUEvictVideoIdSkippingProtected {
+    NSString *prot = self.protectedPlaybackVideoId;
+    for (NSString *vid in self.warmAccessOrder) {
+        if (prot.length > 0 && [vid isEqualToString:prot]) {
+            continue;
+        }
+        return vid;
+    }
+    return nil;
+}
+
 - (void)invalidateAllWarmItems {
+    self.protectedPlaybackVideoId = nil;
     [self.warmByVideoId removeAllObjects];
     [self.warmAccessOrder removeAllObjects];
 }

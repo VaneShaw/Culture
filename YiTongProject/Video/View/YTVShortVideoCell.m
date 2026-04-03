@@ -13,6 +13,9 @@
 @property (nonatomic, strong, readwrite) YTVVideoRenderView *renderView;
 @property (nonatomic, strong) UIImageView *coverImageView;
 @property (nonatomic, strong) UILabel *titleLabel;
+@property (nonatomic, strong) UIView *outsideResumeTapView;
+@property (nonatomic, strong) UIView *videoTapOverlay;
+@property (nonatomic, strong) UIImageView *pausedPlayHintView;
 @end
 
 @implementation YTVShortVideoCell
@@ -21,10 +24,18 @@
     self = [super initWithFrame:frame];
     if (self) {
         self.contentView.backgroundColor = [UIColor blackColor];
+        [self.contentView addSubview:self.outsideResumeTapView];
         [self.contentView addSubview:self.renderView];
         [self.contentView addSubview:self.coverImageView];
+        [self.contentView addSubview:self.videoTapOverlay];
+        [self.videoTapOverlay addSubview:self.pausedPlayHintView];
         [self.contentView addSubview:self.titleLabel];
+        self.titleLabel.userInteractionEnabled = NO;
         self.renderView.playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
+        UITapGestureRecognizer *outTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(ytv_onOutsideResumeTap:)];
+        [self.outsideResumeTapView addGestureRecognizer:outTap];
+        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(ytv_onVideoTapOverlay:)];
+        [self.videoTapOverlay addGestureRecognizer:tap];
     }
     return self;
 }
@@ -37,16 +48,25 @@
     self.coverImageView.hidden = NO;
     self.coverImageView.alpha = 1;
     self.titleLabel.text = @"";
+    self.pausedPlayHintView.hidden = YES;
+    self.ytv_onVideoAreaTap = nil;
+    self.ytv_onOutsideVideoResumeTap = nil;
 }
 
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGFloat w = CGRectGetWidth(self.contentView.bounds);
     CGFloat h = CGRectGetHeight(self.contentView.bounds);
+    self.outsideResumeTapView.frame = self.contentView.bounds;
     CGFloat videoH = w * 9.0 / 16.0;
     CGFloat y = (h - videoH) * 0.5;
     self.renderView.frame = CGRectMake(0, y, w, videoH);
     self.coverImageView.frame = self.renderView.frame;
+    self.videoTapOverlay.frame = self.renderView.frame;
+    CGFloat hintSide = MIN(88, MIN(CGRectGetWidth(self.videoTapOverlay.bounds), CGRectGetHeight(self.videoTapOverlay.bounds)) * 0.28);
+    hintSide = MAX(hintSide, 56);
+    self.pausedPlayHintView.bounds = CGRectMake(0, 0, hintSide, hintSide);
+    self.pausedPlayHintView.center = CGPointMake(CGRectGetMidX(self.videoTapOverlay.bounds), CGRectGetMidY(self.videoTapOverlay.bounds));
     CGFloat titleY = CGRectGetMaxY(self.renderView.frame) + 8;
     self.titleLabel.frame = CGRectMake(16, titleY, w - 32, 36);
 }
@@ -93,6 +113,66 @@
         self.coverImageView.hidden = hidden;
         self.coverImageView.alpha = hidden ? 0 : 1;
     }
+}
+
+- (void)ytv_setPausedPlayHintVisible:(BOOL)visible {
+    self.pausedPlayHintView.hidden = !visible;
+    self.pausedPlayHintView.alpha = visible ? 1 : 0;
+}
+
+- (void)ytv_onVideoTapOverlay:(UITapGestureRecognizer *)gr {
+    if (gr.state != UIGestureRecognizerStateEnded) {
+        return;
+    }
+    if (self.ytv_onVideoAreaTap) {
+        self.ytv_onVideoAreaTap(self);
+    }
+}
+
+- (void)ytv_onOutsideResumeTap:(UITapGestureRecognizer *)gr {
+    if (gr.state != UIGestureRecognizerStateEnded) {
+        return;
+    }
+    if (self.ytv_onOutsideVideoResumeTap) {
+        self.ytv_onOutsideVideoResumeTap(self);
+    }
+}
+
+- (UIView *)outsideResumeTapView {
+    if (!_outsideResumeTapView) {
+        _outsideResumeTapView = [[UIView alloc] init];
+        _outsideResumeTapView.backgroundColor = [UIColor clearColor];
+        _outsideResumeTapView.userInteractionEnabled = YES;
+    }
+    return _outsideResumeTapView;
+}
+
+- (UIView *)videoTapOverlay {
+    if (!_videoTapOverlay) {
+        _videoTapOverlay = [[UIView alloc] init];
+        _videoTapOverlay.backgroundColor = [UIColor clearColor];
+        _videoTapOverlay.userInteractionEnabled = YES;
+    }
+    return _videoTapOverlay;
+}
+
+- (UIImageView *)pausedPlayHintView {
+    if (!_pausedPlayHintView) {
+        _pausedPlayHintView = [[UIImageView alloc] init];
+        _pausedPlayHintView.contentMode = UIViewContentModeScaleAspectFit;
+        _pausedPlayHintView.userInteractionEnabled = NO;
+        UIImage *img = nil;
+        if (@available(iOS 13.0, *)) {
+            img = [UIImage systemImageNamed:@"play.circle.fill"];
+        }
+        if (img == nil) {
+            img = [UIImage imageNamed:@"play_black"];
+        }
+        _pausedPlayHintView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        _pausedPlayHintView.tintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.92];
+        _pausedPlayHintView.hidden = YES;
+    }
+    return _pausedPlayHintView;
 }
 
 - (YTVVideoRenderView *)renderView {
