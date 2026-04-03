@@ -305,10 +305,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
             }
             self.ytv_userPausedWithPlayHint = NO;
             self.ytv_lastProvisionalWarmIndex = NSNotFound;
-            self.ytv_pendingBindIndex = NSNotFound;
-            self.ytv_pendingPlaybackRequestId = 0;
-            self.ytv_isSwitchingPlayback = NO;
-            self.ytv_currentPlaybackFirstFrameReady = NO;
+            [self ytv_resetPlaybackBindingStateToIdle];
             self.currentPlayIndex = startIdx;
             if (self.feedViewModel.numberOfItems > 0) {
                 NSIndexPath *ip = [NSIndexPath indexPathForItem:startIdx inSection:0];
@@ -387,10 +384,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     self.collectionView.hidden = NO;
     self.ytv_userPausedWithPlayHint = NO;
     self.ytv_lastProvisionalWarmIndex = NSNotFound;
-    self.ytv_pendingBindIndex = NSNotFound;
-    self.ytv_pendingPlaybackRequestId = 0;
-    self.ytv_isSwitchingPlayback = NO;
-    self.ytv_currentPlaybackFirstFrameReady = NO;
+    [self ytv_resetPlaybackBindingStateToIdle];
     self.currentPlayIndex = idx;
     [self.collectionView reloadData];
     [self.collectionView layoutIfNeeded];
@@ -514,30 +508,10 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     NSInteger maxIdx = (NSInteger)self.feedViewModel.numberOfItems - 1;
     idx = MAX(0, MIN(idx, maxIdx));
     if (idx == self.currentPlayIndex) {
-        [self ytv_maybePrefetchNextForDisplayIndex:idx];
-        [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
-        [self ytv_refreshInteractionChrome];
+        [self ytv_resyncPlaybackAroundCurrentIndex];
         return;
     }
-    [self ytv_hideNextLoadFailureBar];
-    self.ytv_userPausedWithPlayHint = NO;
-    NSInteger oldPlayIndex = self.currentPlayIndex;
-    if (oldPlayIndex != NSNotFound && oldPlayIndex != idx) {
-        NSUInteger n = self.feedViewModel.numberOfItems;
-        if (oldPlayIndex >= 0 && (NSUInteger)oldPlayIndex < n) {
-            YTVVideoFeedItem *oldItem = [self.feedViewModel itemAtIndex:oldPlayIndex];
-            if (oldItem) {
-                [self.preloadManager touchWarmEntryForVideoId:oldItem.videoId playURL:oldItem.playURL];
-            }
-        }
-    }
-    self.currentPlayIndex = idx;
-    self.ytv_pendingBindIndex = idx;
-    self.ytv_currentPlaybackFirstFrameReady = NO;
-    [self ytv_applyPlaybackForCurrentIndexIfPossible];
-    [self ytv_maybePrefetchNextForDisplayIndex:idx];
-    [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
-    [self ytv_refreshInteractionChrome];
+    [self ytv_beginPlaybackSwitchToIndex:idx fromOldIndex:self.currentPlayIndex];
 }
 
 - (void)ytv_maybePrefetchNextForDisplayIndex:(NSInteger)idx {
@@ -607,6 +581,37 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     }
 }
 
+/// 当前页未发生切换时，只补预热、补货和浮层状态，不重复进入切源链路。
+- (void)ytv_resyncPlaybackAroundCurrentIndex {
+    if (self.currentPlayIndex == NSNotFound) {
+        [self ytv_refreshInteractionChrome];
+        return;
+    }
+    [self ytv_maybePrefetchNextForDisplayIndex:self.currentPlayIndex];
+    [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
+    [self ytv_refreshInteractionChrome];
+}
+
+/// 播放页真正切换时，先记录旧索引的 warm 命中，再进入新的绑定流程。
+- (void)ytv_beginPlaybackSwitchToIndex:(NSInteger)newIndex fromOldIndex:(NSInteger)oldIndex {
+    [self ytv_hideNextLoadFailureBar];
+    self.ytv_userPausedWithPlayHint = NO;
+    if (oldIndex != NSNotFound && oldIndex != newIndex) {
+        NSUInteger n = self.feedViewModel.numberOfItems;
+        if (oldIndex >= 0 && (NSUInteger)oldIndex < n) {
+            YTVVideoFeedItem *oldItem = [self.feedViewModel itemAtIndex:oldIndex];
+            if (oldItem) {
+                [self.preloadManager touchWarmEntryForVideoId:oldItem.videoId playURL:oldItem.playURL];
+            }
+        }
+    }
+    self.currentPlayIndex = newIndex;
+    self.ytv_pendingBindIndex = newIndex;
+    self.ytv_currentPlaybackFirstFrameReady = NO;
+    [self ytv_applyPlaybackForCurrentIndexIfPossible];
+    [self ytv_resyncPlaybackAroundCurrentIndex];
+}
+
 /// 当前播放稳定后，继续向下 3 条做保温，减少用户继续下滑时的冷切概率。
 - (void)ytv_primeUpcomingWarmItemsForCurrentPlayback {
     if (!self.ytv_categoryFeedActive || self.feedViewModel.state != YTVShortVideoFeedStateReady) {
@@ -618,54 +623,49 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     [self.preloadManager warmAroundDisplayIndex:self.currentPlayIndex items:self.feedViewModel.items];
 }
 
-/// 绑定当前播放索引到共享 player；揭封面必须等待首帧事件，而不是仅靠 ReadyToPlay。
-- (void)ytv_applyPlaybackForCurrentIndexIfPossible {
-    if (!self.ytv_categoryFeedActive) {
-        return;
+/// 切源 token 与切换标记回到空闲，用于列表重置、失败或当前条不可播。
+- (void)ytv_resetPlaybackBindingStateToIdle {
+    self.ytv_isSwitchingPlayback = NO;
+    self.ytv_pendingPlaybackRequestId = 0;
+    self.ytv_pendingBindIndex = NSNotFound;
+    self.ytv_currentPlaybackFirstFrameReady = NO;
+}
+
+/// 首帧已上屏：结束切换态，并把 `pendingPlaybackRequestId` 与当前会话对齐，避免后续杂散事件误匹配。
+- (void)ytv_commitPlaybackBindingAfterFirstFrame {
+    self.ytv_isSwitchingPlayback = NO;
+    self.ytv_pendingBindIndex = NSNotFound;
+    self.ytv_currentPlaybackFirstFrameReady = YES;
+    self.ytv_pendingPlaybackRequestId = self.playerSession.currentRequestId;
+}
+
+/// 当前条无有效网络播放地址时：暂停、解除保护位并清空绑定状态。
+- (void)ytv_resetPlaybackSessionForInvalidCurrentItem {
+    [self.preloadManager markPlaybackProtectedVideoId:nil];
+    [self.playerSession pause];
+    [self ytv_resetPlaybackBindingStateToIdle];
+    self.ytv_userPausedWithPlayHint = NO;
+    [self ytv_syncPausedPlayHintForCurrentCell];
+}
+
+/// 当前 item URL 已经命中时，直接复用现有播放会话并恢复当前 cell 的展示状态。
+- (void)ytv_resumePlaybackForCurrentItemAtIndex:(NSInteger)bindIdx cell:(YTVShortVideoCell * _Nullable)cell {
+    self.ytv_isSwitchingPlayback = NO;
+    self.ytv_pendingPlaybackRequestId = self.playerSession.currentRequestId;
+    if (self.ytv_currentPlaybackFirstFrameReady && cell) {
+        [cell ytv_hideCoverAfterFirstFrameAnimated:NO];
     }
-    if (self.currentPlayIndex == NSNotFound) {
-        return;
-    }
-    if (self.currentPlayIndex >= (NSInteger)self.feedViewModel.numberOfItems) {
-        return;
-    }
-    YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:self.currentPlayIndex];
-    NSURL *url = [NSURL URLWithString:item.playURL];
-    if (!url || (![url.scheme.lowercaseString isEqualToString:@"http"] && ![url.scheme.lowercaseString isEqualToString:@"https"])) {
-        [self.preloadManager markPlaybackProtectedVideoId:nil];
-        [self.playerSession pause];
-        self.ytv_isSwitchingPlayback = NO;
-        self.ytv_pendingPlaybackRequestId = 0;
-        self.ytv_pendingBindIndex = NSNotFound;
-        self.ytv_currentPlaybackFirstFrameReady = NO;
-        self.ytv_userPausedWithPlayHint = NO;
-        [self ytv_syncPausedPlayHintForCurrentCell];
-        return;
-    }
-    [self.preloadManager markPlaybackProtectedVideoId:item.videoId];
-    NSInteger bindIdx = self.currentPlayIndex;
-    self.ytv_pendingBindIndex = bindIdx;
-    YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:bindIdx];
-    if (cell) {
-        [self ytv_prepareCellForSwitchingPlaybackAtIndex:bindIdx];
-    } else {
-        [self.playerSession bindPlayerLayerForFirstFrameObservation:nil];
-    }
-    AVPlayerItem *curItem = self.playerSession.player.currentItem;
-    if (curItem && [curItem.asset isKindOfClass:[AVURLAsset class]]) {
-        NSURL *curURL = [(AVURLAsset *)curItem.asset URL];
-        if (curURL && [curURL.absoluteString isEqualToString:url.absoluteString]) {
-            self.ytv_isSwitchingPlayback = NO;
-            self.ytv_pendingPlaybackRequestId = self.playerSession.currentRequestId;
-            if (self.ytv_currentPlaybackFirstFrameReady && cell) {
-                [cell ytv_hideCoverAfterFirstFrameAnimated:NO];
-            }
-            [self.playerSession play];
-            self.ytv_userPausedWithPlayHint = NO;
-            [self ytv_refreshInteractionChrome];
-            return;
-        }
-    }
+    [self.playerSession play];
+    self.ytv_userPausedWithPlayHint = NO;
+    [self ytv_refreshInteractionChrome];
+    (void)bindIdx;
+}
+
+/// 进入真正的切源流程：准备当前 cell、消费预热 item，并在回调里二次校验 pendingBindIndex。
+- (void)ytv_replacePlaybackForItem:(YTVVideoFeedItem *)item
+                               url:(NSURL *)url
+                           bindIdx:(NSInteger)bindIdx
+                              cell:(YTVShortVideoCell * _Nullable)cell {
     self.ytv_isSwitchingPlayback = YES;
     self.ytv_currentPlaybackFirstFrameReady = NO;
     AVPlayerItem *prewarmed = [self.preloadManager preparedPlayerItemForVideoId:item.videoId playURL:item.playURL];
@@ -685,7 +685,6 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
             return;
         }
         if (error) {
-            self.ytv_isSwitchingPlayback = NO;
             [self ytv_failPlaybackAtIndex:bindIdx error:error];
             return;
         }
@@ -696,6 +695,43 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     if (requestId != expectedRequestId) {
         self.ytv_pendingPlaybackRequestId = requestId;
     }
+}
+
+/// 绑定当前播放索引到共享 player；揭封面必须等待首帧事件，而不是仅靠 ReadyToPlay。
+- (void)ytv_applyPlaybackForCurrentIndexIfPossible {
+    if (!self.ytv_categoryFeedActive) {
+        return;
+    }
+    if (self.currentPlayIndex == NSNotFound) {
+        return;
+    }
+    if (self.currentPlayIndex >= (NSInteger)self.feedViewModel.numberOfItems) {
+        return;
+    }
+    NSInteger bindIdx = self.currentPlayIndex;
+    YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:bindIdx];
+    NSURL *url = [NSURL URLWithString:item.playURL];
+    if (!url || (![url.scheme.lowercaseString isEqualToString:@"http"] && ![url.scheme.lowercaseString isEqualToString:@"https"])) {
+        [self ytv_resetPlaybackSessionForInvalidCurrentItem];
+        return;
+    }
+    [self.preloadManager markPlaybackProtectedVideoId:item.videoId];
+    self.ytv_pendingBindIndex = bindIdx;
+    YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:bindIdx];
+    if (cell) {
+        [self ytv_prepareCellForSwitchingPlaybackAtIndex:bindIdx];
+    } else {
+        [self.playerSession bindPlayerLayerForFirstFrameObservation:nil];
+    }
+    AVPlayerItem *currentItem = self.playerSession.player.currentItem;
+    if (currentItem && [currentItem.asset isKindOfClass:[AVURLAsset class]]) {
+        NSURL *currentURL = [(AVURLAsset *)currentItem.asset URL];
+        if (currentURL && [currentURL.absoluteString isEqualToString:url.absoluteString]) {
+            [self ytv_resumePlaybackForCurrentItemAtIndex:bindIdx cell:cell];
+            return;
+        }
+    }
+    [self ytv_replacePlaybackForItem:item url:url bindIdx:bindIdx cell:cell];
 }
 
 /// 点击整页任意区域统一切换暂停/继续播放。
@@ -785,16 +821,14 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:index];
     [cell ytv_clearPlaybackFailureState];
     [cell ytv_hideCoverAfterFirstFrameAnimated:YES];
-    self.ytv_isSwitchingPlayback = NO;
-    self.ytv_pendingBindIndex = NSNotFound;
-    self.ytv_currentPlaybackFirstFrameReady = YES;
+    [self ytv_commitPlaybackBindingAfterFirstFrame];
 }
 
 /// 播放失败时保留封面，避免露出黑底或旧帧。
 - (void)ytv_failPlaybackAtIndex:(NSInteger)index error:(NSError *)error {
+    [self ytv_resetPlaybackBindingStateToIdle];
     YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:index];
     [cell ytv_showPlaybackFailureState];
-    self.ytv_pendingBindIndex = NSNotFound;
     [self ytv_refreshInteractionChrome];
     (void)error;
 }
@@ -815,7 +849,6 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
             [self ytv_finishFirstFrameAtIndex:bindIdx];
             break;
         case YTVPlayerSessionEventTypePlayFailed:
-            self.ytv_isSwitchingPlayback = NO;
             [self ytv_failPlaybackAtIndex:bindIdx error:error];
             break;
     }
