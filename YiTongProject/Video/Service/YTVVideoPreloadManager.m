@@ -216,6 +216,43 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     }
 }
 
+- (void)trimWarmPoolKeepingNeighborhoodOfDisplayIndex:(NSInteger)displayIndex items:(NSArray<YTVVideoFeedItem *> *)items {
+    NSMutableSet<NSString *> *keep = [NSMutableSet set];
+    if (self.protectedPlaybackVideoId.length > 0) {
+        [keep addObject:self.protectedPlaybackVideoId];
+    }
+    NSInteger n = (NSInteger)items.count;
+    if (n > 0) {
+        NSInteger maxIdx = n - 1;
+        NSInteger center = displayIndex;
+        if (center == NSNotFound) {
+            center = 0;
+        }
+        center = MAX(0, MIN(center, maxIdx));
+        for (NSInteger i = center - 1; i <= center + 2; i++) {
+            if (i < 0 || i > maxIdx) {
+                continue;
+            }
+            YTVVideoFeedItem *it = items[(NSUInteger)i];
+            if (it.videoId.length > 0) {
+                [keep addObject:it.videoId];
+            }
+        }
+    }
+    NSMutableArray<NSString *> *toRemove = [NSMutableArray array];
+    for (NSString *vid in self.warmByVideoId) {
+        if (![keep containsObject:vid]) {
+            [toRemove addObject:vid];
+        }
+    }
+    for (NSString *vid in toRemove) {
+        [self.warmByVideoId removeObjectForKey:vid];
+        [self.warmAccessOrder removeObject:vid];
+        NSLog(@"%@ warm evict (inactive trim) videoId=%@", kYTVVideoWarmLogPrefix, vid ?: @"<nil>");
+    }
+    self.preservedWarmVideoIds = [keep copy];
+}
+
 - (void)invalidateAllWarmItems {
     self.protectedPlaybackVideoId = nil;
     self.preservedWarmVideoIds = [NSSet set];

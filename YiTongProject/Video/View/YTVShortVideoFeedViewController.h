@@ -24,8 +24,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// 当前分类成为可见（横向切到本页）：首进拉 bootstrap，再次进入恢复播放
 - (void)ytv_activateCategoryFeed;
 
-/// 横向切走本分类：暂停并释放当前 item，降低解码与带宽占用（技术设计「非当前分类降载」）
+/// 横向切走本分类：暂停、从 cell 拆下 player，裁剪远端 warm；保留 AVPlayer 当前 item 与邻条预热（Phase 4）。
 - (void)ytv_deactivateCategoryFeed;
+
+/// 离开视频学习根页等：清空播放会话与 warm 池，避免多分类长期占用解码与内存。
+- (void)ytv_deactivateCategoryFeedReleasingPlayback;
 
 /// 分类流：深链进入时滚到已存在条目或单条补拉；收藏流忽略
 - (void)ytv_handleDeepLinkWithEntryVideoId:(NSString *)videoId;

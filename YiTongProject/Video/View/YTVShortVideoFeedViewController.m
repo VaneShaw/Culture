@@ -174,7 +174,9 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
 - (void)ytv_activateCategoryFeed {
     if (self.ytv_categoryFeedActive) {
         if (self.feedViewModel.state == YTVShortVideoFeedStateReady) {
+            /// 切回分类时若 `AVPlayer` 上仍是当前条 URL，`ytv_applyPlaybackForCurrentIndexIfPossible` 会走复用分支，仅 re-attach layer。
             [self ytv_applyPlaybackForCurrentIndexIfPossible];
+            [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
             [self.playerSession play];
             self.ytv_userPausedWithPlayHint = NO;
             [self ytv_syncPausedPlayHintForCurrentCell];
@@ -194,6 +196,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
         }];
     } else if (self.feedViewModel.state == YTVShortVideoFeedStateReady) {
         [self ytv_applyPlaybackForCurrentIndexIfPossible];
+        [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
         [self.playerSession play];
         self.ytv_userPausedWithPlayHint = NO;
         [self ytv_syncPausedPlayHintForCurrentCell];
@@ -208,9 +211,35 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     self.ytv_userPausedWithPlayHint = NO;
     [self ytv_detachPlayerFromVisibleCells];
     [self.playerSession pause];
+    [self ytv_reduceInactiveCategoryResources];
+    self.ytv_lastProvisionalWarmIndex = NSNotFound;
+    [self ytv_refreshInteractionChrome];
+}
+
+/// Phase 4：非当前分类只淘汰远端 warm，保留当前条与邻域已在池内的预热条目。
+- (void)ytv_reduceInactiveCategoryResources {
+    if (self.feedViewModel.state != YTVShortVideoFeedStateReady || self.feedViewModel.numberOfItems == 0) {
+        [self.preloadManager trimWarmPoolKeepingNeighborhoodOfDisplayIndex:NSNotFound items:@[]];
+        return;
+    }
+    NSInteger idx = self.currentPlayIndex;
+    if (idx == NSNotFound) {
+        idx = 0;
+    }
+    NSInteger maxIdx = (NSInteger)self.feedViewModel.numberOfItems - 1;
+    idx = MAX(0, MIN(idx, maxIdx));
+    [self.preloadManager trimWarmPoolKeepingNeighborhoodOfDisplayIndex:idx items:self.feedViewModel.items];
+}
+
+- (void)ytv_deactivateCategoryFeedReleasingPlayback {
+    self.ytv_categoryFeedActive = NO;
+    self.ytv_userPausedWithPlayHint = NO;
+    [self ytv_detachPlayerFromVisibleCells];
+    [self.playerSession pause];
     [self.playerSession clearPlayback];
     [self.preloadManager invalidateAllWarmItems];
     self.ytv_lastProvisionalWarmIndex = NSNotFound;
+    [self ytv_resetPlaybackBindingStateToIdle];
     [self ytv_refreshInteractionChrome];
 }
 

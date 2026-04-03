@@ -87,7 +87,7 @@ const NSInteger kYTVVideoTabBarIndex = 2;
     [super viewWillDisappear:animated];
     for (id o in self.feedSlots) {
         if (o != [NSNull null]) {
-            [(YTVShortVideoFeedViewController *)o ytv_deactivateCategoryFeed];
+            [(YTVShortVideoFeedViewController *)o ytv_deactivateCategoryFeedReleasingPlayback];
         }
     }
 }

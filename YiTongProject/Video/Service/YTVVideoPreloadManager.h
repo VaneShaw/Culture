@@ -29,6 +29,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// 按当前保留窗口裁剪 warm 池，避免无界增长与过度带宽占用。
 - (void)trimWarmPoolPreservingCurrentWindow;
 
+/// 非激活分类降载：淘汰 warm 池中不在「当前条 + 上下邻」窗口内的条目，不发起新预热（Phase 4）。
+- (void)trimWarmPoolKeepingNeighborhoodOfDisplayIndex:(NSInteger)displayIndex items:(NSArray<YTVVideoFeedItem *> *)items;
+
 /// 离开分类或降载时清空池，避免多分类抢解码。
 - (void)invalidateAllWarmItems;
 
