@@ -8,6 +8,7 @@
 #import "YTVFeedPageResult.h"
 #import "YTVVideoFeedItem.h"
 #import "YTVFeedSnapshotCache.h"
+#import "YTVFeedResumeCache.h"
 #import "YTVVideoFavoritesRepository.h"
 
 static const NSInteger kYTVFeedPageSize = 10;
@@ -28,6 +29,9 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
 @property (nonatomic, copy, nullable) NSArray<YTVVideoFeedItem *> *favoritesSeedItems;
 @property (nonatomic, copy, nullable) NSString *favoritesEntryVideoId;
 @property (nonatomic, assign, readwrite) BOOL ytv_categoryBootstrapNetworkFinished;
+@property (nonatomic, assign, readwrite) BOOL ytv_bootstrapLoadedFromSnapshot;
+@property (nonatomic, copy, readwrite, nullable) NSString *ytv_initialVideoSourceLabel;
+@property (nonatomic, assign) NSInteger ytv_resumeInitialDisplayIndex;
 @end
 
 @implementation YTVShortVideoFeedViewModel
@@ -79,6 +83,7 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
     } else {
         self.state = YTVShortVideoFeedStateReady;
     }
+    [self ytv_refreshInitialDisplayIndexFromResumeCache];
     return YES;
 }
 
@@ -100,6 +105,8 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
         _repository = [[YTVFeedRepository alloc] init];
         _favoritesRepository = [[YTVVideoFavoritesRepository alloc] init];
         _ytv_categoryBootstrapNetworkFinished = NO;
+        _ytv_bootstrapLoadedFromSnapshot = NO;
+        _ytv_resumeInitialDisplayIndex = 0;
     }
     return self;
 }
@@ -115,21 +122,61 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
 }
 
 - (NSInteger)ytv_initialDisplayIndex {
-    if (self.feedSource != YTVShortVideoFeedSourceFavorites) {
-        return 0;
-    }
-    NSString *vid = self.favoritesEntryVideoId;
-    if (vid.length == 0) {
-        return 0;
-    }
-    NSUInteger i = 0;
-    for (YTVVideoFeedItem *it in self.mutableItems) {
-        if ([it.videoId isEqualToString:vid]) {
-            return (NSInteger)i;
+    if (self.feedSource == YTVShortVideoFeedSourceFavorites) {
+        NSString *vid = self.favoritesEntryVideoId;
+        if (vid.length == 0) {
+            return 0;
         }
-        i++;
+        NSUInteger i = 0;
+        for (YTVVideoFeedItem *it in self.mutableItems) {
+            if ([it.videoId isEqualToString:vid]) {
+                return (NSInteger)i;
+            }
+            i++;
+        }
+        return 0;
     }
-    return 0;
+    return MAX(self.ytv_resumeInitialDisplayIndex, 0);
+}
+
+- (void)ytv_recordLastViewedVideoId:(NSString *)videoId
+                         playURL:(NSString *)playURL
+                       indexHint:(NSInteger)indexHint {
+    if (self.feedSource != YTVShortVideoFeedSourceCategory) {
+        return;
+    }
+    [YTVFeedResumeCache saveCategoryKey:self.categoryKey
+                        lastViewedVideoId:videoId
+                         lastViewedPlayURL:playURL
+                       lastViewedIndexHint:indexHint];
+}
+
+- (void)ytv_refreshInitialDisplayIndexFromResumeCache {
+    self.ytv_resumeInitialDisplayIndex = 0;
+    self.ytv_initialVideoSourceLabel = @"snapshot_first";
+    NSDictionary *resume = [YTVFeedResumeCache loadResumeDictionaryForCategoryKey:self.categoryKey];
+    if (![resume isKindOfClass:[NSDictionary class]] || self.mutableItems.count == 0) {
+        return;
+    }
+    NSString *videoId = [resume[@"lastViewedVideoId"] isKindOfClass:[NSString class]] ? resume[@"lastViewedVideoId"] : @"";
+    NSNumber *indexHint = [resume[@"lastViewedIndexHint"] isKindOfClass:[NSNumber class]] ? resume[@"lastViewedIndexHint"] : nil;
+    if (videoId.length > 0) {
+        NSUInteger i = 0;
+        for (YTVVideoFeedItem *it in self.mutableItems) {
+            if ([it.videoId isEqualToString:videoId]) {
+                self.ytv_resumeInitialDisplayIndex = (NSInteger)i;
+                self.ytv_initialVideoSourceLabel = @"resume_last_viewed";
+                return;
+            }
+            i++;
+        }
+    }
+    if (indexHint != nil) {
+        NSInteger idx = MAX(indexHint.integerValue, 0);
+        idx = MIN(idx, (NSInteger)self.mutableItems.count - 1);
+        self.ytv_resumeInitialDisplayIndex = idx;
+        self.ytv_initialVideoSourceLabel = @"resume_index_hint";
+    }
 }
 
 - (NSArray<YTVVideoFeedItem *> *)items {
@@ -146,7 +193,10 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
         return;
     }
     self.ytv_categoryBootstrapNetworkFinished = NO;
+    self.ytv_bootstrapLoadedFromSnapshot = NO;
+    self.ytv_initialVideoSourceLabel = @"network_first";
     BOOL hadDisk = [self ytv_applySnapshotIfAvailable];
+    self.ytv_bootstrapLoadedFromSnapshot = hadDisk;
     if (!hadDisk) {
         self.state = YTVShortVideoFeedStateLoading;
     } else if (completion) {
@@ -201,6 +251,8 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
             } else {
                 self.state = YTVShortVideoFeedStateReady;
             }
+            self.ytv_resumeInitialDisplayIndex = 0;
+            self.ytv_initialVideoSourceLabel = @"network_first";
             [self ytv_persistSnapshot];
             self.ytv_categoryBootstrapNetworkFinished = YES;
             done();
@@ -280,6 +332,8 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
             } else {
                 self.state = YTVShortVideoFeedStateReady;
             }
+            self.ytv_resumeInitialDisplayIndex = 0;
+            self.ytv_initialVideoSourceLabel = @"network_first";
             [self ytv_persistSnapshot];
             done();
         });

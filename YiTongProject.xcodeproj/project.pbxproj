@@ -190,6 +190,9 @@
 		7A70124C2E80000100ABCD10 /* YTVVideoCategoryTabsView.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012792E80000100ABCD29 /* YTVVideoCategoryTabsView.m */; };
 		7A70124D2E80000100ABCD11 /* YTVFeedSnapshotCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012812E80000100ABCD2B /* YTVFeedSnapshotCache.m */; };
 		7A70124E2E80000100ABCD12 /* YTVVideoPreloadManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012832E80000100ABCD2D /* YTVVideoPreloadManager.m */; };
+		7A70AA012F90000100ABCD01 /* YTVFeedResumeCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70AA032F90000100ABCD03 /* YTVFeedResumeCache.m */; };
+		7A70AA022F90000100ABCD02 /* YTVVideoDiskCacheManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70AA052F90000100ABCD05 /* YTVVideoDiskCacheManager.m */; };
+		7A70AA072F90000100ABCD07 /* YTVVideoCacheProxyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70AA092F90000100ABCD09 /* YTVVideoCacheProxyManager.m */; };
 		7A7012E02E8A040100ABCD01 /* YTVVideoFavoritesRepository.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012E22E8A040100ABCD03 /* YTVVideoFavoritesRepository.m */; };
 		7A7012E32E8A040100ABCD04 /* VideoTextWebViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012E52E8A040100ABCD06 /* VideoTextWebViewController.m */; };
 		7A7013012E8B040100ABCD01 /* YTVVideoDebugSampleFeed.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013062E8B040100ABCD06 /* YTVVideoDebugSampleFeed.m */; };
@@ -580,6 +583,12 @@
 		7A7012812E80000100ABCD2B /* YTVFeedSnapshotCache.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFeedSnapshotCache.m; sourceTree = "<group>"; };
 		7A7012822E80000100ABCD2C /* YTVVideoPreloadManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoPreloadManager.h; sourceTree = "<group>"; };
 		7A7012832E80000100ABCD2D /* YTVVideoPreloadManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoPreloadManager.m; sourceTree = "<group>"; };
+		7A70AA032F90000100ABCD03 /* YTVFeedResumeCache.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFeedResumeCache.m; sourceTree = "<group>"; };
+		7A70AA042F90000100ABCD04 /* YTVFeedResumeCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVFeedResumeCache.h; sourceTree = "<group>"; };
+		7A70AA052F90000100ABCD05 /* YTVVideoDiskCacheManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoDiskCacheManager.m; sourceTree = "<group>"; };
+		7A70AA062F90000100ABCD06 /* YTVVideoDiskCacheManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoDiskCacheManager.h; sourceTree = "<group>"; };
+		7A70AA092F90000100ABCD09 /* YTVVideoCacheProxyManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoCacheProxyManager.m; sourceTree = "<group>"; };
+		7A70AA0A2F90000100ABCD0A /* YTVVideoCacheProxyManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoCacheProxyManager.h; sourceTree = "<group>"; };
 		7A7012E12E8A040100ABCD02 /* YTVVideoFavoritesRepository.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoFavoritesRepository.h; sourceTree = "<group>"; };
 		7A7012E22E8A040100ABCD03 /* YTVVideoFavoritesRepository.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoFavoritesRepository.m; sourceTree = "<group>"; };
 		7A7012E42E8A040100ABCD05 /* VideoTextWebViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VideoTextWebViewController.h; sourceTree = "<group>"; };
@@ -809,6 +818,8 @@
 				7A7012372E80000100ABCD00 /* YTVFeedRepository.m */,
 				7A7012802E80000100ABCD2A /* YTVFeedSnapshotCache.h */,
 				7A7012812E80000100ABCD2B /* YTVFeedSnapshotCache.m */,
+				7A70AA042F90000100ABCD04 /* YTVFeedResumeCache.h */,
+				7A70AA032F90000100ABCD03 /* YTVFeedResumeCache.m */,
 				7A7012762E80000100ABCD26 /* YTVVideoCategoryKeys.h */,
 				7A7012772E80000100ABCD27 /* YTVVideoCategoryKeys.m */,
 				7A7012E12E8A040100ABCD02 /* YTVVideoFavoritesRepository.h */,
@@ -864,6 +875,10 @@
 				7A7012612E80000100ABCD07 /* YTVPlayerSessionManager.m */,
 				7A7012822E80000100ABCD2C /* YTVVideoPreloadManager.h */,
 				7A7012832E80000100ABCD2D /* YTVVideoPreloadManager.m */,
+				7A70AA062F90000100ABCD06 /* YTVVideoDiskCacheManager.h */,
+				7A70AA052F90000100ABCD05 /* YTVVideoDiskCacheManager.m */,
+				7A70AA0A2F90000100ABCD0A /* YTVVideoCacheProxyManager.h */,
+				7A70AA092F90000100ABCD09 /* YTVVideoCacheProxyManager.m */,
 			);
 			path = Service;
 			sourceTree = "<group>";
@@ -1683,6 +1698,9 @@
 				7A70124C2E80000100ABCD10 /* YTVVideoCategoryTabsView.m in Sources */,
 				7A70124D2E80000100ABCD11 /* YTVFeedSnapshotCache.m in Sources */,
 				7A70124E2E80000100ABCD12 /* YTVVideoPreloadManager.m in Sources */,
+				7A70AA012F90000100ABCD01 /* YTVFeedResumeCache.m in Sources */,
+				7A70AA022F90000100ABCD02 /* YTVVideoDiskCacheManager.m in Sources */,
+				7A70AA072F90000100ABCD07 /* YTVVideoCacheProxyManager.m in Sources */,
 				7A7012E02E8A040100ABCD01 /* YTVVideoFavoritesRepository.m in Sources */,
 				7A7012E32E8A040100ABCD04 /* VideoTextWebViewController.m in Sources */,
 				7A7013012E8B040100ABCD01 /* YTVVideoDebugSampleFeed.m in Sources */,

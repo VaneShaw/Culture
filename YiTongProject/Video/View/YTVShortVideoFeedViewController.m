@@ -10,10 +10,12 @@
 #import "YTVPlayerSessionManager.h"
 #import "YTVVideoFeedItem.h"
 #import "YTVVideoPreloadManager.h"
+#import "YTVVideoCacheProxyManager.h"
 #import "VideoTextWebViewController.h"
 #import "YTVVideoPRDShareHelper.h"
 #import "HeaderConfig.h"
 #import <AVFoundation/AVFoundation.h>
+#import <QuartzCore/QuartzCore.h>
 #import <math.h>
 
 static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
@@ -119,6 +121,8 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 @property (nonatomic, strong) UIButton *retryButton;
 @property (nonatomic, assign) NSInteger currentPlayIndex;
 @property (nonatomic, strong) YTVVideoPreloadManager *preloadManager;
+@property (nonatomic, copy, nullable) NSString *ytv_currentPlaybackSourceLabel;
+@property (nonatomic, assign) CFTimeInterval ytv_currentPlaybackStartTime;
 @property (nonatomic, strong) UIStackView *chromeRightStack;
 @property (nonatomic, strong) UIButton *favoriteChromeButton;
 @property (nonatomic, strong) UIButton *shareChromeButton;
@@ -147,6 +151,8 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 @property (nonatomic, assign) BOOL ytv_currentPlaybackFirstFrameReady;
 /// 当前绑定对应的播放器 requestId；只响应同一次切源回调。
 @property (nonatomic, assign) NSUInteger ytv_pendingPlaybackRequestId;
+@property (nonatomic, copy, nullable) NSString *ytv_pendingPlaybackURLString;
+@property (nonatomic, assign) BOOL ytv_currentPlaybackFromBootstrapRestore;
 /// 抖音式内联全屏：同一 `renderView` 旋转放大，不模态、不 replace item。
 @property (nonatomic, assign) BOOL ytv_inlineFullscreenActive;
 @property (nonatomic, strong, nullable) UIView *ytv_inlineFullscreenHostView;
@@ -365,6 +371,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     [self.preloadManager invalidateAllWarmItems];
     self.ytv_lastProvisionalWarmIndex = NSNotFound;
     [self ytv_resetPlaybackBindingStateToIdle];
+    self.ytv_pendingPlaybackURLString = nil;
     [self ytv_refreshInteractionChrome];
 }
 
@@ -465,8 +472,13 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
             self.stateEmptyImageView.hidden = YES;
             [self ytv_hideNextLoadFailureBar];
             self.collectionView.hidden = NO;
-            [self.collectionView reloadData];
-            [self.collectionView layoutIfNeeded];
+            BOOL keepCurrentPlayback = self.feedViewModel.ytv_bootstrapLoadedFromSnapshot
+                && self.currentPlayIndex != NSNotFound
+                && self.feedViewModel.numberOfItems > 0
+                && (self.ytv_currentPlaybackFirstFrameReady
+                    || self.ytv_isSwitchingPlayback
+                    || self.ytv_pendingBindIndex != NSNotFound
+                    || self.ytv_currentPlaybackFromBootstrapRestore);
             NSInteger startIdx = [self.feedViewModel ytv_initialDisplayIndex];
             if (self.feedViewModel.numberOfItems > 0) {
                 NSInteger maxIdx = (NSInteger)self.feedViewModel.numberOfItems - 1;
@@ -474,10 +486,30 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
             } else {
                 startIdx = 0;
             }
+            if (keepCurrentPlayback) {
+                NSInteger safeIdx = MIN(MAX(self.currentPlayIndex, 0), (NSInteger)self.feedViewModel.numberOfItems - 1);
+                self.currentPlayIndex = safeIdx;
+                self.ytv_currentPlaybackFromBootstrapRestore = YES;
+                [self.collectionView reloadData];
+                [self.collectionView layoutIfNeeded];
+                CGFloat h = self.collectionView.bounds.size.height;
+                if (h > 0) {
+                    [self.collectionView setContentOffset:CGPointMake(0, safeIdx * h) animated:NO];
+                }
+                if (self.ytv_categoryFeedActive) {
+                    [self.preloadManager warmAroundDisplayIndex:safeIdx items:self.feedViewModel.items];
+                    [self ytv_maybePrefetchNextForDisplayIndex:safeIdx];
+                    [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
+                }
+                break;
+            }
+            [self.collectionView reloadData];
+            [self.collectionView layoutIfNeeded];
             self.ytv_userPausedWithPlayHint = NO;
             self.ytv_lastProvisionalWarmIndex = NSNotFound;
             [self ytv_resetPlaybackBindingStateToIdle];
             self.currentPlayIndex = startIdx;
+            self.ytv_currentPlaybackFromBootstrapRestore = self.feedViewModel.ytv_bootstrapLoadedFromSnapshot;
             if (self.feedViewModel.numberOfItems > 0) {
                 NSIndexPath *ip = [NSIndexPath indexPathForItem:startIdx inSection:0];
                 [self.collectionView scrollToItemAtIndexPath:ip
@@ -784,8 +816,14 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         }
     }
     self.currentPlayIndex = newIndex;
+    self.ytv_currentPlaybackFromBootstrapRestore = NO;
+    YTVVideoFeedItem *newItem = [self.feedViewModel itemAtIndex:newIndex];
+    if (newItem) {
+        [self.feedViewModel ytv_recordLastViewedVideoId:newItem.videoId playURL:newItem.playURL indexHint:newIndex];
+    }
     self.ytv_pendingBindIndex = newIndex;
     self.ytv_currentPlaybackFirstFrameReady = NO;
+    self.ytv_pendingPlaybackURLString = nil;
     self.ytv_standbyTargetIndex = NSNotFound;
     [self ytv_applyPlaybackForCurrentIndexIfPossible];
     [self ytv_resyncPlaybackAroundCurrentIndex];
@@ -815,6 +853,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     self.ytv_isSwitchingPlayback = NO;
     self.ytv_pendingPlaybackRequestId = 0;
     self.ytv_pendingBindIndex = NSNotFound;
+    self.ytv_pendingPlaybackURLString = nil;
     self.ytv_currentPlaybackFirstFrameReady = NO;
 }
 
@@ -896,15 +935,30 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
                                url:(NSURL *)url
                            bindIdx:(NSInteger)bindIdx
                               cell:(YTVShortVideoCell * _Nullable)cell {
+    NSString *targetURLString = url.absoluteString ?: @"";
+    if (self.ytv_isSwitchingPlayback
+        && self.ytv_pendingBindIndex == bindIdx
+        && self.ytv_pendingPlaybackURLString.length > 0
+        && [self.ytv_pendingPlaybackURLString isEqualToString:targetURLString]) {
+        NSLog(@"[YTVFeed] skip duplicate replace idx=%ld videoId=%@ url=%@", (long)bindIdx, item.videoId ?: @"<nil>", targetURLString ?: @"<nil>");
+        return;
+    }
     self.ytv_isSwitchingPlayback = YES;
     self.ytv_currentPlaybackFirstFrameReady = NO;
+    self.ytv_pendingPlaybackURLString = targetURLString;
+    self.ytv_currentPlaybackStartTime = CACurrentMediaTime();
+    self.ytv_currentPlaybackSourceLabel = self.feedViewModel.ytv_initialVideoSourceLabel ?: @"unknown";
     AVPlayerItem *prewarmed = [self.preloadManager preparedPlayerItemForVideoId:item.videoId playURL:item.playURL];
+    YTVVideoCachePlaybackDecision *cacheDecision = [self.preloadManager playbackDecisionForVideoId:item.videoId playURL:item.playURL];
+    NSURL *playbackURL = cacheDecision.playbackURL;
+    BOOL localCacheHit = (cacheDecision.playbackSource == YTVVideoCachePlaybackSourceDiskFile);
     NSUInteger expectedRequestId = self.playerSession.currentRequestId + 1;
     self.ytv_pendingPlaybackRequestId = expectedRequestId;
     __weak typeof(self) weakSelf = self;
     AVPlayerLayer *playerLayer = cell ? cell.renderView.playerLayer : nil;
     __block NSUInteger requestId = 0;
     if ([self.playerSession standbyPlaybackReadyForURL:url]) {
+        self.ytv_currentPlaybackSourceLabel = [NSString stringWithFormat:@"%@+standby", self.ytv_currentPlaybackSourceLabel ?: @"unknown"];
         requestId = [self.playerSession promoteStandbyPlaybackByRebuildingItemMatchingURL:url playerLayer:playerLayer completion:^(NSError * _Nullable error) {
             __strong typeof(weakSelf) self = weakSelf;
             if (!self) {
@@ -921,10 +975,16 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
             self.ytv_userPausedWithPlayHint = NO;
             [self ytv_refreshInteractionChrome];
         }];
-        NSLog(@"[YTVFeed] standby handoff rebuild hit idx=%ld videoId=%@", (long)bindIdx, item.videoId ?: @"<nil>");
+        NSLog(@"[YTVFeed] standby handoff rebuild hit idx=%ld videoId=%@ source=%@", (long)bindIdx, item.videoId ?: @"<nil>", self.ytv_currentPlaybackSourceLabel ?: @"<nil>");
     } else {
-        requestId = [self.playerSession replacePlaybackWithURL:url
-                                       preferredPrewarmedPlayerItem:prewarmed
+        NSURL *effectiveURL = playbackURL ?: url;
+        if (localCacheHit) {
+            self.ytv_currentPlaybackSourceLabel = [NSString stringWithFormat:@"%@+%@", self.ytv_currentPlaybackSourceLabel ?: @"unknown", cacheDecision.sourceLabel ?: @"disk"];
+        } else if (prewarmed) {
+            self.ytv_currentPlaybackSourceLabel = [NSString stringWithFormat:@"%@+warm", self.ytv_currentPlaybackSourceLabel ?: @"unknown"];
+        }
+        requestId = [self.playerSession replacePlaybackWithURL:effectiveURL
+                                       preferredPrewarmedPlayerItem:(localCacheHit ? nil : prewarmed)
                                                          playerLayer:playerLayer
                                                           completion:^(NSError * _Nullable error) {
             __strong typeof(weakSelf) self = weakSelf;
@@ -942,7 +1002,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
             self.ytv_userPausedWithPlayHint = NO;
             [self ytv_refreshInteractionChrome];
         }];
-        NSLog(@"[YTVFeed] cold switch fallback idx=%ld videoId=%@", (long)bindIdx, item.videoId ?: @"<nil>");
+        NSLog(@"[YTVFeed] playback start idx=%ld videoId=%@ source=%@", (long)bindIdx, item.videoId ?: @"<nil>", self.ytv_currentPlaybackSourceLabel ?: @"<nil>");
     }
     if (requestId != expectedRequestId && requestId != 0) {
         self.ytv_pendingPlaybackRequestId = requestId;
@@ -962,11 +1022,13 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     }
     NSInteger bindIdx = self.currentPlayIndex;
     YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:bindIdx];
-    NSURL *url = [NSURL URLWithString:item.playURL];
-    if (!url || (![url.scheme.lowercaseString isEqualToString:@"http"] && ![url.scheme.lowercaseString isEqualToString:@"https"])) {
+    NSURL *remoteURL = [NSURL URLWithString:item.playURL];
+    if (!remoteURL || (![remoteURL.scheme.lowercaseString isEqualToString:@"http"] && ![remoteURL.scheme.lowercaseString isEqualToString:@"https"])) {
         [self ytv_resetPlaybackSessionForInvalidCurrentItem];
         return;
     }
+    YTVVideoCachePlaybackDecision *cacheDecision = [self.preloadManager playbackDecisionForVideoId:item.videoId playURL:item.playURL];
+    NSURL *expectedPlaybackURL = cacheDecision.playbackURL ?: remoteURL;
     [self.preloadManager markPlaybackProtectedVideoId:item.videoId];
     [self ytv_probeNaturalVideoSizeIfNeededForItem:item];
     self.ytv_pendingBindIndex = bindIdx;
@@ -979,12 +1041,12 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     AVPlayerItem *currentItem = self.playerSession.player.currentItem;
     if (currentItem && [currentItem.asset isKindOfClass:[AVURLAsset class]]) {
         NSURL *currentURL = [(AVURLAsset *)currentItem.asset URL];
-        if (currentURL && [currentURL.absoluteString isEqualToString:url.absoluteString]) {
+        if (currentURL && expectedPlaybackURL && [currentURL.absoluteString isEqualToString:expectedPlaybackURL.absoluteString]) {
             [self ytv_resumePlaybackForCurrentItemAtIndex:bindIdx cell:cell];
             return;
         }
     }
-    [self ytv_replacePlaybackForItem:item url:url bindIdx:bindIdx cell:cell];
+    [self ytv_replacePlaybackForItem:item url:remoteURL bindIdx:bindIdx cell:cell];
 }
 
 /// 点击整页任意区域统一切换暂停/继续播放。
@@ -1075,6 +1137,14 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     [cell ytv_clearPlaybackFailureState];
     [cell ytv_hideCoverAfterFirstFrameAnimated:YES];
     [self ytv_commitPlaybackBindingAfterFirstFrame];
+    self.ytv_pendingPlaybackURLString = nil;
+    self.ytv_currentPlaybackFromBootstrapRestore = NO;
+    YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:index];
+    if (item) {
+        [self.feedViewModel ytv_recordLastViewedVideoId:item.videoId playURL:item.playURL indexHint:index];
+        [self.preloadManager prefetchPlaybackResourceForVideoId:item.videoId playURL:item.playURL];
+        NSLog(@"[YTVFeed] first frame idx=%ld videoId=%@ source=%@ ttff=%.0fms", (long)index, item.videoId ?: @"<nil>", self.ytv_currentPlaybackSourceLabel ?: @"unknown", (CACurrentMediaTime() - self.ytv_currentPlaybackStartTime) * 1000.0);
+    }
     [self ytv_prepareStandbyPlaybackForTargetIndex:index + 1];
 }
 

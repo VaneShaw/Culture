@@ -39,6 +39,8 @@ typedef void (^YTVFeedLoadNextCompletion)(BOOL appendedAny, NSError *_Nullable e
 @property (nonatomic, assign, readonly) BOOL ytv_isLoadingNext;
 /// 分类流：首包网络 bootstrap 已结束（含失败）；用于深链单条补拉，避免与首包列表竞态覆盖
 @property (nonatomic, assign, readonly) BOOL ytv_categoryBootstrapNetworkFinished;
+@property (nonatomic, assign, readonly) BOOL ytv_bootstrapLoadedFromSnapshot;
+@property (nonatomic, copy, readonly, nullable) NSString *ytv_initialVideoSourceLabel;
 
 - (instancetype)initWithCategoryKey:(NSString *)categoryKey NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
@@ -49,6 +51,9 @@ typedef void (^YTVFeedLoadNextCompletion)(BOOL appendedAny, NSError *_Nullable e
 
 /// 收藏流首条定位下标（在 `state == Ready` 且 items 已就绪后调用）
 - (NSInteger)ytv_initialDisplayIndex;
+- (void)ytv_recordLastViewedVideoId:(nullable NSString *)videoId
+                         playURL:(nullable NSString *)playURL
+                       indexHint:(NSInteger)indexHint;
 
 /// 首拉或重试；回调总在主线程
 - (void)loadBootstrapWithCompletion:(void (^)(void))completion;

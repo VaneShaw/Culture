@@ -5,6 +5,7 @@
 
 #import "YTVVideoPreloadManager.h"
 #import "YTVVideoFeedItem.h"
+#import "YTVVideoCacheProxyManager.h"
 #import "HeaderConfig.h"
 #import <AVFoundation/AVFoundation.h>
 
@@ -202,6 +203,22 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     }
     [self ytv_touchEntry:entry];
     return entry.playerItem;
+}
+
+- (YTVVideoCachePlaybackDecision *)playbackDecisionForVideoId:(NSString *)videoId playURL:(NSString *)playURL {
+    (void)videoId;
+    if (playURL.length == 0) {
+        return [[YTVVideoCacheProxyManager sharedManager] playbackDecisionForRemoteURLString:@""];
+    }
+    return [[YTVVideoCacheProxyManager sharedManager] playbackDecisionForRemoteURLString:playURL];
+}
+
+- (void)prefetchPlaybackResourceForVideoId:(NSString *)videoId playURL:(NSString *)playURL {
+    (void)videoId;
+    if (playURL.length == 0) {
+        return;
+    }
+    [[YTVVideoCacheProxyManager sharedManager] prefetchVideoForRemoteURLString:playURL];
 }
 
 - (BOOL)hasDeepPreparedItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL {

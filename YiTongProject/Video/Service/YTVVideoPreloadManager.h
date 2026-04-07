@@ -11,6 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class YTVVideoFeedItem;
 @class AVPlayerItem;
+@class YTVVideoCachePlaybackDecision;
 
 @interface YTVVideoPreloadManager : NSObject
 
@@ -19,6 +20,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 浅预热命中：`ItemReady` 或更深状态时返回可复用的 playerItem；否则返回 nil。
 - (nullable AVPlayerItem *)preparedPlayerItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL;
+
+/// 首条首播获取最终播放 URL：优先命中本地缓存，未命中则回退远端 URL。
+- (YTVVideoCachePlaybackDecision *)playbackDecisionForVideoId:(NSString *)videoId playURL:(NSString *)playURL;
+
+/// 将当前条加入跨会话缓存候选，仅保留极少量条目。
+- (void)prefetchPlaybackResourceForVideoId:(NSString *)videoId playURL:(NSString *)playURL;
 
 /// 当前索引的 next1 是否已达到深预热（buffered-ready，可直接交给后台候场 player）。
 - (BOOL)hasDeepPreparedItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL;
