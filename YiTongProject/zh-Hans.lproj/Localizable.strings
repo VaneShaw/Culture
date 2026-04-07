@@ -391,5 +391,8 @@
 "YTV_feed_error_5xx" = "服务繁忙，请稍后重试";
 "YTV_fullscreen" = "全屏";
 "YTV_fullscreen_close" = "关闭";
+"YTV_fullscreen_back" = "返回";
+"YTV_fullscreen_play_hint" = "播放";
+"YTV_fullscreen_pause_hint" = "暂停";
 "Request failed" = "请求失败";
 

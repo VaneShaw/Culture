@@ -18,7 +18,7 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.92];
+        self.backgroundColor = [UIColor clearColor];
         _selectedIndex = 0;
         [self addSubview:self.stackView];
         [self.stackView mas_makeConstraints:^(MASConstraintMaker *make) {
@@ -81,7 +81,7 @@
         for (NSInteger i = 0; i < (NSInteger)self.tabButtons.count; i++) {
             UIButton *b = self.tabButtons[(NSUInteger)i];
             BOOL on = (i == self.selectedIndex);
-            UIColor *titleColor = on ? [UIColor whiteColor] : [[UIColor whiteColor] colorWithAlphaComponent:0.45];
+            UIColor *titleColor = on ? [[UIColor whiteColor] colorWithAlphaComponent:0.78] : [[UIColor whiteColor] colorWithAlphaComponent:0.36];
             [b setTitleColor:titleColor forState:UIControlStateNormal];
             b.titleLabel.font = [UIFont fontWithName:on ? FONT_NAME_Medium : FONT_NAME_Regular size:14];
         }

@@ -45,9 +45,9 @@ const NSInteger kYTVVideoTabBarIndex = 2;
         make.height.mas_equalTo(44);
     }];
     [self.pageViewController.view mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.equalTo(self.tabsView.mas_bottom);
-        make.left.right.bottom.equalTo(self.view);
+        make.top.left.right.bottom.equalTo(self.view);
     }];
+    [self.view bringSubviewToFront:self.tabsView];
     __weak typeof(self) weakSelf = self;
     self.tabsView.onSelectIndex = ^(NSInteger idx) {
         __strong typeof(weakSelf) self = weakSelf;

@@ -46,10 +46,12 @@ static void *kYTVFullscreenPlayerCurrentItemContext = &kYTVFullscreenPlayerCurre
     self.view.backgroundColor = [UIColor blackColor];
     [KUSER_DEFAULT setBool:YES forKey:@"isFullScreen"];
 
-    self.playerLayer = [AVPlayerLayer playerLayerWithPlayer:self.player];
+    AVPlayer *plRef = self.player;
+    self.playerLayer = [AVPlayerLayer playerLayerWithPlayer:plRef];
     self.playerLayer.backgroundColor = [UIColor blackColor].CGColor;
     self.playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
-    [self.view.layer addSublayer:self.playerLayer];
+    self.playerLayer.frame = self.view.bounds;
+    [self.view.layer insertSublayer:self.playerLayer atIndex:0];
 
     [self.view addSubview:self.closeButton];
     [self.closeButton mas_makeConstraints:^(MASConstraintMaker *make) {
@@ -76,7 +78,11 @@ static void *kYTVFullscreenPlayerCurrentItemContext = &kYTVFullscreenPlayerCurre
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-    [self.player play];
+    /// Feed 进入全屏时未暂停 `AVPlayer` 时此处 `play` 多为 no-op；仅在未在播时补上，避免依赖列表页误暂停。
+    AVPlayer *pl = self.player;
+    if (pl && pl.rate < 0.01f && pl.rate > -0.01f) {
+        [pl play];
+    }
 }
 
 - (void)viewDidDisappear:(BOOL)animated {

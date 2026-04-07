@@ -39,6 +39,25 @@
     if ([fam isKindOfClass:[NSNumber class]]) {
         item.favoritedAtMs = [(NSNumber *)fam longLongValue];
     }
+    id vwObj = dict[@"video_width"] ?: dict[@"width"];
+    id vhObj = dict[@"video_height"] ?: dict[@"height"];
+    double vw = 0;
+    double vh = 0;
+    if ([vwObj isKindOfClass:[NSNumber class]]) {
+        vw = [(NSNumber *)vwObj doubleValue];
+    } else if ([vwObj isKindOfClass:[NSString class]]) {
+        vw = [(NSString *)vwObj doubleValue];
+    }
+    if ([vhObj isKindOfClass:[NSNumber class]]) {
+        vh = [(NSNumber *)vhObj doubleValue];
+    } else if ([vhObj isKindOfClass:[NSString class]]) {
+        vh = [(NSString *)vhObj doubleValue];
+    }
+    if (vw > 0.5 && vh > 0.5) {
+        item.ytv_naturalVideoWidth = (CGFloat)vw;
+        item.ytv_naturalVideoHeight = (CGFloat)vh;
+        item.ytv_hasNaturalVideoSize = YES;
+    }
     if (item.videoId.length == 0) {
         return nil;
     }
@@ -93,6 +112,18 @@
         d[@"favorited_at_ms"] = @(self.favoritedAtMs);
     }
     return [d copy];
+}
+
+- (BOOL)ytv_isLandscapeNaturalVideo {
+    if (!self.ytv_hasNaturalVideoSize) {
+        return NO;
+    }
+    CGFloat W = self.ytv_naturalVideoWidth;
+    CGFloat H = self.ytv_naturalVideoHeight;
+    if (W < 1.0 || H < 1.0) {
+        return NO;
+    }
+    return W > H + 0.5;
 }
 
 @end

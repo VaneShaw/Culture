@@ -79,4 +79,7 @@ Tap to start recording and say this sound out loud
 "YTV_feed_error_5xx" = "Server is busy. Please try again.";
 "YTV_fullscreen" = "Fullscreen";
 "YTV_fullscreen_close" = "Close";
+"YTV_fullscreen_back" = "Back";
+"YTV_fullscreen_play_hint" = "Play";
+"YTV_fullscreen_pause_hint" = "Pause";
 "Request failed" = "Request failed";

@@ -20,6 +20,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)configureWithItem:(nullable YTVVideoFeedItem *)item;
 
+/// 接口或 AVAsset 探测更新横竖信息后刷新视频条带区域（不重绑 player）
+- (void)ytv_applyVideoLayoutFromFeedItem:(nullable YTVVideoFeedItem *)item;
+
 /// 首帧就绪后隐藏封面（技术设计 §5 封面→画面）。
 - (void)ytv_setCoverHidden:(BOOL)hidden animated:(BOOL)animated;
 /// 切源前立即恢复封面，避免 ready 但未出帧时露底。

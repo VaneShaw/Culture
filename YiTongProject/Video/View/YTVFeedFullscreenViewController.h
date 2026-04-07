@@ -13,7 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface YTVFeedFullscreenViewController : BaseViewController
 
-/// 与 Feed 共用会话中的 `AVPlayer`，进入前赋值
+/// 与 Feed 共用同一会话里的 `AVPlayer`（同一实例、不 replace item）。进入全屏前 Feed 会从列表 cell 上 detach，避免多个 `AVPlayerLayer` 抢同一路输出导致全屏黑屏。
 @property (nonatomic, weak) AVPlayer *player;
 
 @end

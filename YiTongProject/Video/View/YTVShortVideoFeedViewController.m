@@ -12,11 +12,97 @@
 #import "YTVVideoPreloadManager.h"
 #import "VideoTextWebViewController.h"
 #import "YTVVideoPRDShareHelper.h"
-#import "YTVFeedFullscreenViewController.h"
 #import "HeaderConfig.h"
 #import <AVFoundation/AVFoundation.h>
+#import <math.h>
 
 static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
+/// 内联全屏：在窗口 safeArea 基础上再保证的最小留白（返回与进度条左对齐）
+static const CGFloat kYTVInlineFullscreenHostChromeInset = 16.0;
+
+/// 将 overlay 四边到 window 安全矩形的最小距离换算为内边距（含 stage 旋转；用坐标转换，不依赖 overlay.safeArea）
+static UIEdgeInsets YTVInlineFullscreenChromeInsetsMatchingWindowSafeArea(UIView *overlay, UIWindow *win) {
+    UIEdgeInsets m = UIEdgeInsetsZero;
+    if (!overlay || !win || CGRectIsEmpty(overlay.bounds)) {
+        return m;
+    }
+    CGRect b = overlay.bounds;
+    UIEdgeInsets si = win.safeAreaInsets;
+    CGSize ws = win.bounds.size;
+    CGRect safeRect = CGRectMake(si.left, si.top, ws.width - si.left - si.right, ws.height - si.top - si.bottom);
+    CGFloat midX = CGRectGetMidX(b);
+    CGFloat midY = CGRectGetMidY(b);
+    CGFloat H = CGRectGetHeight(b);
+    CGFloat W = CGRectGetWidth(b);
+    if (H < 1.0 || W < 1.0) {
+        return m;
+    }
+    BOOL (^inSafe)(CGPoint) = ^BOOL(CGPoint pInOverlay) {
+        CGPoint pw = [overlay convertPoint:pInOverlay toView:win];
+        return CGRectContainsPoint(safeRect, pw);
+    };
+    CGFloat lo, hi, mid;
+    lo = 0;
+    hi = H;
+    for (NSInteger i = 0; i < 22; i++) {
+        mid = (lo + hi) * 0.5f;
+        if (inSafe(CGPointMake(midX, CGRectGetMinY(b) + mid))) {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+    m.top = (CGFloat)ceil((double)hi);
+    lo = 0;
+    hi = W;
+    for (NSInteger i = 0; i < 22; i++) {
+        mid = (lo + hi) * 0.5f;
+        if (inSafe(CGPointMake(CGRectGetMinX(b) + mid, midY))) {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+    m.left = (CGFloat)ceil((double)hi);
+    lo = 0;
+    hi = H;
+    for (NSInteger i = 0; i < 22; i++) {
+        mid = (lo + hi) * 0.5f;
+        if (inSafe(CGPointMake(midX, CGRectGetMaxY(b) - mid))) {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+    m.bottom = (CGFloat)ceil((double)hi);
+    lo = 0;
+    hi = W;
+    for (NSInteger i = 0; i < 22; i++) {
+        mid = (lo + hi) * 0.5f;
+        if (inSafe(CGPointMake(CGRectGetMaxX(b) - mid, midY))) {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+    m.right = (CGFloat)ceil((double)hi);
+    for (NSInteger k = 0; k < 48; k++) {
+        CGPoint corner = CGPointMake(CGRectGetMinX(b) + m.left, CGRectGetMinY(b) + m.top);
+        if (inSafe(corner)) {
+            break;
+        }
+        m.left += 1.f;
+        m.top += 1.f;
+    }
+    m.left = MAX(m.left, kYTVInlineFullscreenHostChromeInset);
+    m.bottom = MAX(m.bottom, kYTVInlineFullscreenHostChromeInset);
+    m.right = MAX(m.right, kYTVInlineFullscreenHostChromeInset);
+    return m;
+}
+
+static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInsets b) {
+    return fabs(a.top - b.top) < 0.5 && fabs(a.left - b.left) < 0.5 && fabs(a.bottom - b.bottom) < 0.5 && fabs(a.right - b.right) < 0.5;
+}
 
 @interface YTVShortVideoFeedViewController () <UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, UICollectionViewDataSourcePrefetching>
 @property (nonatomic, copy, readwrite) NSString *categoryKey;
@@ -59,6 +145,36 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
 @property (nonatomic, assign) BOOL ytv_currentPlaybackFirstFrameReady;
 /// 当前绑定对应的播放器 requestId；只响应同一次切源回调。
 @property (nonatomic, assign) NSUInteger ytv_pendingPlaybackRequestId;
+/// 抖音式内联全屏：同一 `renderView` 旋转放大，不模态、不 replace item。
+@property (nonatomic, assign) BOOL ytv_inlineFullscreenActive;
+@property (nonatomic, strong, nullable) UIView *ytv_inlineFullscreenHostView;
+@property (nonatomic, weak, nullable) YTVShortVideoCell *ytv_inlineFullscreenSourceCell;
+@property (nonatomic, weak, nullable) YTVVideoRenderView *ytv_inlineFullscreenRenderView;
+@property (nonatomic, assign) CGRect ytv_inlineFullscreenStartFrameInHost;
+/// 承载视频 + 操作蒙层，整体旋转；控件只约束在 overlay 内，勿再锚到 host
+@property (nonatomic, strong, nullable) UIView *ytv_inlineFullscreenStageView;
+/// 盖在 renderView 上，与 stage 同向旋转；返回/进度条边距由 window safeArea 换算
+@property (nonatomic, strong, nullable) UIView *ytv_inlineFullscreenOverlayView;
+@property (nonatomic, strong, nullable) UIButton *ytv_inlineFullscreenBackButton;
+@property (nonatomic, strong, nullable) UIButton *ytv_inlineFullscreenCenterPlayButton;
+@property (nonatomic, strong, nullable) UISlider *ytv_inlineFullscreenProgressSlider;
+@property (nonatomic, strong, nullable) id ytv_inlineFullscreenTimeObserver;
+@property (nonatomic, assign) BOOL ytv_inlineFullscreenScrubbing;
+@property (nonatomic, assign) UIEdgeInsets ytv_inlineFullscreenLastAppliedChromeInsets;
+/// 为 NO 时不在 layout 回调里改 chrome 边距，避免旋转动画中间帧算错并产生终态跳动
+@property (nonatomic, assign) BOOL ytv_inlineFullscreenChromeSafeInsetsUpdatesEnabled;
+- (void)ytv_updateInlineFullscreenChromeInsetsFromWindowSafeArea;
+- (void)ytv_probeNaturalVideoSizeIfNeededForItem:(YTVVideoFeedItem *)item;
+- (void)ytv_applyVideoLayoutHintForVideoId:(NSString *)videoId;
+- (void)ytv_inlineFullscreenRemoveTimeObserverIfNeeded;
+- (void)ytv_inlineFullscreenInstallTimeObserver;
+- (void)ytv_inlineFullscreenSyncProgressUIFromPlayer;
+- (void)ytv_inlineFullscreenUpdateCenterPlayButtonAppearance;
+- (void)ytv_onInlineFullscreenCenterPlayTap;
+- (void)ytv_onInlineFullscreenSliderTouchDown;
+- (void)ytv_onInlineFullscreenSliderRelease;
+- (Float64)ytv_inlineFullscreenDurationSeconds;
+- (void)ytv_inlineFullscreenSeekToNormalized:(float)n;
 @end
 
 @implementation YTVShortVideoFeedViewController
@@ -70,6 +186,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
         _ytv_isFavoritesFeed = NO;
         _currentPlayIndex = NSNotFound;
         _ytv_pendingBindIndex = NSNotFound;
+        _ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
     }
     return self;
 }
@@ -83,6 +200,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
         _categoryKey = @"__favorites__";
         _currentPlayIndex = NSNotFound;
         _ytv_pendingBindIndex = NSNotFound;
+        _ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
         self.hidesBottomBarWhenPushed = YES;
     }
     return self;
@@ -204,6 +322,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
 }
 
 - (void)ytv_deactivateCategoryFeed {
+    [self ytv_dismissInlineFullscreenIfNeededAnimated:NO];
     if (!self.ytv_categoryFeedActive) {
         return;
     }
@@ -232,6 +351,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
 }
 
 - (void)ytv_deactivateCategoryFeedReleasingPlayback {
+    [self ytv_dismissInlineFullscreenIfNeededAnimated:NO];
     self.ytv_categoryFeedActive = NO;
     self.ytv_userPausedWithPlayHint = NO;
     [self ytv_detachPlayerFromVisibleCells];
@@ -258,7 +378,9 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
     [self ytv_hideNextLoadFailureBar];
-    [self.playerSession pause];
+    if (!self.ytv_inlineFullscreenActive) {
+        [self.playerSession pause];
+    }
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -267,11 +389,26 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     if (!self.ytv_categoryFeedActive) {
         return;
     }
+    if (self.ytv_inlineFullscreenActive) {
+        return;
+    }
     if (self.currentPlayIndex != NSNotFound && self.feedViewModel.state == YTVShortVideoFeedStateReady) {
         [self ytv_applyPlaybackForCurrentIndexIfPossible];
+        [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
         [self.playerSession play];
         self.ytv_userPausedWithPlayHint = NO;
         [self ytv_syncPausedPlayHintForCurrentCell];
+    }
+}
+
+- (BOOL)prefersStatusBarHidden {
+    return self.ytv_inlineFullscreenActive;
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    if (self.ytv_inlineFullscreenActive && self.ytv_inlineFullscreenChromeSafeInsetsUpdatesEnabled) {
+        [self ytv_updateInlineFullscreenChromeInsetsFromWindowSafeArea];
     }
 }
 
@@ -505,6 +642,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     NSInteger targetIdx = (NSInteger)llround(targetContentOffset->y / h);
     targetIdx = MAX(0, MIN(targetIdx, maxIdx));
     [self ytv_warmAroundProvisionalDisplayIndex:targetIdx];
+    // 只有当前条已稳定出首帧时，才前移候场到目标页，避免首播阶段被后台候场抢资源。
 }
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
@@ -679,6 +817,10 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
 
 /// 当前 item URL 已经命中时，直接复用现有播放会话并恢复当前 cell 的展示状态。
 - (void)ytv_resumePlaybackForCurrentItemAtIndex:(NSInteger)bindIdx cell:(YTVShortVideoCell * _Nullable)cell {
+    YTVVideoFeedItem *resumeItem = [self.feedViewModel itemAtIndex:bindIdx];
+    if (resumeItem) {
+        [self ytv_probeNaturalVideoSizeIfNeededForItem:resumeItem];
+    }
     self.ytv_isSwitchingPlayback = NO;
     self.ytv_pendingPlaybackRequestId = self.playerSession.currentRequestId;
     if (self.ytv_currentPlaybackFirstFrameReady && cell) {
@@ -688,6 +830,42 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     self.ytv_userPausedWithPlayHint = NO;
     [self ytv_refreshInteractionChrome];
     (void)bindIdx;
+}
+
+- (void)ytv_prepareStandbyPlaybackForTargetIndex:(NSInteger)targetIdx {
+    if (!self.ytv_categoryFeedActive || self.feedViewModel.state != YTVShortVideoFeedStateReady) {
+        return;
+    }
+    if (targetIdx < 0 || targetIdx >= (NSInteger)self.feedViewModel.numberOfItems) {
+        return;
+    }
+    if (targetIdx == self.currentPlayIndex) {
+        return;
+    }
+    YTVVideoFeedItem *target = [self.feedViewModel itemAtIndex:targetIdx];
+    NSURL *url = [NSURL URLWithString:target.playURL];
+    NSString *scheme = url.scheme.lowercaseString;
+    if (!target || target.videoId.length == 0 || !url || (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"])) {
+        return;
+    }
+    self.ytv_standbyTargetIndex = targetIdx;
+    [self.preloadManager setDeepPrewarmTargetVideoId:target.videoId];
+    [self.preloadManager warmAroundDisplayIndex:MAX(self.currentPlayIndex, 0) items:self.feedViewModel.items];
+    AVPlayerItem *prepared = [self.preloadManager preparedPlayerItemForVideoId:target.videoId playURL:target.playURL];
+    __weak typeof(self) weakSelf = self;
+    [self.playerSession prepareStandbyPlaybackWithURL:url preferredPlayerItem:prepared completion:^(BOOL ready, NSError * _Nullable error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        if (self.ytv_standbyTargetIndex != targetIdx) {
+            return;
+        }
+        if (ready) {
+        } else if (error) {
+            NSLog(@"[YTVFeed] standby failed idx=%ld videoId=%@ error=%@", (long)targetIdx, target.videoId ?: @"<nil>", error.localizedDescription ?: @"<nil>");
+        }
+    }];
 }
 
 /// 进入真正的切源流程：准备当前 cell、消费预热 item，并在回调里二次校验 pendingBindIndex。
@@ -702,10 +880,11 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     self.ytv_pendingPlaybackRequestId = expectedRequestId;
     __weak typeof(self) weakSelf = self;
     AVPlayerLayer *playerLayer = cell ? cell.renderView.playerLayer : nil;
-    NSUInteger requestId = [self.playerSession replacePlaybackWithURL:url
-                                           preferredPrewarmedPlayerItem:prewarmed
-                                                             playerLayer:playerLayer
-                                                              completion:^(NSError * _Nullable error) {
+    __block NSUInteger requestId = 0;
+    requestId = [self.playerSession replacePlaybackWithURL:url
+                                   preferredPrewarmedPlayerItem:prewarmed
+                                                     playerLayer:playerLayer
+                                                      completion:^(NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) {
             return;
@@ -721,7 +900,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
         self.ytv_userPausedWithPlayHint = NO;
         [self ytv_refreshInteractionChrome];
     }];
-    if (requestId != expectedRequestId) {
+    if (requestId != expectedRequestId && requestId != 0) {
         self.ytv_pendingPlaybackRequestId = requestId;
     }
 }
@@ -745,6 +924,7 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
         return;
     }
     [self.preloadManager markPlaybackProtectedVideoId:item.videoId];
+    [self ytv_probeNaturalVideoSizeIfNeededForItem:item];
     self.ytv_pendingBindIndex = bindIdx;
     YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:bindIdx];
     if (cell) {
@@ -920,19 +1100,91 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
             self.chromeSummaryLabel.hidden = (item.summary.length == 0);
             [self ytv_applyFavoriteChromeTitle:item.isFavorite];
             self.fullTextButton.hidden = (item.fullTextURL.length == 0);
-            BOOL canFullScreen = NO;
+            BOOL canFullScreenChrome = NO;
             if (item.playURL.length > 0) {
                 NSURL *pu = [NSURL URLWithString:item.playURL];
                 NSString *ps = pu.scheme.lowercaseString;
-                canFullScreen = pu != nil && ([ps isEqualToString:@"http"] || [ps isEqualToString:@"https"]);
+                BOOL urlOk = pu != nil && ([ps isEqualToString:@"http"] || [ps isEqualToString:@"https"]);
+                canFullScreenChrome = urlOk && item.ytv_hasNaturalVideoSize && [item ytv_isLandscapeNaturalVideo];
             }
-            self.fullScreenChromeButton.hidden = !canFullScreen;
+            self.fullScreenChromeButton.hidden = !canFullScreenChrome;
         } else {
             self.chromeRightStack.hidden = YES;
             self.chromeLeftStack.hidden = YES;
         }
     }
     [self ytv_syncPausedPlayHintForCurrentCell];
+}
+
+/// 无接口宽高时异步读 tracks，避免竖滑首帧前无法区分横竖；失败则按竖版默认（全屏条）
+- (void)ytv_probeNaturalVideoSizeIfNeededForItem:(YTVVideoFeedItem *)item {
+    if (!item || item.ytv_hasNaturalVideoSize || item.playURL.length == 0) {
+        return;
+    }
+    NSURL *url = [NSURL URLWithString:item.playURL];
+    NSString *sc = url.scheme.lowercaseString;
+    if (!url || (![sc isEqualToString:@"http"] && ![sc isEqualToString:@"https"])) {
+        return;
+    }
+    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:@{ AVURLAssetPreferPreciseDurationAndTimingKey : @NO }];
+    __weak typeof(self) weakSelf = self;
+    NSString *videoId = [item.videoId copy];
+    [asset loadValuesAsynchronouslyForKeys:@[@"tracks"] completionHandler:^{
+        AVKeyValueStatus st = [asset statusOfValueForKey:@"tracks" error:nil];
+        CGFloat nw = 0;
+        CGFloat nh = 0;
+        if (st == AVKeyValueStatusLoaded) {
+            NSArray<AVAssetTrack *> *tracks = [asset tracksWithMediaType:AVMediaTypeVideo];
+            if (tracks.count > 0) {
+                AVAssetTrack *t = tracks.firstObject;
+                CGSize ds = CGSizeApplyAffineTransform(t.naturalSize, t.preferredTransform);
+                nw = (CGFloat)fabs(ds.width);
+                nh = (CGFloat)fabs(ds.height);
+            }
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self || videoId.length == 0) {
+                return;
+            }
+            NSInteger idx = [self.feedViewModel ytv_indexOfVideoId:videoId];
+            if (idx < 0) {
+                return;
+            }
+            YTVVideoFeedItem *it = [self.feedViewModel itemAtIndex:idx];
+            if (!it || ![it.videoId isEqualToString:videoId] || it.ytv_hasNaturalVideoSize) {
+                return;
+            }
+            if (nw >= 1.0 && nh >= 1.0) {
+                it.ytv_naturalVideoWidth = nw;
+                it.ytv_naturalVideoHeight = nh;
+            } else {
+                it.ytv_naturalVideoWidth = 1080;
+                it.ytv_naturalVideoHeight = 1920;
+            }
+            it.ytv_hasNaturalVideoSize = YES;
+            [self ytv_applyVideoLayoutHintForVideoId:videoId];
+        });
+    }];
+}
+
+- (void)ytv_applyVideoLayoutHintForVideoId:(NSString *)videoId {
+    if (videoId.length == 0) {
+        return;
+    }
+    NSInteger idx = [self.feedViewModel ytv_indexOfVideoId:videoId];
+    if (idx < 0) {
+        return;
+    }
+    NSIndexPath *ip = [NSIndexPath indexPathForItem:idx inSection:0];
+    UICollectionViewCell *raw = [self.collectionView cellForItemAtIndexPath:ip];
+    if ([raw isKindOfClass:[YTVShortVideoCell class]]) {
+        YTVVideoFeedItem *it = [self.feedViewModel itemAtIndex:idx];
+        [(YTVShortVideoCell *)raw ytv_applyVideoLayoutFromFeedItem:it];
+    }
+    if (idx == self.currentPlayIndex) {
+        [self ytv_refreshInteractionChrome];
+    }
 }
 
 - (void)ytv_applyFavoriteChromeTitle:(BOOL)favorited {
@@ -1015,15 +1267,440 @@ static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
     if (!item || item.playURL.length == 0) {
         return;
     }
+    if (!item.ytv_hasNaturalVideoSize || ![item ytv_isLandscapeNaturalVideo]) {
+        return;
+    }
     NSURL *u = [NSURL URLWithString:item.playURL];
     NSString *s = u.scheme.lowercaseString;
     if (!u || (![s isEqualToString:@"http"] && ![s isEqualToString:@"https"])) {
         return;
     }
-    YTVFeedFullscreenViewController *vc = [[YTVFeedFullscreenViewController alloc] init];
-    vc.player = self.playerSession.player;
-    vc.modalPresentationStyle = UIModalPresentationFullScreen;
-    [self presentViewController:vc animated:YES completion:nil];
+    [self ytv_enterInlineFullscreenAnimated];
+}
+
+#pragma mark - 内联全屏（抖音式：同 renderView 旋转扩大，播放不中断）
+
+- (void)ytv_onInlineFullscreenBackTap {
+    [self ytv_exitInlineFullscreenAnimated];
+}
+
+/// 全屏遮罩挂在 window 上才能盖住主 TabBar；window 尚未挂上时用 Tab 根视图或当前 VC 视图兜底。
+- (UIView *)ytv_inlineFullscreenContainerView {
+    UIWindow *win = self.view.window;
+    if (win) {
+        return win;
+    }
+    if (self.tabBarController.view) {
+        return self.tabBarController.view;
+    }
+    if (self.navigationController.view) {
+        return self.navigationController.view;
+    }
+    return self.view;
+}
+
+- (void)ytv_dismissInlineFullscreenIfNeededAnimated:(BOOL)animated {
+    if (!self.ytv_inlineFullscreenActive && !self.ytv_inlineFullscreenHostView) {
+        return;
+    }
+    if (animated) {
+        [self ytv_exitInlineFullscreenAnimated];
+    } else {
+        [self ytv_teardownInlineFullscreenImmediate];
+    }
+}
+
+- (void)ytv_teardownInlineFullscreenImmediate {
+    [self ytv_inlineFullscreenRemoveTimeObserverIfNeeded];
+    YTVVideoRenderView *rv = self.ytv_inlineFullscreenRenderView;
+    UIView *host = self.ytv_inlineFullscreenHostView;
+    UIView *stage = self.ytv_inlineFullscreenStageView;
+    UIView *overlay = self.ytv_inlineFullscreenOverlayView;
+    YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:self.currentPlayIndex];
+    if (!cell) {
+        cell = self.ytv_inlineFullscreenSourceCell;
+    }
+    if (stage) {
+        stage.transform = CGAffineTransformIdentity;
+        stage.frame = self.ytv_inlineFullscreenStartFrameInHost;
+    }
+    if (rv) {
+        rv.transform = CGAffineTransformIdentity;
+        rv.playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
+        [rv removeFromSuperview];
+        if (cell) {
+            [cell.contentView insertSubview:rv atIndex:0];
+            [cell setNeedsLayout];
+            [cell layoutIfNeeded];
+        }
+        [self.playerSession bindPlayerLayerForFirstFrameObservation:rv.playerLayer];
+    }
+    if (overlay) {
+        [overlay removeFromSuperview];
+    }
+    if (stage) {
+        [stage removeFromSuperview];
+    }
+    self.ytv_inlineFullscreenStageView = nil;
+    self.ytv_inlineFullscreenOverlayView = nil;
+    self.ytv_inlineFullscreenBackButton = nil;
+    self.ytv_inlineFullscreenCenterPlayButton = nil;
+    self.ytv_inlineFullscreenProgressSlider = nil;
+    self.ytv_inlineFullscreenScrubbing = NO;
+    if (host) {
+        [host removeFromSuperview];
+    }
+    self.ytv_inlineFullscreenHostView = nil;
+    self.ytv_inlineFullscreenActive = NO;
+    self.ytv_inlineFullscreenChromeSafeInsetsUpdatesEnabled = NO;
+    self.ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
+    self.ytv_inlineFullscreenSourceCell = nil;
+    self.ytv_inlineFullscreenRenderView = nil;
+    self.collectionView.scrollEnabled = YES;
+    [self setNeedsStatusBarAppearanceUpdate];
+    [self ytv_refreshInteractionChrome];
+    [self ytv_syncPausedPlayHintForCurrentCell];
+}
+
+/// 返回 / 进度条相对 overlay 的边距：按 window safeArea 与当前旋转算，避免压状态栏、刘海或底部 Home 条
+- (void)ytv_updateInlineFullscreenChromeInsetsFromWindowSafeArea {
+    if (!self.ytv_inlineFullscreenActive) {
+        return;
+    }
+    UIView *overlay = self.ytv_inlineFullscreenOverlayView;
+    UIView *host = self.ytv_inlineFullscreenHostView;
+    UIButton *back = self.ytv_inlineFullscreenBackButton;
+    UISlider *slider = self.ytv_inlineFullscreenProgressSlider;
+    if (!overlay || !host || !back || !slider) {
+        return;
+    }
+    UIWindow *win = host.window ?: self.view.window;
+    if (!win) {
+        return;
+    }
+    UIEdgeInsets next = YTVInlineFullscreenChromeInsetsMatchingWindowSafeArea(overlay, win);
+    if (YTVInlineFullscreenEdgeInsetsAlmostEqual(self.ytv_inlineFullscreenLastAppliedChromeInsets, next)) {
+        return;
+    }
+    self.ytv_inlineFullscreenLastAppliedChromeInsets = next;
+    [UIView performWithoutAnimation:^{
+        [back mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(overlay).offset(next.top);
+            make.left.equalTo(overlay).offset(next.left);
+        }];
+        [slider mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.left.equalTo(overlay).offset(next.left);
+            make.right.equalTo(overlay).offset(-next.right);
+            make.bottom.equalTo(overlay).offset(-next.bottom);
+        }];
+        [host setNeedsLayout];
+        [host layoutIfNeeded];
+    }];
+}
+
+- (void)ytv_enterInlineFullscreenAnimated {
+    if (self.ytv_inlineFullscreenActive) {
+        return;
+    }
+    YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:self.currentPlayIndex];
+    if (!cell) {
+        cell = [self ytv_currentCellForPlaybackIndex:self.currentPlayIndex];
+    }
+    if (!cell) {
+        return;
+    }
+    YTVVideoRenderView *rv = cell.renderView;
+    UIView *fsContainer = [self ytv_inlineFullscreenContainerView];
+    CGRect startInContainer = [rv convertRect:rv.bounds toView:fsContainer];
+    UIView *host = [[UIView alloc] initWithFrame:fsContainer.bounds];
+    host.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    host.backgroundColor = [UIColor blackColor];
+    CGRect startInHost = [host convertRect:startInContainer fromView:fsContainer];
+    self.ytv_inlineFullscreenStartFrameInHost = startInHost;
+    self.ytv_inlineFullscreenActive = YES;
+    self.ytv_inlineFullscreenChromeSafeInsetsUpdatesEnabled = NO;
+    self.ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
+    self.ytv_inlineFullscreenSourceCell = cell;
+    self.ytv_inlineFullscreenRenderView = rv;
+    self.ytv_inlineFullscreenHostView = host;
+    [fsContainer addSubview:host];
+    [fsContainer bringSubviewToFront:host];
+    [rv removeFromSuperview];
+    rv.transform = CGAffineTransformIdentity;
+    UIView *stage = [[UIView alloc] initWithFrame:startInHost];
+    stage.backgroundColor = [UIColor clearColor];
+    stage.clipsToBounds = NO;
+    self.ytv_inlineFullscreenStageView = stage;
+    [host addSubview:stage];
+    rv.frame = stage.bounds;
+    rv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    rv.playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
+    [stage addSubview:rv];
+    UIView *overlay = [[UIView alloc] initWithFrame:stage.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.backgroundColor = [UIColor clearColor];
+    overlay.userInteractionEnabled = YES;
+    /// 旋转结束前隐藏操作层，避免先用小 stage 算边距再跳到终态产生「刷新」感
+    overlay.alpha = 0;
+    self.ytv_inlineFullscreenOverlayView = overlay;
+    [stage addSubview:overlay];
+    [stage bringSubviewToFront:overlay];
+    UIButton *back = [UIButton buttonWithType:UIButtonTypeSystem];
+    [back setTitle:NSLocalizedString(@"YTV_fullscreen_back", @"") forState:UIControlStateNormal];
+    back.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:16];
+    [back setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    back.tintColor = [UIColor whiteColor];
+    back.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.42];
+    back.layer.cornerRadius = 8;
+    back.clipsToBounds = YES;
+    back.contentEdgeInsets = UIEdgeInsetsMake(8, 12, 8, 12);
+    [back addTarget:self action:@selector(ytv_onInlineFullscreenBackTap) forControlEvents:UIControlEventTouchUpInside];
+    self.ytv_inlineFullscreenBackButton = back;
+    [overlay addSubview:back];
+    UIButton *centerPlay = [UIButton buttonWithType:UIButtonTypeSystem];
+    centerPlay.tintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.95];
+    centerPlay.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.22];
+    centerPlay.layer.cornerRadius = 36;
+    centerPlay.clipsToBounds = YES;
+    [centerPlay addTarget:self action:@selector(ytv_onInlineFullscreenCenterPlayTap) forControlEvents:UIControlEventTouchUpInside];
+    self.ytv_inlineFullscreenCenterPlayButton = centerPlay;
+    [overlay addSubview:centerPlay];
+    [centerPlay mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.center.equalTo(overlay);
+        make.width.height.mas_equalTo(72);
+    }];
+    UISlider *slider = [[UISlider alloc] init];
+    slider.minimumValue = 0;
+    slider.maximumValue = 1;
+    slider.continuous = YES;
+    slider.minimumTrackTintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.92];
+    slider.maximumTrackTintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.28];
+    [slider addTarget:self action:@selector(ytv_onInlineFullscreenSliderTouchDown) forControlEvents:UIControlEventTouchDown];
+    [slider addTarget:self action:@selector(ytv_onInlineFullscreenSliderRelease) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
+    self.ytv_inlineFullscreenProgressSlider = slider;
+    [overlay addSubview:slider];
+    [back mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.left.equalTo(overlay);
+    }];
+    [slider mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.right.bottom.equalTo(overlay);
+    }];
+    [self ytv_inlineFullscreenUpdateCenterPlayButtonAppearance];
+    [self ytv_inlineFullscreenSyncProgressUIFromPlayer];
+    [host setNeedsLayout];
+    [host layoutIfNeeded];
+    self.collectionView.scrollEnabled = NO;
+    self.chromeRightStack.hidden = YES;
+    self.chromeLeftStack.hidden = YES;
+    self.nextLoadFailureBar.hidden = YES;
+    [self setNeedsStatusBarAppearanceUpdate];
+    __weak typeof(self) weakSelf = self;
+    [UIView animateWithDuration:0.45
+                          delay:0
+         usingSpringWithDamping:0.92
+          initialSpringVelocity:0.25
+                        options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionAllowUserInteraction
+                     animations:^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        CGFloat W = CGRectGetWidth(host.bounds);
+        CGFloat H = CGRectGetHeight(host.bounds);
+        UIView *st = self.ytv_inlineFullscreenStageView;
+        st.bounds = CGRectMake(0, 0, H, W);
+        st.center = CGPointMake(W * 0.5, H * 0.5);
+        st.transform = CGAffineTransformMakeRotation((CGFloat)M_PI_2);
+        rv.playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
+    } completion:^(__unused BOOL finished) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || !self.ytv_inlineFullscreenActive) {
+            return;
+        }
+        [self ytv_inlineFullscreenInstallTimeObserver];
+        [self ytv_inlineFullscreenSyncProgressUIFromPlayer];
+        [self ytv_inlineFullscreenUpdateCenterPlayButtonAppearance];
+        self.ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
+        [self ytv_updateInlineFullscreenChromeInsetsFromWindowSafeArea];
+        self.ytv_inlineFullscreenChromeSafeInsetsUpdatesEnabled = YES;
+        self.ytv_inlineFullscreenOverlayView.alpha = 1;
+    }];
+}
+
+- (void)ytv_exitInlineFullscreenAnimated {
+    if (!self.ytv_inlineFullscreenActive) {
+        return;
+    }
+    self.ytv_inlineFullscreenChromeSafeInsetsUpdatesEnabled = NO;
+    [self ytv_inlineFullscreenRemoveTimeObserverIfNeeded];
+    YTVVideoRenderView *rv = self.ytv_inlineFullscreenRenderView;
+    UIView *host = self.ytv_inlineFullscreenHostView;
+    UIView *stage = self.ytv_inlineFullscreenStageView;
+    UIView *overlay = self.ytv_inlineFullscreenOverlayView;
+    if (!rv || !host || !stage) {
+        [self ytv_teardownInlineFullscreenImmediate];
+        return;
+    }
+    CGRect endFrame = self.ytv_inlineFullscreenStartFrameInHost;
+    __weak typeof(self) weakSelf = self;
+    [UIView animateWithDuration:0.42
+                          delay:0
+         usingSpringWithDamping:0.94
+          initialSpringVelocity:0.2
+                        options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState
+                     animations:^{
+        stage.transform = CGAffineTransformIdentity;
+        stage.bounds = CGRectMake(0, 0, endFrame.size.width, endFrame.size.height);
+        stage.center = CGPointMake(CGRectGetMidX(endFrame), CGRectGetMidY(endFrame));
+        rv.playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
+        if (overlay) {
+            overlay.alpha = 0;
+        }
+    } completion:^(__unused BOOL finished) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        [self ytv_teardownInlineFullscreenImmediate];
+        if (!self.ytv_userPausedWithPlayHint) {
+            [self.playerSession play];
+        } else {
+            [self.playerSession pause];
+        }
+        [self ytv_syncPausedPlayHintForCurrentCell];
+    }];
+}
+
+- (void)ytv_inlineFullscreenRemoveTimeObserverIfNeeded {
+    if (!self.ytv_inlineFullscreenTimeObserver) {
+        return;
+    }
+    AVPlayer *p = self.playerSession.player;
+    if (p) {
+        [p removeTimeObserver:self.ytv_inlineFullscreenTimeObserver];
+    }
+    self.ytv_inlineFullscreenTimeObserver = nil;
+}
+
+- (void)ytv_inlineFullscreenInstallTimeObserver {
+    [self ytv_inlineFullscreenRemoveTimeObserverIfNeeded];
+    if (!self.ytv_inlineFullscreenActive) {
+        return;
+    }
+    AVPlayer *p = self.playerSession.player;
+    if (!p) {
+        return;
+    }
+    __weak typeof(self) weakSelf = self;
+    CMTime interval = CMTimeMakeWithSeconds(0.25, NSEC_PER_SEC);
+    self.ytv_inlineFullscreenTimeObserver = [p addPeriodicTimeObserverForInterval:interval queue:dispatch_get_main_queue() usingBlock:^(__unused CMTime time) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || !self.ytv_inlineFullscreenActive) {
+            return;
+        }
+        [self ytv_inlineFullscreenSyncProgressUIFromPlayer];
+        [self ytv_inlineFullscreenUpdateCenterPlayButtonAppearance];
+    }];
+}
+
+- (Float64)ytv_inlineFullscreenDurationSeconds {
+    AVPlayerItem *pi = self.playerSession.player.currentItem;
+    Float64 dur = 0;
+    if (pi) {
+        dur = CMTimeGetSeconds(pi.duration);
+    }
+    if (!isfinite(dur) || dur <= 0) {
+        YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:self.currentPlayIndex];
+        if (item && item.durationMs > 0) {
+            dur = item.durationMs / 1000.0;
+        }
+    }
+    return dur;
+}
+
+- (void)ytv_inlineFullscreenSyncProgressUIFromPlayer {
+    if (!self.ytv_inlineFullscreenActive || self.ytv_inlineFullscreenScrubbing) {
+        return;
+    }
+    UISlider *sl = self.ytv_inlineFullscreenProgressSlider;
+    if (!sl) {
+        return;
+    }
+    Float64 dur = [self ytv_inlineFullscreenDurationSeconds];
+    Float64 cur = CMTimeGetSeconds(self.playerSession.player.currentTime);
+    if (isfinite(dur) && dur > 0 && isfinite(cur) && cur >= 0) {
+        sl.enabled = YES;
+        sl.value = (float)fmin(1.0, fmax(0, cur / dur));
+    } else {
+        sl.enabled = NO;
+        sl.value = 0;
+    }
+}
+
+- (void)ytv_inlineFullscreenSeekToNormalized:(float)n {
+    Float64 dur = [self ytv_inlineFullscreenDurationSeconds];
+    if (!isfinite(dur) || dur <= 0) {
+        return;
+    }
+    double t = (double)n * dur;
+    CMTime ct = CMTimeMakeWithSeconds(t, NSEC_PER_SEC);
+    __weak typeof(self) weakSelf = self;
+    [self.playerSession.player seekToTime:ct toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero completionHandler:^(__unused BOOL finished) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        [self ytv_inlineFullscreenSyncProgressUIFromPlayer];
+    }];
+}
+
+- (void)ytv_onInlineFullscreenSliderTouchDown {
+    self.ytv_inlineFullscreenScrubbing = YES;
+}
+
+- (void)ytv_onInlineFullscreenSliderRelease {
+    self.ytv_inlineFullscreenScrubbing = NO;
+    UISlider *sl = self.ytv_inlineFullscreenProgressSlider;
+    if (sl) {
+        [self ytv_inlineFullscreenSeekToNormalized:sl.value];
+    }
+}
+
+- (void)ytv_inlineFullscreenUpdateCenterPlayButtonAppearance {
+    UIButton *b = self.ytv_inlineFullscreenCenterPlayButton;
+    if (!b || !self.ytv_inlineFullscreenActive) {
+        return;
+    }
+    AVPlayer *p = self.playerSession.player;
+    BOOL paused = self.ytv_userPausedWithPlayHint || fabs(p.rate) < 0.01;
+    UIImage *img = nil;
+    if (@available(iOS 13.0, *)) {
+        img = [UIImage systemImageNamed:paused ? @"play.circle.fill" : @"pause.circle.fill"];
+    }
+    if (img) {
+        img = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        [b setImage:img forState:UIControlStateNormal];
+        [b setTitle:nil forState:UIControlStateNormal];
+    } else {
+        [b setImage:nil forState:UIControlStateNormal];
+        [b setTitle:NSLocalizedString(paused ? @"YTV_fullscreen_play_hint" : @"YTV_fullscreen_pause_hint", @"") forState:UIControlStateNormal];
+        b.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:15];
+    }
+    b.accessibilityLabel = NSLocalizedString(paused ? @"YTV_fullscreen_play_hint" : @"YTV_fullscreen_pause_hint", @"");
+}
+
+- (void)ytv_onInlineFullscreenCenterPlayTap {
+    if (!self.ytv_categoryFeedActive || self.currentPlayIndex == NSNotFound) {
+        return;
+    }
+    if (self.ytv_userPausedWithPlayHint) {
+        [self.playerSession play];
+        self.ytv_userPausedWithPlayHint = NO;
+    } else {
+        [self.playerSession pause];
+        self.ytv_userPausedWithPlayHint = YES;
+    }
+    [self ytv_inlineFullscreenUpdateCenterPlayButtonAppearance];
 }
 
 - (void)ytv_onShareChromeTap {
