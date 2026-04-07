@@ -21,6 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL isFavorite;
 /// 服务端返回的收藏数；未下发时为 -1
 @property (nonatomic, assign) NSInteger favoritesCount;
+/// 服务端返回的分享/传播次数等；未下发时为 -1
+@property (nonatomic, assign) NSInteger shareCount;
 @property (nonatomic, copy, nullable) NSString *shareURL;
 @property (nonatomic, copy, nullable) NSString *cacheKey;
 @property (nonatomic, copy, nullable) NSString *cursorToken;

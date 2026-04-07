@@ -78,8 +78,15 @@ Tap to start recording and say this sound out loud
 "YTV_feed_error_4xx" = "This content is unavailable.";
 "YTV_feed_error_5xx" = "Server is busy. Please try again.";
 "YTV_fullscreen" = "Fullscreen";
+"YTV_video_search_coming_soon" = "Video search is coming soon.";
+"YTV_video_search_accessibility" = "Search";
+"YTV_feed_demo_title" = "Yu Gong Moves the Mountains";
+"YTV_feed_demo_summary_long" = "Nearly ninety years old, Yu Gong had two great mountains—Mount Taihang and Mount Wangwu—blocking his doorway, forcing long detours. He vowed to dig them away with his children and grandchildren. A skeptic mocked him, yet he believed generations are endless while the mountains do not grow; one day the barrier would be gone. The fable means steady, persistent effort across generations can overcome what seems impossible. Today “Yu Gong moves the mountains” stands for grit in the face of hardship.";
+"YTV_feed_demo_see_all" = "See all >";
+"YTV_feed_demo_see_all_toast" = "Full text is coming soon.";
 "YTV_fullscreen_close" = "Close";
 "YTV_fullscreen_back" = "Back";
 "YTV_fullscreen_play_hint" = "Play";
 "YTV_fullscreen_pause_hint" = "Pause";
 "Request failed" = "Request failed";
+"YTV_feed_loading_hint" = "Loading videos...";

@@ -48,6 +48,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// 离开分类或降载时清空池，避免多分类抢解码。
 - (void)invalidateAllWarmItems;
 
+/// 根据网络与滑动速度更新预热策略，避免固定窗口在所有场景下都用同一套规则。
+- (void)updateAdaptiveHintWithScrollVelocity:(CGFloat)velocityY;
+
 @end
 
 NS_ASSUME_NONNULL_END

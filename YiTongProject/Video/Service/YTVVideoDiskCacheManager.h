@@ -16,6 +16,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)cacheVideoIfNeededForRemoteURLString:(NSString *)remoteURLString;
 
 - (void)trimCacheIfNeeded;
+- (NSUInteger)cachedItemCount;
+- (unsigned long long)cachedBytes;
 
 @end
 

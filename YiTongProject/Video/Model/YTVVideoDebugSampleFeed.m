@@ -84,13 +84,14 @@ static NSString * const kYTVUDSampleFeed = @"YTVDebugVideoSampleFeed";
     [urls enumerateObjectsUsingBlock:^(NSString *url, NSUInteger idx, BOOL *stop) {
         YTVVideoFeedItem *it = [[YTVVideoFeedItem alloc] init];
         it.videoId = [NSString stringWithFormat:@"debug_sample_%lu", (unsigned long)idx];
-        it.title = [NSString stringWithFormat:@"Debug #%lu", (unsigned long)(idx + 1)];
+        it.title = @"";
         it.category = @"debug";
-        it.summary = @"本地调试样例";
+        it.summary = @"";
         it.playURL = url;
         it.coverURL = [self ytv_debugCoverURLForPlayURL:url];
         it.isFavorite = NO;
-        it.favoritesCount = -1;
+        it.favoritesCount = 275 + (NSInteger)idx;
+        it.shareCount = 302 + (NSInteger)idx;
         it.shareURL = [NSString stringWithFormat:@"https://shiyi.yitong.com/app/video?id=%@&from=share", it.videoId];
         [out addObject:it];
     }];

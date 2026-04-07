@@ -15,8 +15,12 @@
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UIView *fullScreenTapView;
 @property (nonatomic, strong) UIImageView *pausedPlayHintView;
+@property (nonatomic, strong) UIView *playbackFailureOverlayView;
+@property (nonatomic, strong) UILabel *playbackFailureLabel;
+@property (nonatomic, strong) UIButton *playbackRetryButton;
 /// 横版内容：cell 内居中 16:9 条带 + ResizeAspect；竖版：铺满 + AspectFill
 @property (nonatomic, assign) BOOL ytv_landscapeBandLayout;
+@property (nonatomic, assign) BOOL ytv_playbackFailureVisible;
 @end
 
 @implementation YTVShortVideoCell
@@ -30,6 +34,9 @@
         [self.contentView addSubview:self.titleLabel];
         [self.contentView addSubview:self.fullScreenTapView];
         [self.fullScreenTapView addSubview:self.pausedPlayHintView];
+        [self.contentView addSubview:self.playbackFailureOverlayView];
+        [self.playbackFailureOverlayView addSubview:self.playbackFailureLabel];
+        [self.playbackFailureOverlayView addSubview:self.playbackRetryButton];
         self.titleLabel.userInteractionEnabled = NO;
         UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(ytv_onFullScreenTap:)];
         [self.fullScreenTapView addGestureRecognizer:tap];
@@ -50,7 +57,9 @@
     self.titleLabel.text = @"";
     self.pausedPlayHintView.hidden = YES;
     self.ytv_onVideoAreaTap = nil;
+    self.ytv_onPlaybackRetryTap = nil;
     self.ytv_landscapeBandLayout = NO;
+    self.ytv_playbackFailureVisible = NO;
 }
 
 - (void)layoutSubviews {
@@ -58,6 +67,7 @@
     CGFloat w = CGRectGetWidth(self.contentView.bounds);
     CGFloat h = CGRectGetHeight(self.contentView.bounds);
     self.fullScreenTapView.frame = self.contentView.bounds;
+    self.playbackFailureOverlayView.frame = self.contentView.bounds;
     CGRect videoFrame;
     BOOL landscapeLayout = self.ytv_landscapeBandLayout;
     if (landscapeLayout) {
@@ -82,6 +92,12 @@
     self.pausedPlayHintView.bounds = CGRectMake(0, 0, hintSide, hintSide);
     self.pausedPlayHintView.center = CGPointMake(CGRectGetMidX(self.fullScreenTapView.bounds), CGRectGetMidY(self.fullScreenTapView.bounds));
     UIEdgeInsets sa = self.contentView.safeAreaInsets;
+    CGFloat overlayWidth = MIN(MAX(w - 56.0, 220.0), 320.0);
+    CGSize failureLabelSize = [self.playbackFailureLabel sizeThatFits:CGSizeMake(overlayWidth, CGFLOAT_MAX)];
+    self.playbackFailureLabel.frame = CGRectMake((w - overlayWidth) * 0.5, MAX(CGRectGetMidY(self.contentView.bounds) - 34.0, sa.top + 60.0), overlayWidth, ceil(failureLabelSize.height));
+    CGSize retrySize = [self.playbackRetryButton sizeThatFits:CGSizeMake(140.0, 44.0)];
+    CGFloat retryWidth = MAX(110.0, ceil(retrySize.width) + 28.0);
+    self.playbackRetryButton.frame = CGRectMake((w - retryWidth) * 0.5, CGRectGetMaxY(self.playbackFailureLabel.frame) + 14.0, retryWidth, 40.0);
     CGFloat titleH = 40.0;
     CGFloat titleY = h - sa.bottom - titleH - 10.0;
     titleY = MAX(0, titleY);
@@ -116,7 +132,11 @@
         return;
     }
     NSString *cacheKey = [[SDWebImageManager sharedManager] cacheKeyForURL:coverURL];
-    UIImage *cachedImage = [[SDImageCache sharedImageCache] imageFromMemoryCacheForKey:cacheKey];
+    SDImageCache *cache = [SDImageCache sharedImageCache];
+    UIImage *cachedImage = [cache imageFromMemoryCacheForKey:cacheKey];
+    if (!cachedImage) {
+        cachedImage = [cache imageFromDiskCacheForKey:cacheKey];
+    }
     if (cachedImage) {
         self.coverImageView.image = cachedImage;
     }
@@ -126,6 +146,21 @@
     BOOL next = item && item.ytv_hasNaturalVideoSize && [item ytv_isLandscapeNaturalVideo];
     self.ytv_landscapeBandLayout = next;
     [self setNeedsLayout];
+}
+
+- (CGRect)ytv_landscapeVideoContentFrameConvertedToView:(UIView *)view {
+    if (!view || !self.ytv_landscapeBandLayout) {
+        return CGRectZero;
+    }
+    CGFloat w = CGRectGetWidth(self.contentView.bounds);
+    CGFloat h = CGRectGetHeight(self.contentView.bounds);
+    if (w < 1.0 || h < 1.0) {
+        return CGRectZero;
+    }
+    CGFloat bandH = w * (9.0 / 16.0);
+    CGFloat y = (h - bandH) * 0.5;
+    CGRect videoFrame = CGRectMake(0, y, w, bandH);
+    return [self.contentView convertRect:videoFrame toView:view];
 }
 
 - (void)ytv_setCoverHidden:(BOOL)hidden animated:(BOOL)animated {
@@ -157,15 +192,26 @@
 - (void)ytv_showPlaybackFailureState {
     [self ytv_showCoverImmediately];
     [self ytv_setPausedPlayHintVisible:NO];
+    self.ytv_playbackFailureVisible = YES;
+    self.playbackFailureOverlayView.hidden = NO;
+    [self.contentView bringSubviewToFront:self.playbackFailureOverlayView];
 }
 
 - (void)ytv_clearPlaybackFailureState {
-    // 第一版失败态仅保留封面，不额外增加控件。
+    self.ytv_playbackFailureVisible = NO;
+    self.playbackFailureOverlayView.hidden = YES;
 }
 
 - (void)ytv_setPausedPlayHintVisible:(BOOL)visible {
     self.pausedPlayHintView.hidden = !visible;
     self.pausedPlayHintView.alpha = visible ? 1 : 0;
+}
+
+
+- (void)ytv_onPlaybackRetryButtonTap {
+    if (self.ytv_onPlaybackRetryTap) {
+        self.ytv_onPlaybackRetryTap(self);
+    }
 }
 
 - (void)ytv_onFullScreenTap:(UITapGestureRecognizer *)gr {
@@ -187,6 +233,42 @@
     return _fullScreenTapView;
 }
 
+
+
+- (UIView *)playbackFailureOverlayView {
+    if (!_playbackFailureOverlayView) {
+        _playbackFailureOverlayView = [[UIView alloc] init];
+        _playbackFailureOverlayView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.32];
+        _playbackFailureOverlayView.hidden = YES;
+    }
+    return _playbackFailureOverlayView;
+}
+
+- (UILabel *)playbackFailureLabel {
+    if (!_playbackFailureLabel) {
+        _playbackFailureLabel = [[UILabel alloc] init];
+        _playbackFailureLabel.textAlignment = NSTextAlignmentCenter;
+        _playbackFailureLabel.numberOfLines = 0;
+        _playbackFailureLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:15];
+        _playbackFailureLabel.textColor = [[UIColor whiteColor] colorWithAlphaComponent:0.95];
+        _playbackFailureLabel.text = NSLocalizedString(@"YTV_playback_load_failed", @"");
+    }
+    return _playbackFailureLabel;
+}
+
+- (UIButton *)playbackRetryButton {
+    if (!_playbackRetryButton) {
+        _playbackRetryButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        _playbackRetryButton.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.16];
+        _playbackRetryButton.layer.cornerRadius = 20.0;
+        _playbackRetryButton.clipsToBounds = YES;
+        _playbackRetryButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:15];
+        [_playbackRetryButton setTitle:NSLocalizedString(@"YTV_feed_retry", @"") forState:UIControlStateNormal];
+        [_playbackRetryButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        [_playbackRetryButton addTarget:self action:@selector(ytv_onPlaybackRetryButtonTap) forControlEvents:UIControlEventTouchUpInside];
+    }
+    return _playbackRetryButton;
+}
 
 - (UIImageView *)pausedPlayHintView {
     if (!_pausedPlayHintView) {

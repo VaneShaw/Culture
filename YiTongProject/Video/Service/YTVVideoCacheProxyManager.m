@@ -9,6 +9,8 @@
 @implementation YTVVideoCachePlaybackDecision
 @end
 
+static NSString * const kYTVVideoCacheProxyScheme = @"ytvproxy";
+
 @implementation YTVVideoCacheProxyManager
 
 + (instancetype)sharedManager {
@@ -25,6 +27,8 @@
     decision.playbackSource = YTVVideoCachePlaybackSourceRemote;
     decision.sourceLabel = @"remote";
     decision.canUpgradeToProxyLater = YES;
+    decision.remoteURLString = remoteURLString.length ? remoteURLString : nil;
+    decision.proxyIdentifier = [self proxyIdentifierForRemoteURLString:remoteURLString];
     if (remoteURLString.length == 0) {
         decision.playbackURL = nil;
         return decision;
@@ -37,8 +41,23 @@
         return decision;
     }
     decision.playbackURL = [NSURL URLWithString:remoteURLString];
+    if (decision.proxyIdentifier.length > 0) {
+        decision.sourceLabel = @"remote_proxy_ready";
+    }
     return decision;
 }
+
+- (nullable NSString *)proxyIdentifierForRemoteURLString:(NSString *)remoteURLString {
+    if (remoteURLString.length == 0) {
+        return nil;
+    }
+    NSString *encoded = [remoteURLString stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
+    if (encoded.length == 0) {
+        return nil;
+    }
+    return [NSString stringWithFormat:@"%@://play?remote=%@", kYTVVideoCacheProxyScheme, encoded];
+}
+
 
 - (BOOL)isVideoCachedForRemoteURLString:(NSString *)remoteURLString {
     if (remoteURLString.length == 0) {

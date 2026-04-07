@@ -8,8 +8,11 @@
 #import "HeaderConfig.h"
 
 @interface YTVVideoCategoryTabsView ()
-@property (nonatomic, strong) UIStackView *stackView;
+@property (nonatomic, strong) UIScrollView *tabsScrollView;
+@property (nonatomic, strong) UIStackView *tabsRowStack;
 @property (nonatomic, strong) NSArray<UIButton *> *tabButtons;
+@property (nonatomic, strong) UIButton *searchButton;
+@property (nonatomic, strong) UIView *selectionUnderline;
 @property (nonatomic, assign) NSInteger selectedIndex;
 @end
 
@@ -20,10 +23,44 @@
     if (self) {
         self.backgroundColor = [UIColor clearColor];
         _selectedIndex = 0;
-        [self addSubview:self.stackView];
-        [self.stackView mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.edges.equalTo(self).insets(UIEdgeInsetsMake(6, 8, 6, 8));
+        [self addSubview:self.tabsScrollView];
+        [self.tabsScrollView addSubview:self.tabsRowStack];
+        [self addSubview:self.searchButton];
+        [self addSubview:self.selectionUnderline];
+        [self.tabsScrollView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.equalTo(self).offset(4);
+            make.top.bottom.equalTo(self);
+            make.right.equalTo(self.searchButton.mas_left).offset(-2);
         }];
+        /// Masonry 不支持约束到 UIScrollView 的 contentLayoutGuide / frameLayoutGuide，需用系统 Anchor。
+        self.tabsRowStack.translatesAutoresizingMaskIntoConstraints = NO;
+        UILayoutGuide *contentG = self.tabsScrollView.contentLayoutGuide;
+        UILayoutGuide *frameG = self.tabsScrollView.frameLayoutGuide;
+        [NSLayoutConstraint activateConstraints:@[
+            [self.tabsRowStack.topAnchor constraintEqualToAnchor:contentG.topAnchor],
+            [self.tabsRowStack.leadingAnchor constraintEqualToAnchor:contentG.leadingAnchor],
+            [self.tabsRowStack.bottomAnchor constraintEqualToAnchor:contentG.bottomAnchor],
+            [self.tabsRowStack.trailingAnchor constraintEqualToAnchor:contentG.trailingAnchor],
+            [self.tabsRowStack.heightAnchor constraintEqualToAnchor:frameG.heightAnchor],
+        ]];
+        [self.searchButton mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.right.equalTo(self).offset(-4);
+            make.centerY.equalTo(self);
+            make.width.height.mas_equalTo(44);
+        }];
+        [self.selectionUnderline mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.height.mas_equalTo(2.5);
+            make.bottom.equalTo(self).offset(-5);
+            make.width.mas_equalTo(28);
+            make.centerX.equalTo(self.tabButtons.firstObject);
+        }];
+        self.tabsScrollView.showsHorizontalScrollIndicator = NO;
+        self.tabsScrollView.showsVerticalScrollIndicator = NO;
+        self.tabsScrollView.alwaysBounceHorizontal = YES;
+        self.tabsScrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+        [self ytv_updateButtonStylesAnimated:NO];
+        [self layoutIfNeeded];
+        [self ytv_updateSelectionUnderlineConstraints];
     }
     return self;
 }
@@ -34,10 +71,20 @@
     }
     self.selectedIndex = index;
     [self ytv_updateButtonStylesAnimated:animated];
+    [self layoutIfNeeded];
+    [self ytv_updateSelectionUnderlineConstraints];
 }
 
-- (UIStackView *)stackView {
-    if (!_stackView) {
+- (UIScrollView *)tabsScrollView {
+    if (!_tabsScrollView) {
+        _tabsScrollView = [[UIScrollView alloc] init];
+        _tabsScrollView.backgroundColor = [UIColor clearColor];
+    }
+    return _tabsScrollView;
+}
+
+- (UIStackView *)tabsRowStack {
+    if (!_tabsRowStack) {
         NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
         NSArray<NSString *> *titles = @[
             NSLocalizedString(@"YTV_category_recommend", @""),
@@ -48,20 +95,52 @@
         for (NSInteger i = 0; i < (NSInteger)titles.count; i++) {
             UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
             [b setTitle:titles[(NSUInteger)i] forState:UIControlStateNormal];
-            b.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:14];
+            b.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:15];
+            b.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10);
             b.tag = i;
             [b addTarget:self action:@selector(ytv_tabTapped:) forControlEvents:UIControlEventTouchUpInside];
             [buttons addObject:b];
         }
         self.tabButtons = [buttons copy];
-        _stackView = [[UIStackView alloc] initWithArrangedSubviews:self.tabButtons];
-        _stackView.axis = UILayoutConstraintAxisHorizontal;
-        _stackView.distribution = UIStackViewDistributionFillEqually;
-        _stackView.alignment = UIStackViewAlignmentFill;
-        _stackView.spacing = 4;
-        [self ytv_updateButtonStylesAnimated:NO];
+        _tabsRowStack = [[UIStackView alloc] initWithArrangedSubviews:self.tabButtons];
+        _tabsRowStack.axis = UILayoutConstraintAxisHorizontal;
+        _tabsRowStack.distribution = UIStackViewDistributionFill;
+        _tabsRowStack.alignment = UIStackViewAlignmentCenter;
+        _tabsRowStack.spacing = 4;
     }
-    return _stackView;
+    return _tabsRowStack;
+}
+
+- (UIButton *)searchButton {
+    if (!_searchButton) {
+        _searchButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        UIImage *img = [UIImage imageNamed:@"video_home_search"];
+        if (img) {
+            img = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            [_searchButton setImage:img forState:UIControlStateNormal];
+        }
+        _searchButton.tintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.92];
+        _searchButton.adjustsImageWhenHighlighted = YES;
+        _searchButton.accessibilityLabel = NSLocalizedString(@"YTV_video_search_accessibility", @"");
+        [_searchButton addTarget:self action:@selector(ytv_searchTapped) forControlEvents:UIControlEventTouchUpInside];
+    }
+    return _searchButton;
+}
+
+- (UIView *)selectionUnderline {
+    if (!_selectionUnderline) {
+        _selectionUnderline = [[UIView alloc] init];
+        _selectionUnderline.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.95];
+        _selectionUnderline.layer.cornerRadius = 1.25;
+        _selectionUnderline.clipsToBounds = YES;
+    }
+    return _selectionUnderline;
+}
+
+- (void)ytv_searchTapped {
+    if (self.onSearchTap) {
+        self.onSearchTap();
+    }
 }
 
 - (void)ytv_tabTapped:(UIButton *)sender {
@@ -71,6 +150,8 @@
     }
     self.selectedIndex = idx;
     [self ytv_updateButtonStylesAnimated:YES];
+    [self layoutIfNeeded];
+    [self ytv_updateSelectionUnderlineConstraints];
     if (self.onSelectIndex) {
         self.onSelectIndex(idx);
     }
@@ -81,9 +162,9 @@
         for (NSInteger i = 0; i < (NSInteger)self.tabButtons.count; i++) {
             UIButton *b = self.tabButtons[(NSUInteger)i];
             BOOL on = (i == self.selectedIndex);
-            UIColor *titleColor = on ? [[UIColor whiteColor] colorWithAlphaComponent:0.78] : [[UIColor whiteColor] colorWithAlphaComponent:0.36];
+            UIColor *titleColor = on ? [UIColor whiteColor] : [[UIColor whiteColor] colorWithAlphaComponent:0.42];
             [b setTitleColor:titleColor forState:UIControlStateNormal];
-            b.titleLabel.font = [UIFont fontWithName:on ? FONT_NAME_Medium : FONT_NAME_Regular size:14];
+            b.titleLabel.font = [UIFont fontWithName:on ? FONT_NAME_Semibold : FONT_NAME_Regular size:15];
         }
     };
     if (animated) {
@@ -91,6 +172,24 @@
     } else {
         apply();
     }
+}
+
+- (void)ytv_updateSelectionUnderlineConstraints {
+    if (self.selectedIndex < 0 || self.selectedIndex >= (NSInteger)self.tabButtons.count) {
+        return;
+    }
+    UIButton *b = self.tabButtons[(NSUInteger)self.selectedIndex];
+    [b layoutIfNeeded];
+    CGFloat textW = ceil([b.titleLabel intrinsicContentSize].width);
+    if (textW < 22) {
+        textW = 22;
+    }
+    [self.selectionUnderline mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.height.mas_equalTo(2.5);
+        make.bottom.equalTo(self).offset(-5);
+        make.width.mas_equalTo(textW);
+        make.centerX.equalTo(b);
+    }];
 }
 
 @end

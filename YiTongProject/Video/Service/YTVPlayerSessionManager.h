@@ -28,6 +28,8 @@ typedef void (^YTVPlayerSessionEventHandler)(YTVPlayerSessionEventType eventType
 @property (nonatomic, strong, readonly) AVPlayer *player;
 /// 当前播放请求编号；每次 replace 都会递增，用于过滤旧回调。
 @property (nonatomic, assign, readonly) NSUInteger currentRequestId;
+@property (nonatomic, assign) NSTimeInterval foregroundBufferDuration;
+@property (nonatomic, assign) NSTimeInterval standbyBufferGoalDuration;
 /// 会话级播放事件回调：item ready / 首帧显示 / 播放失败。
 @property (nonatomic, copy, nullable) YTVPlayerSessionEventHandler eventHandler;
 

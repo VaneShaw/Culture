@@ -25,7 +25,7 @@ typedef NS_ENUM(NSInteger, YTVShortVideoFeedSource) {
 };
 
 /// `appendedAny`：本次链式请求是否曾写入新条目；`error`：整段失败时非空（去重连拉耗尽不算错误）
-typedef void (^YTVFeedLoadNextCompletion)(BOOL appendedAny, NSError *_Nullable error);
+typedef void (^YTVFeedLoadNextCompletion)(BOOL appendedAny, NSUInteger appendedCount, NSError *_Nullable error);
 
 @interface YTVShortVideoFeedViewModel : NSObject
 

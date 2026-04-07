@@ -19,6 +19,8 @@ typedef NS_ENUM(NSInteger, YTVVideoCachePlaybackSource) {
 @property (nonatomic, assign) YTVVideoCachePlaybackSource playbackSource;
 @property (nonatomic, copy) NSString *sourceLabel;
 @property (nonatomic, assign) BOOL canUpgradeToProxyLater;
+@property (nonatomic, copy, nullable) NSString *remoteURLString;
+@property (nonatomic, copy, nullable) NSString *proxyIdentifier;
 
 @end
 
@@ -34,6 +36,9 @@ typedef NS_ENUM(NSInteger, YTVVideoCachePlaybackSource) {
 
 /// 后台触发轻量缓存；当前阶段复用整文件磁盘缓存实现。
 - (void)prefetchVideoForRemoteURLString:(NSString *)remoteURLString;
+
+/// 代理骨架：当前先返回可观测的占位标识，后续可平滑接入本地代理服务。
+- (nullable NSString *)proxyIdentifierForRemoteURLString:(NSString *)remoteURLString;
 
 @end
 

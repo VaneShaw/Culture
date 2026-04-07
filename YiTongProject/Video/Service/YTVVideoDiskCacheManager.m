@@ -5,8 +5,11 @@
 
 #import "YTVVideoDiskCacheManager.h"
 #import <CommonCrypto/CommonDigest.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 static const NSUInteger kYTVVideoDiskCacheMaxItems = 6;
+static const unsigned long long kYTVVideoDiskCacheMaxBytes = 120ull * 1024ull * 1024ull;
 static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
 
 @interface YTVVideoDiskCacheManager ()
@@ -15,6 +18,7 @@ static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
 @property (nonatomic, strong) NSMutableSet<NSString *> *inflightURLs;
 - (void)ytv_pruneManifestRemovingMissingFilesLocked;
 @end
+#pragma clang diagnostic pop
 
 @implementation YTVVideoDiskCacheManager
 
@@ -111,6 +115,25 @@ static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
     });
 }
 
+
+- (NSUInteger)cachedItemCount {
+    __block NSUInteger count = 0;
+    dispatch_sync(self.ioQueue, ^{
+        [self ytv_pruneManifestRemovingMissingFilesLocked];
+        count = self.manifest.count;
+    });
+    return count;
+}
+
+- (unsigned long long)cachedBytes {
+    __block unsigned long long bytes = 0;
+    dispatch_sync(self.ioQueue, ^{
+        [self ytv_pruneManifestRemovingMissingFilesLocked];
+        bytes = [self ytv_totalCachedBytesLocked];
+    });
+    return bytes;
+}
+
 + (NSURL *)ytv_fileURLForRemoteURLString:(NSString *)remoteURLString {
     NSString *ext = [NSURL URLWithString:remoteURLString].pathExtension;
     if (ext.length == 0) {
@@ -129,6 +152,21 @@ static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
         [ret appendFormat:@"%02x", result[i]];
     }
     return ret;
+}
+
+
+- (unsigned long long)ytv_fileSizeAtURLLocked:(NSURL *)fileURL {
+    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:fileURL.path error:nil];
+    NSNumber *size = attrs[NSFileSize];
+    return [size isKindOfClass:[NSNumber class]] ? size.unsignedLongLongValue : 0;
+}
+
+- (unsigned long long)ytv_totalCachedBytesLocked {
+    unsigned long long total = 0;
+    for (NSString *key in self.manifest) {
+        total += [self ytv_fileSizeAtURLLocked:[self.class ytv_fileURLForRemoteURLString:key]];
+    }
+    return total;
 }
 
 - (void)ytv_touchRemoteURLString:(NSString *)remoteURLString {
@@ -150,7 +188,8 @@ static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
 
 - (void)ytv_trimCacheLockedIfNeeded {
     [self ytv_pruneManifestRemovingMissingFilesLocked];
-    while (self.manifest.count > kYTVVideoDiskCacheMaxItems) {
+    unsigned long long totalBytes = [self ytv_totalCachedBytesLocked];
+    while (self.manifest.count > kYTVVideoDiskCacheMaxItems || totalBytes > kYTVVideoDiskCacheMaxBytes) {
         NSString *oldestKey = nil;
         NSTimeInterval oldestValue = DBL_MAX;
         for (NSString *key in self.manifest) {
@@ -164,9 +203,11 @@ static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
             break;
         }
         NSURL *fileURL = [self.class ytv_fileURLForRemoteURLString:oldestKey];
+        unsigned long long fileBytes = [self ytv_fileSizeAtURLLocked:fileURL];
         [[NSFileManager defaultManager] removeItemAtURL:fileURL error:nil];
         [self.manifest removeObjectForKey:oldestKey];
-        NSLog(@"%@ evict url=%@", kYTVVideoDiskCacheLogPrefix, oldestKey);
+        totalBytes = (fileBytes >= totalBytes) ? 0 : (totalBytes - fileBytes);
+        NSLog(@"%@ evict url=%@ bytes=%llu", kYTVVideoDiskCacheLogPrefix, oldestKey, fileBytes);
     }
     [self.manifest writeToURL:[self.class ytv_manifestURL] atomically:YES];
 }

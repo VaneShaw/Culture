@@ -7,6 +7,7 @@
 #import "YTVVideoFeedItem.h"
 #import "YTVVideoCacheProxyManager.h"
 #import "HeaderConfig.h"
+#import "NetworkMonitor.h"
 #import <AVFoundation/AVFoundation.h>
 
 static const NSUInteger kYTVMediaWarmMaxItems = 12;
@@ -42,6 +43,10 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 @property (nonatomic, copy, nullable) NSString *protectedPlaybackVideoId;
 @property (nonatomic, copy, nullable) NSString *deepPrewarmTargetVideoId;
 @property (nonatomic, strong) NSSet<NSString *> *preservedWarmVideoIds;
+@property (nonatomic, assign) NSInteger adaptiveForwardCount;
+@property (nonatomic, assign) BOOL adaptiveAllowsDeepNext2;
+@property (nonatomic, assign) CGFloat lastObservedVelocityY;
+@property (nonatomic, strong) NSMutableOrderedSet<NSString *> *recentBackwardVideoIds;
 @end
 
 @implementation YTVVideoPreloadManager
@@ -52,6 +57,8 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
         _warmByVideoId = [NSMutableDictionary dictionary];
         _warmAccessOrder = [NSMutableOrderedSet orderedSet];
         _preservedWarmVideoIds = [NSSet set];
+        _adaptiveForwardCount = 3;
+        _recentBackwardVideoIds = [NSMutableOrderedSet orderedSet];
     }
     return self;
 }
@@ -73,11 +80,19 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     if (displayIndex + 1 < n) {
         [warmIndices addIndex:(NSUInteger)(displayIndex + 1)];
     }
-    if (displayIndex + 2 < n) {
-        [warmIndices addIndex:(NSUInteger)(displayIndex + 2)];
+    NSInteger adaptiveForwardCount = MAX(2, self.adaptiveForwardCount);
+    for (NSInteger step = 2; step <= adaptiveForwardCount; step++) {
+        if (displayIndex + step < n) {
+            [warmIndices addIndex:(NSUInteger)(displayIndex + step)];
+        }
     }
-    if (displayIndex + 3 < n) {
-        [warmIndices addIndex:(NSUInteger)(displayIndex + 3)];
+    for (NSString *videoId in self.recentBackwardVideoIds) {
+        NSUInteger idx = [items indexOfObjectPassingTest:^BOOL(YTVVideoFeedItem * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            return [obj.videoId isEqualToString:videoId];
+        }];
+        if (idx != NSNotFound) {
+            [warmIndices addIndex:idx];
+        }
     }
 
     self.deepPrewarmTargetVideoId = nil;
@@ -123,12 +138,12 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
             [self.warmAccessOrder removeObject:item.videoId];
             entry = nil;
         } else {
-            entry.isDeepTarget = isDeepTarget;
+            entry.isDeepTarget = isDeepTarget || self.adaptiveAllowsDeepNext2;
             [self ytv_touchEntry:entry];
             if (entry.state == YTVVideoWarmEntryStatePreparingAsset || entry.state == YTVVideoWarmEntryStateBufferedReady) {
                 return;
             }
-            if (!isDeepTarget && (entry.state == YTVVideoWarmEntryStateAssetReady || entry.state == YTVVideoWarmEntryStateItemReady)) {
+            if (!isDeepTarget && (entry.state == YTVVideoWarmEntryStateAssetReady || entry.state == YTVVideoWarmEntryStateItemReady || entry.state == YTVVideoWarmEntryStateBufferedReady)) {
                 return;
             }
         }
@@ -237,6 +252,23 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     }
 }
 
+
+- (void)updateAdaptiveHintWithScrollVelocity:(CGFloat)velocityY {
+    self.lastObservedVelocityY = fabs(velocityY);
+    NetworkStatusType status = [NetworkMonitor sharedMonitor].currentStatus;
+    BOOL fastSwipe = self.lastObservedVelocityY >= 1.15;
+    if (status == NetworkStatusTypeWiFi) {
+        self.adaptiveForwardCount = fastSwipe ? 4 : 3;
+        self.adaptiveAllowsDeepNext2 = fastSwipe;
+    } else if (status == NetworkStatusTypeCellular) {
+        self.adaptiveForwardCount = fastSwipe ? 3 : 2;
+        self.adaptiveAllowsDeepNext2 = NO;
+    } else {
+        self.adaptiveForwardCount = 2;
+        self.adaptiveAllowsDeepNext2 = NO;
+    }
+}
+
 - (void)markPlaybackProtectedVideoId:(NSString *)videoId {
     _protectedPlaybackVideoId = videoId.length > 0 ? [videoId copy] : nil;
 }
@@ -247,6 +279,13 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
         return;
     }
     [self ytv_touchEntry:entry];
+    if (videoId.length > 0) {
+        [self.recentBackwardVideoIds removeObject:videoId];
+        [self.recentBackwardVideoIds insertObject:videoId atIndex:0];
+        while (self.recentBackwardVideoIds.count > 3) {
+            [self.recentBackwardVideoIds removeObjectAtIndex:self.recentBackwardVideoIds.count - 1];
+        }
+    }
 }
 
 - (void)trimWarmPoolPreservingCurrentWindow {
@@ -300,6 +339,7 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 
 - (void)invalidateAllWarmItems {
     self.protectedPlaybackVideoId = nil;
+    [self.recentBackwardVideoIds removeAllObjects];
     self.deepPrewarmTargetVideoId = nil;
     self.preservedWarmVideoIds = [NSSet set];
     [self.warmByVideoId removeAllObjects];

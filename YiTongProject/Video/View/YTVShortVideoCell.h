@@ -17,6 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, readonly) YTVVideoRenderView *renderView;
 /// 点击整页任意区域：暂停/播放切换（由 VC 绑定）。
 @property (nonatomic, copy, nullable) void (^ytv_onVideoAreaTap)(YTVShortVideoCell *cell);
+@property (nonatomic, copy, nullable) void (^ytv_onPlaybackRetryTap)(YTVShortVideoCell *cell);
 
 - (void)configureWithItem:(nullable YTVVideoFeedItem *)item;
 
@@ -29,13 +30,16 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)ytv_showCoverImmediately;
 /// 首帧到达后再隐藏封面。
 - (void)ytv_hideCoverAfterFirstFrameAnimated:(BOOL)animated;
-/// 播放失败时保留封面并重置额外态。
+/// 播放失败时保留封面并显示重试反馈。
 - (void)ytv_showPlaybackFailureState;
 /// 进入新绑定前清理失败态。
 - (void)ytv_clearPlaybackFailureState;
 
 /// 用户暂停时显示中央「播放」提示；继续播放时隐藏
 - (void)ytv_setPausedPlayHintVisible:(BOOL)visible;
+
+/// 横版条带布局时返回条带在 `view` 坐标系中的 frame；竖版全屏时为 `CGRectZero`（供 Feed 全屏按钮对齐）。
+- (CGRect)ytv_landscapeVideoContentFrameConvertedToView:(UIView *)view;
 
 @end
 

@@ -49,6 +49,9 @@ const NSInteger kYTVVideoTabBarIndex = 2;
     }];
     [self.view bringSubviewToFront:self.tabsView];
     __weak typeof(self) weakSelf = self;
+    self.tabsView.onSearchTap = ^{
+        [MBProgressHUD showLabel:NSLocalizedString(@"YTV_video_search_coming_soon", @"")];
+    };
     self.tabsView.onSelectIndex = ^(NSInteger idx) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self || idx < 0 || idx >= (NSInteger)YTVVideoCategoryCount()) {

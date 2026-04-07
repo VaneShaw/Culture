@@ -440,18 +440,19 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
 - (void)loadNextPageIfNeededForDisplayIndex:(NSInteger)displayIndex completion:(YTVFeedLoadNextCompletion)completion {
     if (!self.hasMore || self.isLoadingNext || self.mutableItems.count == 0) {
         if (completion) {
-            completion(NO, nil);
+            completion(NO, 0, nil);
         }
         return;
     }
     NSInteger remainingAfter = (NSInteger)self.mutableItems.count - 1 - displayIndex;
     if (remainingAfter > kYTVFeedLowWaterMark) {
         if (completion) {
-            completion(NO, nil);
+            completion(NO, 0, nil);
         }
         return;
     }
     self.isLoadingNext = YES;
+    NSUInteger oldCount = self.mutableItems.count;
     __block BOOL anyAppended = NO;
     __weak typeof(self) weakSelf = self;
     [self ytv_fetchNextDedupingAttempt:0 anyAppended:&anyAppended completion:^(NSError *error) {
@@ -461,7 +462,11 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
             self.isLoadingNext = NO;
         }
         if (completion) {
-            completion(appended, error);
+            NSUInteger appendedCount = 0;
+            if (self.mutableItems.count >= oldCount) {
+                appendedCount = self.mutableItems.count - oldCount;
+            }
+            completion(appended, appendedCount, error);
         }
     }];
 }

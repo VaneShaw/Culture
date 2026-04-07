@@ -106,7 +106,15 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     return fabs(a.top - b.top) < 0.5 && fabs(a.left - b.left) < 0.5 && fabs(a.bottom - b.bottom) < 0.5 && fabs(a.right - b.right) < 0.5;
 }
 
-@interface YTVShortVideoFeedViewController () <UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, UICollectionViewDataSourcePrefetching>
+typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
+    YTVFeedPlaybackStateIdle = 0,
+    YTVFeedPlaybackStateSwitching,
+    YTVFeedPlaybackStatePlaying,
+    YTVFeedPlaybackStateStandbyPreparing,
+    YTVFeedPlaybackStateFailed,
+};
+
+@interface YTVShortVideoFeedViewController () <UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, UICollectionViewDataSourcePrefetching, UITextViewDelegate>
 @property (nonatomic, copy, readwrite) NSString *categoryKey;
 @property (nonatomic, assign) BOOL ytv_isFavoritesFeed;
 @property (nonatomic, copy) NSArray *favoritesSeedItems;
@@ -123,15 +131,22 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 @property (nonatomic, strong) YTVVideoPreloadManager *preloadManager;
 @property (nonatomic, copy, nullable) NSString *ytv_currentPlaybackSourceLabel;
 @property (nonatomic, assign) CFTimeInterval ytv_currentPlaybackStartTime;
+@property (nonatomic, assign) CFTimeInterval ytv_currentPlaybackReplaceStartTime;
+@property (nonatomic, assign) CFTimeInterval ytv_currentPlaybackItemReadyTime;
+@property (nonatomic, assign) CFTimeInterval ytv_currentPlaybackFirstFrameTime;
 @property (nonatomic, strong) UIStackView *chromeRightStack;
+@property (nonatomic, strong) UIStackView *favoriteChromeStack;
 @property (nonatomic, strong) UIButton *favoriteChromeButton;
+@property (nonatomic, strong) UILabel *favoriteChromeCountLabel;
+@property (nonatomic, strong) UIStackView *shareChromeStack;
 @property (nonatomic, strong) UIButton *shareChromeButton;
-@property (nonatomic, strong) UIButton *copyDownloadChromeButton;
+@property (nonatomic, strong) UILabel *shareChromeCountLabel;
 @property (nonatomic, strong) UIButton *fullScreenChromeButton;
 @property (nonatomic, strong) UIStackView *chromeLeftStack;
 @property (nonatomic, strong) UILabel *chromeTitleLabel;
-@property (nonatomic, strong) UILabel *chromeSummaryLabel;
-@property (nonatomic, strong) UIButton *fullTextButton;
+@property (nonatomic, strong) UITextView *chromeSummaryTextView;
+@property (nonatomic, strong) NSLayoutConstraint *chromeSummaryHeightConstraint;
+@property (nonatomic, assign) CGFloat ytv_chromeSummaryLastLayoutWidth;
 @property (nonatomic, copy, nullable) NSString *pendingDeepLinkVideoId;
 @property (nonatomic, strong) UIImageView *stateEmptyImageView;
 @property (nonatomic, strong) UIView *nextLoadFailureBar;
@@ -147,6 +162,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 @property (nonatomic, assign) NSInteger ytv_pendingBindIndex;
 /// 切源中为 YES，首帧/失败后复位。
 @property (nonatomic, assign) BOOL ytv_isSwitchingPlayback;
+@property (nonatomic, assign) YTVFeedPlaybackState ytv_playbackState;
 /// 当前索引已拿到首帧，用于同 URL 复绑时立即揭封面。
 @property (nonatomic, assign) BOOL ytv_currentPlaybackFirstFrameReady;
 /// 当前绑定对应的播放器 requestId；只响应同一次切源回调。
@@ -184,6 +200,13 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 - (Float64)ytv_inlineFullscreenDurationSeconds;
 - (void)ytv_inlineFullscreenSeekToNormalized:(float)n;
 - (void)ytv_prepareStandbyPlaybackForTargetIndex:(NSInteger)targetIdx;
+- (CGFloat)ytv_chromeLeftTextMaxWidth;
+- (void)ytv_applyChromeLeftDemoCopyIfNeeded;
+- (void)ytv_rebuildChromeLeftDemoSummaryIfWidthChanged;
+- (NSAttributedString *)ytv_chromeLeftDemoSummaryAttributedFittingWidth:(CGFloat)maxW;
+- (CGFloat)ytv_boundingHeightForAttributedString:(NSAttributedString *)as width:(CGFloat)w;
+- (void)ytv_layoutFullScreenChromeButtonIfNeeded;
+- (void)ytv_onChromeSeeAllTap;
 @end
 
 @implementation YTVShortVideoFeedViewController
@@ -197,6 +220,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         _ytv_pendingBindIndex = NSNotFound;
         _ytv_standbyTargetIndex = NSNotFound;
         _ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
+        _ytv_playbackState = YTVFeedPlaybackStateIdle;
     }
     return self;
 }
@@ -212,6 +236,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         _ytv_pendingBindIndex = NSNotFound;
         _ytv_standbyTargetIndex = NSNotFound;
         _ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
+        _ytv_playbackState = YTVFeedPlaybackStateIdle;
         self.hidesBottomBarWhenPushed = YES;
     }
     return self;
@@ -237,6 +262,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         [self ytv_handlePlayerSessionEvent:eventType requestId:requestId error:error];
     };
     [self.view addSubview:self.collectionView];
+    [self.view addSubview:self.fullScreenChromeButton];
     [self.view addSubview:self.chromeRightStack];
     [self.view addSubview:self.chromeLeftStack];
     [self.view addSubview:self.stateOverlay];
@@ -246,18 +272,20 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     [self.collectionView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.edges.equalTo(self.view);
     }];
-    // 安全区左右：系统 UILayoutGuide 无 mas_* 时用 Anchor，与 Masonry 混用即可。
+    // 安全区：trailing 勿用 Masonry 对 mas_safeAreaLayoutGuide（部分版本会错绑到 bottom）；改用系统 Anchor。
     UILayoutGuide *safeGuide = self.view.safeAreaLayoutGuide;
+    static const CGFloat kYTVChromeRightInsetFromTrailing = 14;
+    static const CGFloat kYTVChromeLeftTrailingInset = 128;
     [self.chromeRightStack mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.centerY.equalTo(self.view).offset(-24);
+        make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-40);
     }];
-    [self.chromeRightStack.trailingAnchor constraintEqualToAnchor:safeGuide.trailingAnchor constant:-10].active = YES;
+    [self.chromeRightStack.trailingAnchor constraintEqualToAnchor:safeGuide.trailingAnchor constant:-kYTVChromeRightInsetFromTrailing].active = YES;
 
     [self.chromeLeftStack mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-10);
+        make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-40);
     }];
     [self.chromeLeftStack.leadingAnchor constraintEqualToAnchor:safeGuide.leadingAnchor constant:14].active = YES;
-    [self.chromeLeftStack.trailingAnchor constraintLessThanOrEqualToAnchor:safeGuide.trailingAnchor constant:-72].active = YES;
+    [self.chromeLeftStack.trailingAnchor constraintEqualToAnchor:safeGuide.trailingAnchor constant:-kYTVChromeLeftTrailingInset].active = YES;
     [self.stateEmptyImageView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.centerX.equalTo(self.stateOverlay);
         make.bottom.equalTo(self.stateLabel.mas_top).offset(-20);
@@ -282,6 +310,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom).offset(-8);
     }];
     self.stateOverlay.hidden = YES;
+    [self.view bringSubviewToFront:self.fullScreenChromeButton];
     [self.view bringSubviewToFront:self.chromeRightStack];
     [self.view bringSubviewToFront:self.chromeLeftStack];
     [self ytv_refreshInteractionChrome];
@@ -417,11 +446,19 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     return self.ytv_inlineFullscreenActive;
 }
 
+- (void)viewSafeAreaInsetsDidChange {
+    [super viewSafeAreaInsetsDidChange];
+    /// TabBar / 容器晚一帧写入 safeArea 时，避免右侧列先按旧 inset 摆在中间再跳变。
+    [self.view setNeedsLayout];
+}
+
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     if (self.ytv_inlineFullscreenActive && self.ytv_inlineFullscreenChromeSafeInsetsUpdatesEnabled) {
         [self ytv_updateInlineFullscreenChromeInsetsFromWindowSafeArea];
     }
+    [self ytv_rebuildChromeLeftDemoSummaryIfWidthChanged];
+    [self ytv_layoutFullScreenChromeButtonIfNeeded];
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
@@ -438,9 +475,11 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 - (void)ytv_reloadUIForViewModelState {
     switch (self.feedViewModel.state) {
         case YTVShortVideoFeedStateLoading: {
-            self.stateOverlay.hidden = YES;
-            self.collectionView.hidden = YES;
+            self.stateOverlay.hidden = NO;
+            self.collectionView.hidden = NO;
             self.stateEmptyImageView.hidden = YES;
+            self.retryButton.hidden = YES;
+            self.stateLabel.text = NSLocalizedString(@"YTV_feed_loading_hint", @"");
             break;
         }
         case YTVShortVideoFeedStateError: {
@@ -638,6 +677,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         return;
     }
     self.ytv_lastProvisionalWarmIndex = clamped;
+    [self.preloadManager updateAdaptiveHintWithScrollVelocity:0];
     [self.preloadManager warmAroundDisplayIndex:clamped items:self.feedViewModel.items];
 }
 
@@ -651,6 +691,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     }
     NSInteger idx = (NSInteger)llround(scrollView.contentOffset.y / pageH);
     [self ytv_warmAroundProvisionalDisplayIndex:idx];
+    [self ytv_layoutFullScreenChromeButtonIfNeeded];
 }
 
 /// 流边界：首条下拉不跳末条；**仅**在「已无更多可拉取」时末条上滑回第一条（否则与静默补货冲突：第 10 条会被误判为全列表末尾而跳回首条）。
@@ -678,6 +719,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     }
     NSInteger targetIdx = (NSInteger)llround(targetContentOffset->y / h);
     targetIdx = MAX(0, MIN(targetIdx, maxIdx));
+    [self.preloadManager updateAdaptiveHintWithScrollVelocity:velocity.y];
     [self ytv_warmAroundProvisionalDisplayIndex:targetIdx];
     // 只有当前条已稳定出首帧时，才前移候场到目标页，避免首播阶段被后台候场抢资源。
     if (self.ytv_currentPlaybackFirstFrameReady) {
@@ -727,7 +769,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     }
     __weak typeof(self) weakSelf = self;
     NSInteger keepIndex = self.currentPlayIndex;
-    [self.feedViewModel loadNextPageIfNeededForDisplayIndex:idx completion:^(BOOL appendedAny, NSError *error) {
+    [self.feedViewModel loadNextPageIfNeededForDisplayIndex:idx completion:^(BOOL appendedAny, NSUInteger appendedCount, NSError *error) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) {
             return;
@@ -742,16 +784,22 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         [self ytv_hideNextLoadFailureBar];
         NSUInteger oldCount = [self.collectionView numberOfItemsInSection:0];
         NSUInteger newCount = self.feedViewModel.numberOfItems;
-        if (newCount <= oldCount) {
+        if (newCount <= oldCount || appendedCount == 0) {
             return;
         }
-        [self.collectionView reloadData];
-        [self.collectionView layoutIfNeeded];
-        CGFloat h = self.collectionView.bounds.size.height;
-        if (h > 0 && keepIndex != NSNotFound && keepIndex < (NSInteger)newCount) {
-            [self.collectionView setContentOffset:CGPointMake(0, keepIndex * h) animated:NO];
+        NSMutableArray<NSIndexPath *> *indexPaths = [NSMutableArray array];
+        for (NSUInteger i = oldCount; i < newCount; i++) {
+            [indexPaths addObject:[NSIndexPath indexPathForItem:i inSection:0]];
         }
-        [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
+        [self.collectionView performBatchUpdates:^{
+            [self.collectionView insertItemsAtIndexPaths:indexPaths];
+        } completion:^(__unused BOOL finished) {
+            CGFloat h = self.collectionView.bounds.size.height;
+            if (h > 0 && keepIndex != NSNotFound && keepIndex < (NSInteger)newCount) {
+                [self.collectionView setContentOffset:CGPointMake(0, keepIndex * h) animated:NO];
+            }
+            [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
+        }];
     }];
 }
 
@@ -817,6 +865,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     }
     self.currentPlayIndex = newIndex;
     self.ytv_currentPlaybackFromBootstrapRestore = NO;
+    self.ytv_playbackState = YTVFeedPlaybackStateIdle;
     YTVVideoFeedItem *newItem = [self.feedViewModel itemAtIndex:newIndex];
     if (newItem) {
         [self.feedViewModel ytv_recordLastViewedVideoId:newItem.videoId playURL:newItem.playURL indexHint:newIndex];
@@ -851,6 +900,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 /// 切源 token 与切换标记回到空闲，用于列表重置、失败或当前条不可播。
 - (void)ytv_resetPlaybackBindingStateToIdle {
     self.ytv_isSwitchingPlayback = NO;
+    self.ytv_playbackState = YTVFeedPlaybackStateIdle;
     self.ytv_pendingPlaybackRequestId = 0;
     self.ytv_pendingBindIndex = NSNotFound;
     self.ytv_pendingPlaybackURLString = nil;
@@ -860,6 +910,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 /// 首帧已上屏：结束切换态，并把 `pendingPlaybackRequestId` 与当前会话对齐，避免后续杂散事件误匹配。
 - (void)ytv_commitPlaybackBindingAfterFirstFrame {
     self.ytv_isSwitchingPlayback = NO;
+    self.ytv_playbackState = YTVFeedPlaybackStatePlaying;
     self.ytv_pendingBindIndex = NSNotFound;
     self.ytv_currentPlaybackFirstFrameReady = YES;
     self.ytv_pendingPlaybackRequestId = self.playerSession.currentRequestId;
@@ -881,6 +932,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         [self ytv_probeNaturalVideoSizeIfNeededForItem:resumeItem];
     }
     self.ytv_isSwitchingPlayback = NO;
+    self.ytv_playbackState = YTVFeedPlaybackStatePlaying;
     self.ytv_pendingPlaybackRequestId = self.playerSession.currentRequestId;
     if (self.ytv_currentPlaybackFirstFrameReady && cell) {
         [cell ytv_hideCoverAfterFirstFrameAnimated:NO];
@@ -911,6 +963,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         return;
     }
     self.ytv_standbyTargetIndex = targetIdx;
+    self.ytv_playbackState = YTVFeedPlaybackStateStandbyPreparing;
     [self.preloadManager setDeepPrewarmTargetVideoId:target.videoId];
     [self.preloadManager warmAroundDisplayIndex:MAX(self.currentPlayIndex, 0) items:self.feedViewModel.items];
     AVPlayerItem *prepared = [self.preloadManager preparedPlayerItemForVideoId:target.videoId playURL:target.playURL];
@@ -944,9 +997,13 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         return;
     }
     self.ytv_isSwitchingPlayback = YES;
+    self.ytv_playbackState = YTVFeedPlaybackStateSwitching;
     self.ytv_currentPlaybackFirstFrameReady = NO;
     self.ytv_pendingPlaybackURLString = targetURLString;
     self.ytv_currentPlaybackStartTime = CACurrentMediaTime();
+    self.ytv_currentPlaybackReplaceStartTime = self.ytv_currentPlaybackStartTime;
+    self.ytv_currentPlaybackItemReadyTime = 0;
+    self.ytv_currentPlaybackFirstFrameTime = 0;
     self.ytv_currentPlaybackSourceLabel = self.feedViewModel.ytv_initialVideoSourceLabel ?: @"unknown";
     AVPlayerItem *prewarmed = [self.preloadManager preparedPlayerItemForVideoId:item.videoId playURL:item.playURL];
     YTVVideoCachePlaybackDecision *cacheDecision = [self.preloadManager playbackDecisionForVideoId:item.videoId playURL:item.playURL];
@@ -1151,6 +1208,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 /// 播放失败时保留封面，避免露出黑底或旧帧。
 - (void)ytv_failPlaybackAtIndex:(NSInteger)index error:(NSError *)error {
     [self ytv_resetPlaybackBindingStateToIdle];
+    self.ytv_playbackState = YTVFeedPlaybackStateFailed;
     YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:index];
     [cell ytv_showPlaybackFailureState];
     [self ytv_refreshInteractionChrome];
@@ -1168,8 +1226,11 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     }
     switch (eventType) {
         case YTVPlayerSessionEventTypeItemReady:
+            self.ytv_currentPlaybackItemReadyTime = CACurrentMediaTime();
+            NSLog(@"[YTVFeed] item ready idx=%ld request=%lu cost=%.0fms source=%@", (long)bindIdx, (unsigned long)requestId, (self.ytv_currentPlaybackItemReadyTime - self.ytv_currentPlaybackReplaceStartTime) * 1000.0, self.ytv_currentPlaybackSourceLabel ?: @"unknown");
             break;
         case YTVPlayerSessionEventTypeFirstFrameRendered:
+            self.ytv_currentPlaybackFirstFrameTime = CACurrentMediaTime();
             [self ytv_finishFirstFrameAtIndex:bindIdx];
             break;
         case YTVPlayerSessionEventTypePlayFailed:
@@ -1207,14 +1268,17 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         && self.feedViewModel.numberOfItems > 0;
     self.chromeRightStack.hidden = !show;
     self.chromeLeftStack.hidden = !show;
+    if (!show) {
+        self.fullScreenChromeButton.hidden = YES;
+    }
     if (show) {
         YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:self.currentPlayIndex];
         if (item) {
-            self.chromeTitleLabel.text = item.title.length ? item.title : @"";
-            self.chromeSummaryLabel.text = item.summary.length ? item.summary : @"";
-            self.chromeSummaryLabel.hidden = (item.summary.length == 0);
-            [self ytv_applyFavoriteChromeTitle:item.isFavorite];
-            self.fullTextButton.hidden = (item.fullTextURL.length == 0);
+            [self ytv_applyChromeLeftDemoCopyIfNeeded];
+            self.ytv_chromeSummaryLastLayoutWidth = 0;
+            [self ytv_rebuildChromeLeftDemoSummaryIfWidthChanged];
+            [self ytv_applyFavoriteChromeForItem:item];
+            [self ytv_applyShareChromeForItem:item];
             BOOL canFullScreenChrome = NO;
             if (item.playURL.length > 0) {
                 NSURL *pu = [NSURL URLWithString:item.playURL];
@@ -1223,9 +1287,12 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
                 canFullScreenChrome = urlOk && item.ytv_hasNaturalVideoSize && [item ytv_isLandscapeNaturalVideo];
             }
             self.fullScreenChromeButton.hidden = !canFullScreenChrome;
+            self.fullScreenChromeButton.translatesAutoresizingMaskIntoConstraints = YES;
+            [self ytv_layoutFullScreenChromeButtonIfNeeded];
         } else {
             self.chromeRightStack.hidden = YES;
             self.chromeLeftStack.hidden = YES;
+            self.fullScreenChromeButton.hidden = YES;
         }
     }
     [self ytv_syncPausedPlayHintForCurrentCell];
@@ -1302,9 +1369,161 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     }
 }
 
-- (void)ytv_applyFavoriteChromeTitle:(BOOL)favorited {
-    NSString *t = NSLocalizedString(favorited ? @"YTV_favorited" : @"YTV_favorite", @"");
-    [self.favoriteChromeButton setTitle:t forState:UIControlStateNormal];
+- (NSString *)ytv_stringForInteractionCountNonNegative:(NSInteger)n {
+    if (n < 0) {
+        n = 0;
+    }
+    return [NSString stringWithFormat:@"%ld", (long)n];
+}
+
+- (void)ytv_applyFavoriteChromeForItem:(YTVVideoFeedItem *)item {
+    BOOL favorited = item.isFavorite;
+    UIColor *tint = favorited ? [UIColor colorWithRed:1.0 green:0.82 blue:0.2 alpha:1.0] : [UIColor whiteColor];
+    self.favoriteChromeButton.tintColor = tint;
+    self.favoriteChromeButton.accessibilityLabel = NSLocalizedString(favorited ? @"YTV_favorited" : @"YTV_favorite", @"");
+    self.favoriteChromeCountLabel.hidden = NO;
+    self.favoriteChromeCountLabel.text = [self ytv_stringForInteractionCountNonNegative:item ? item.favoritesCount : 0];
+}
+
+- (void)ytv_applyShareChromeForItem:(YTVVideoFeedItem *)item {
+    self.shareChromeCountLabel.hidden = NO;
+    self.shareChromeCountLabel.text = [self ytv_stringForInteractionCountNonNegative:item ? item.shareCount : 0];
+}
+
+#pragma mark - 左侧文案与全屏按钮（横版条带）
+
+- (CGFloat)ytv_chromeLeftTextMaxWidth {
+    [self.view layoutIfNeeded];
+    CGFloat bw = CGRectGetWidth(self.chromeLeftStack.bounds);
+    if (bw >= 1) {
+        return bw;
+    }
+    UIEdgeInsets sa = self.view.safeAreaInsets;
+    CGFloat W = CGRectGetWidth(self.view.bounds);
+    if (W < 1) {
+        return 0;
+    }
+    /// 与 viewDidLoad 一致：leading +14、trailing 距安全区右 128
+    return MAX(0, W - sa.left - sa.right - 14.0 - 128.0);
+}
+
+- (void)ytv_applyChromeLeftDemoCopyIfNeeded {
+    self.chromeTitleLabel.text = NSLocalizedString(@"YTV_feed_demo_title", @"");
+}
+
+- (void)ytv_rebuildChromeLeftDemoSummaryIfWidthChanged {
+    if (self.chromeLeftStack.hidden) {
+        return;
+    }
+    CGFloat w = [self ytv_chromeLeftTextMaxWidth];
+    if (w < 1) {
+        return;
+    }
+    if (fabs(w - self.ytv_chromeSummaryLastLayoutWidth) < 0.5 && self.chromeSummaryTextView.attributedText.length > 0) {
+        return;
+    }
+    self.ytv_chromeSummaryLastLayoutWidth = w;
+    NSAttributedString *attr = [self ytv_chromeLeftDemoSummaryAttributedFittingWidth:w];
+    self.chromeSummaryTextView.attributedText = attr;
+    CGFloat h = [self ytv_boundingHeightForAttributedString:attr width:w];
+    self.chromeSummaryHeightConstraint.constant = MAX(36, ceil(h));
+}
+
+- (CGFloat)ytv_boundingHeightForAttributedString:(NSAttributedString *)as width:(CGFloat)w {
+    if (!as || w < 1) {
+        return 0;
+    }
+    CGRect r = [as boundingRectWithSize:CGSizeMake(w, CGFLOAT_MAX)
+                                  options:(NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading)
+                                  context:nil];
+    return CGRectGetHeight(r);
+}
+
+- (NSAttributedString *)ytv_chromeLeftDemoSummaryAttributedFittingWidth:(CGFloat)maxW {
+    if (maxW < 1) {
+        return [[NSAttributedString alloc] initWithString:@""];
+    }
+    NSString *full = NSLocalizedString(@"YTV_feed_demo_summary_long", @"");
+    NSString *seeAll = NSLocalizedString(@"YTV_feed_demo_see_all", @"");
+    NSString *ellipsis = @"... ";
+    UIFont *font = [UIFont fontWithName:FONT_NAME_Regular size:14];
+    if (!font) {
+        font = [UIFont systemFontOfSize:14];
+    }
+    NSMutableParagraphStyle *para = [[NSMutableParagraphStyle alloc] init];
+    para.lineBreakMode = NSLineBreakByWordWrapping;
+    UIColor *bodyColor = [[UIColor whiteColor] colorWithAlphaComponent:0.78];
+    NSDictionary *bodyAttrs = @{ NSFontAttributeName : font, NSForegroundColorAttributeName : bodyColor, NSParagraphStyleAttributeName : para };
+    NSURL *seeAllURL = [NSURL URLWithString:@"ytv-chrome://see-all"];
+    NSDictionary *linkAttrs = @{
+        NSFontAttributeName : font,
+        NSForegroundColorAttributeName : [[UIColor whiteColor] colorWithAlphaComponent:0.95],
+        NSUnderlineStyleAttributeName : @(NSUnderlineStyleSingle),
+        NSLinkAttributeName : seeAllURL,
+        NSParagraphStyleAttributeName : para,
+    };
+    CGFloat maxLinesH = ceil(font.lineHeight) * 2 + 3;
+
+    NSInteger low = 0;
+    NSInteger high = (NSInteger)full.length;
+    while (low < high) {
+        NSInteger mid = (low + high + 1) / 2;
+        NSString *pre = [full substringToIndex:(NSUInteger)mid];
+        NSMutableAttributedString *trial = [[NSMutableAttributedString alloc] initWithString:pre attributes:bodyAttrs];
+        [trial appendAttributedString:[[NSAttributedString alloc] initWithString:ellipsis attributes:bodyAttrs]];
+        [trial appendAttributedString:[[NSAttributedString alloc] initWithString:seeAll attributes:linkAttrs]];
+        CGFloat th = [self ytv_boundingHeightForAttributedString:trial width:maxW];
+        if (th <= maxLinesH) {
+            low = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+
+    NSString *pre = low > 0 ? [full substringToIndex:(NSUInteger)low] : @"";
+    NSMutableAttributedString *out = [[NSMutableAttributedString alloc] initWithString:pre attributes:bodyAttrs];
+    [out appendAttributedString:[[NSAttributedString alloc] initWithString:ellipsis attributes:bodyAttrs]];
+    [out appendAttributedString:[[NSAttributedString alloc] initWithString:seeAll attributes:linkAttrs]];
+    return [out copy];
+}
+
+- (void)ytv_layoutFullScreenChromeButtonIfNeeded {
+    if (self.fullScreenChromeButton.hidden || self.ytv_inlineFullscreenActive) {
+        return;
+    }
+    if (self.currentPlayIndex == NSNotFound) {
+        return;
+    }
+    NSIndexPath *ip = [NSIndexPath indexPathForItem:self.currentPlayIndex inSection:0];
+    UICollectionViewCell *raw = [self.collectionView cellForItemAtIndexPath:ip];
+    if (![raw isKindOfClass:[YTVShortVideoCell class]]) {
+        self.fullScreenChromeButton.alpha = 0;
+        self.fullScreenChromeButton.userInteractionEnabled = NO;
+        return;
+    }
+    YTVShortVideoCell *cell = (YTVShortVideoCell *)raw;
+    CGRect vf = [cell ytv_landscapeVideoContentFrameConvertedToView:self.view];
+    if (CGRectIsEmpty(vf)) {
+        return;
+    }
+    static const CGFloat side = 40;
+    CGFloat x = CGRectGetMidX(vf) - side * 0.5;
+    CGFloat y = CGRectGetMaxY(vf) + 10.0;
+    self.fullScreenChromeButton.frame = CGRectMake(x, y, side, side);
+    self.fullScreenChromeButton.alpha = 1;
+    self.fullScreenChromeButton.userInteractionEnabled = YES;
+}
+
+- (void)ytv_onChromeSeeAllTap {
+    if (self.currentPlayIndex == NSNotFound) {
+        return;
+    }
+    YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:self.currentPlayIndex];
+    if (item.fullTextURL.length > 0) {
+        [self ytv_onFullTextTap];
+        return;
+    }
+    [MBProgressHUD showLabel:NSLocalizedString(@"YTV_feed_demo_see_all_toast", @"")];
 }
 
 - (void)ytv_showNextLoadFailureWithMessage:(NSString *)msg {
@@ -1314,6 +1533,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     self.nextLoadFailureLabel.text = msg.length ? msg : NSLocalizedString(@"YTV_feed_next_failed_hint", @"");
     self.nextLoadFailureBar.hidden = NO;
     [self.view bringSubviewToFront:self.nextLoadFailureBar];
+    [self.view bringSubviewToFront:self.fullScreenChromeButton];
     [self.view bringSubviewToFront:self.chromeRightStack];
     [self.view bringSubviewToFront:self.chromeLeftStack];
 }
@@ -1607,6 +1827,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     self.collectionView.scrollEnabled = NO;
     self.chromeRightStack.hidden = YES;
     self.chromeLeftStack.hidden = YES;
+    self.fullScreenChromeButton.hidden = YES;
     self.nextLoadFailureBar.hidden = YES;
     [self setNeedsStatusBarAppearanceUpdate];
     __weak typeof(self) weakSelf = self;
@@ -1826,11 +2047,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         return;
     }
     [YTVVideoPRDShareHelper ytv_presentSystemShareFromViewController:self
-                                                          sourceView:self.shareChromeButton];
-}
-
-- (void)ytv_onCopyDownloadLinkChromeTap {
-    [YTVVideoPRDShareHelper ytv_copyDownloadLinkAndShowToast];
+                                                         sourceView:self.shareChromeButton];
 }
 
 - (void)ytv_onFullTextTap {
@@ -1849,6 +2066,19 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     }
     VideoTextWebViewController *web = [[VideoTextWebViewController alloc] initWithPageURL:u];
     [self.navigationController pushViewController:web animated:YES];
+}
+
+#pragma mark - UITextViewDelegate
+
+- (BOOL)textView:(UITextView *)textView shouldInteractWithURL:(NSURL *)URL inRange:(NSRange)characterRange interaction:(UITextItemInteraction)interaction {
+    if (textView != self.chromeSummaryTextView) {
+        return NO;
+    }
+    if ([URL.scheme isEqualToString:@"ytv-chrome"] && [URL.host isEqualToString:@"see-all"]) {
+        [self ytv_onChromeSeeAllTap];
+        return NO;
+    }
+    return NO;
 }
 
 #pragma mark - UICollectionView
@@ -1871,6 +2101,17 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
             return;
         }
         [self ytv_handleVideoTapFromCell:c];
+    };
+    cell.ytv_onPlaybackRetryTap = ^(YTVShortVideoCell *c) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        NSIndexPath *retryIndexPath = [self.collectionView indexPathForCell:c];
+        if (!retryIndexPath) {
+            return;
+        }
+        [self ytv_beginPlaybackSwitchToIndex:retryIndexPath.item fromOldIndex:self.currentPlayIndex];
     };
     BOOL current = (indexPath.item == self.currentPlayIndex);
     if (current) {
@@ -2030,28 +2271,50 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 - (UIStackView *)chromeRightStack {
     if (!_chromeRightStack) {
         _chromeRightStack = [[UIStackView alloc] initWithArrangedSubviews:@[
-            self.favoriteChromeButton,
-            self.shareChromeButton,
-            self.copyDownloadChromeButton,
-            self.fullScreenChromeButton,
+            self.favoriteChromeStack,
+            self.shareChromeStack,
         ]];
         _chromeRightStack.axis = UILayoutConstraintAxisVertical;
-        _chromeRightStack.spacing = 18;
+        _chromeRightStack.spacing = 20;
         _chromeRightStack.alignment = UIStackViewAlignmentCenter;
     }
     return _chromeRightStack;
 }
 
+- (UIStackView *)favoriteChromeStack {
+    if (!_favoriteChromeStack) {
+        _favoriteChromeStack = [[UIStackView alloc] initWithArrangedSubviews:@[
+            self.favoriteChromeButton,
+            self.favoriteChromeCountLabel,
+        ]];
+        _favoriteChromeStack.axis = UILayoutConstraintAxisVertical;
+        _favoriteChromeStack.spacing = 4;
+        _favoriteChromeStack.alignment = UIStackViewAlignmentCenter;
+    }
+    return _favoriteChromeStack;
+}
+
+- (UILabel *)favoriteChromeCountLabel {
+    if (!_favoriteChromeCountLabel) {
+        _favoriteChromeCountLabel = [[UILabel alloc] init];
+        _favoriteChromeCountLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
+        _favoriteChromeCountLabel.textColor = [[UIColor whiteColor] colorWithAlphaComponent:0.92];
+        _favoriteChromeCountLabel.textAlignment = NSTextAlignmentCenter;
+    }
+    return _favoriteChromeCountLabel;
+}
+
 - (UIButton *)favoriteChromeButton {
     if (!_favoriteChromeButton) {
         _favoriteChromeButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        _favoriteChromeButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
-        _favoriteChromeButton.titleLabel.numberOfLines = 0;
-        _favoriteChromeButton.titleLabel.textAlignment = NSTextAlignmentCenter;
-        [_favoriteChromeButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        UIImage *ic = [UIImage imageNamed:@"video_home_collection"];
+        if (ic) {
+            ic = [ic imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            [_favoriteChromeButton setImage:ic forState:UIControlStateNormal];
+        }
         _favoriteChromeButton.tintColor = [UIColor whiteColor];
+        _favoriteChromeButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
         [_favoriteChromeButton addTarget:self action:@selector(ytv_onFavoriteChromeTap) forControlEvents:UIControlEventTouchUpInside];
-        [self ytv_applyFavoriteChromeTitle:NO];
     }
     return _favoriteChromeButton;
 }
@@ -2059,47 +2322,57 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 - (UIButton *)shareChromeButton {
     if (!_shareChromeButton) {
         _shareChromeButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_shareChromeButton setTitle:NSLocalizedString(@"YTV_share", @"") forState:UIControlStateNormal];
-        _shareChromeButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
-        _shareChromeButton.titleLabel.numberOfLines = 0;
-        _shareChromeButton.titleLabel.textAlignment = NSTextAlignmentCenter;
-        [_shareChromeButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        UIImage *ic = [UIImage imageNamed:@"video_home_share"];
+        if (ic) {
+            ic = [ic imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            [_shareChromeButton setImage:ic forState:UIControlStateNormal];
+        }
         _shareChromeButton.tintColor = [UIColor whiteColor];
+        _shareChromeButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
+        _shareChromeButton.accessibilityLabel = NSLocalizedString(@"YTV_share", @"");
         [_shareChromeButton addTarget:self action:@selector(ytv_onShareChromeTap) forControlEvents:UIControlEventTouchUpInside];
     }
     return _shareChromeButton;
 }
 
-- (UIButton *)copyDownloadChromeButton {
-    if (!_copyDownloadChromeButton) {
-        _copyDownloadChromeButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_copyDownloadChromeButton setTitle:NSLocalizedString(@"YTV_PRD_copy_link_button", @"") forState:UIControlStateNormal];
-        _copyDownloadChromeButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
-        _copyDownloadChromeButton.titleLabel.numberOfLines = 0;
-        _copyDownloadChromeButton.titleLabel.textAlignment = NSTextAlignmentCenter;
-        [_copyDownloadChromeButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        _copyDownloadChromeButton.tintColor = [UIColor whiteColor];
-        [_copyDownloadChromeButton addTarget:self action:@selector(ytv_onCopyDownloadLinkChromeTap) forControlEvents:UIControlEventTouchUpInside];
+- (UIStackView *)shareChromeStack {
+    if (!_shareChromeStack) {
+        _shareChromeStack = [[UIStackView alloc] initWithArrangedSubviews:@[
+            self.shareChromeButton,
+            self.shareChromeCountLabel,
+        ]];
+        _shareChromeStack.axis = UILayoutConstraintAxisVertical;
+        _shareChromeStack.spacing = 4;
+        _shareChromeStack.alignment = UIStackViewAlignmentCenter;
     }
-    return _copyDownloadChromeButton;
+    return _shareChromeStack;
+}
+
+- (UILabel *)shareChromeCountLabel {
+    if (!_shareChromeCountLabel) {
+        _shareChromeCountLabel = [[UILabel alloc] init];
+        _shareChromeCountLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
+        _shareChromeCountLabel.textColor = [[UIColor whiteColor] colorWithAlphaComponent:0.92];
+        _shareChromeCountLabel.textAlignment = NSTextAlignmentCenter;
+    }
+    return _shareChromeCountLabel;
 }
 
 - (UIButton *)fullScreenChromeButton {
     if (!_fullScreenChromeButton) {
         _fullScreenChromeButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        _fullScreenChromeButton.translatesAutoresizingMaskIntoConstraints = YES;
         _fullScreenChromeButton.tintColor = [UIColor whiteColor];
-        UIImage *icon = [UIImage imageNamed:@"frame_white"];
+        UIImage *icon = [UIImage imageNamed:@"video_home_screen"];
+        if (!icon) {
+            icon = [UIImage imageNamed:@"frame_white"];
+        }
         if (icon) {
+            icon = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
             [_fullScreenChromeButton setImage:icon forState:UIControlStateNormal];
             _fullScreenChromeButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
-            _fullScreenChromeButton.accessibilityLabel = NSLocalizedString(@"YTV_fullscreen", @"");
-        } else {
-            [_fullScreenChromeButton setTitle:NSLocalizedString(@"YTV_fullscreen", @"") forState:UIControlStateNormal];
-            _fullScreenChromeButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
-            _fullScreenChromeButton.titleLabel.numberOfLines = 0;
-            _fullScreenChromeButton.titleLabel.textAlignment = NSTextAlignmentCenter;
-            [_fullScreenChromeButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
         }
+        _fullScreenChromeButton.accessibilityLabel = NSLocalizedString(@"YTV_fullscreen", @"");
         [_fullScreenChromeButton addTarget:self action:@selector(ytv_onFullScreenChromeTap) forControlEvents:UIControlEventTouchUpInside];
     }
     return _fullScreenChromeButton;
@@ -2116,35 +2389,33 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     return _chromeTitleLabel;
 }
 
-- (UILabel *)chromeSummaryLabel {
-    if (!_chromeSummaryLabel) {
-        _chromeSummaryLabel = [[UILabel alloc] init];
-        _chromeSummaryLabel.textColor = [[UIColor whiteColor] colorWithAlphaComponent:0.78];
-        _chromeSummaryLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:14];
-        _chromeSummaryLabel.numberOfLines = 3;
-        _chromeSummaryLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+- (UITextView *)chromeSummaryTextView {
+    if (!_chromeSummaryTextView) {
+        _chromeSummaryTextView = [[UITextView alloc] init];
+        _chromeSummaryTextView.translatesAutoresizingMaskIntoConstraints = NO;
+        _chromeSummaryTextView.backgroundColor = [UIColor clearColor];
+        _chromeSummaryTextView.scrollEnabled = NO;
+        _chromeSummaryTextView.editable = NO;
+        _chromeSummaryTextView.selectable = YES;
+        _chromeSummaryTextView.delegate = self;
+        _chromeSummaryTextView.textContainerInset = UIEdgeInsetsZero;
+        _chromeSummaryTextView.textContainer.lineFragmentPadding = 0;
+        _chromeSummaryTextView.linkTextAttributes = @{
+            NSForegroundColorAttributeName : [[UIColor whiteColor] colorWithAlphaComponent:0.95],
+            NSUnderlineStyleAttributeName : @(NSUnderlineStyleSingle),
+        };
+        _chromeSummaryHeightConstraint = [_chromeSummaryTextView.heightAnchor constraintEqualToConstant:1];
+        _chromeSummaryHeightConstraint.active = YES;
     }
-    return _chromeSummaryLabel;
-}
-
-- (UIButton *)fullTextButton {
-    if (!_fullTextButton) {
-        _fullTextButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_fullTextButton setTitle:NSLocalizedString(@"YTV_full_text_entry", @"") forState:UIControlStateNormal];
-        _fullTextButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:14];
-        [_fullTextButton setTitleColor:[[UIColor whiteColor] colorWithAlphaComponent:0.95] forState:UIControlStateNormal];
-        _fullTextButton.tintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.95];
-        [_fullTextButton addTarget:self action:@selector(ytv_onFullTextTap) forControlEvents:UIControlEventTouchUpInside];
-    }
-    return _fullTextButton;
+    return _chromeSummaryTextView;
 }
 
 - (UIStackView *)chromeLeftStack {
     if (!_chromeLeftStack) {
-        _chromeLeftStack = [[UIStackView alloc] initWithArrangedSubviews:@[ self.chromeTitleLabel, self.chromeSummaryLabel, self.fullTextButton ]];
+        _chromeLeftStack = [[UIStackView alloc] initWithArrangedSubviews:@[ self.chromeTitleLabel, self.chromeSummaryTextView ]];
         _chromeLeftStack.axis = UILayoutConstraintAxisVertical;
-        _chromeLeftStack.spacing = 8;
-        _chromeLeftStack.alignment = UIStackViewAlignmentLeading;
+        _chromeLeftStack.spacing = 6;
+        _chromeLeftStack.alignment = UIStackViewAlignmentFill;
     }
     return _chromeLeftStack;
 }

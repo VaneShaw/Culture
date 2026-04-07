@@ -30,6 +30,12 @@
     } else {
         item.favoritesCount = -1;
     }
+    id sc = dict[@"share_count"] ?: dict[@"shares_count"] ?: dict[@"shareCount"];
+    if ([sc isKindOfClass:[NSNumber class]]) {
+        item.shareCount = [sc integerValue];
+    } else {
+        item.shareCount = -1;
+    }
     id dur = dict[@"duration_ms"];
     if ([dur isKindOfClass:[NSNumber class]]) {
         item.durationMs = [dur integerValue];
@@ -103,6 +109,9 @@
     d[@"is_favorite"] = @(self.isFavorite);
     if (self.favoritesCount >= 0) {
         d[@"favorites_count"] = @(self.favoritesCount);
+    }
+    if (self.shareCount >= 0) {
+        d[@"share_count"] = @(self.shareCount);
     }
     d[@"duration_ms"] = @(self.durationMs);
     if (self.cursorToken.length) {

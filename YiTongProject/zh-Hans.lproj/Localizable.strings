@@ -390,9 +390,16 @@
 "YTV_feed_error_4xx" = "内容不可用或已失效";
 "YTV_feed_error_5xx" = "服务繁忙，请稍后重试";
 "YTV_fullscreen" = "全屏";
+"YTV_video_search_coming_soon" = "视频搜索即将上线";
+"YTV_video_search_accessibility" = "搜索";
+"YTV_feed_demo_title" = "愚公移山";
+"YTV_feed_demo_summary_long" = "年近九十的愚公家门前有两座大山——太行与王屋，出门得绕远路。他立志率子孙挖山不止，智叟讥其痴，他却相信子子孙孙无穷匮也，而山不加增，终能铲平。寓意是：目标专一、持之以恒，代代坚持便能战胜巨大困难。后世常用「愚公移山」比喻做事有顽强毅力、不怕艰难。";
+"YTV_feed_demo_see_all" = "查看全部 >";
+"YTV_feed_demo_see_all_toast" = "完整内容即将上线";
 "YTV_fullscreen_close" = "关闭";
 "YTV_fullscreen_back" = "返回";
 "YTV_fullscreen_play_hint" = "播放";
 "YTV_fullscreen_pause_hint" = "暂停";
 "Request failed" = "请求失败";
 
+"YTV_feed_loading_hint" = "视频加载中...";

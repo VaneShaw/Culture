@@ -13,6 +13,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 用户点选分类（0..3）
 @property (nonatomic, copy, nullable) void (^onSelectIndex)(NSInteger index);
+/// 点击右侧搜索
+@property (nonatomic, copy, nullable) void (^onSearchTap)(void);
 
 - (void)ytv_setSelectedIndex:(NSInteger)index animated:(BOOL)animated;
 

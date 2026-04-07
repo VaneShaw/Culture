@@ -42,6 +42,8 @@ static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
 - (instancetype)init {
     self = [super init];
     if (self) {
+        _foregroundBufferDuration = kYTVForegroundStartBufferSeconds;
+        _standbyBufferGoalDuration = kYTVStandbyBufferGoalSeconds;
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(ytv_handleAppDidEnterBackground)
                                                      name:UIApplicationDidEnterBackgroundNotification
@@ -113,7 +115,7 @@ static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
     if (!item) {
         item = [[AVPlayerItem alloc] initWithURL:url];
     }
-    item.preferredForwardBufferDuration = kYTVForegroundStartBufferSeconds;
+    item.preferredForwardBufferDuration = MAX(self.foregroundBufferDuration, 0.05);
     self.currentRequestId += 1;
     NSUInteger requestId = self.currentRequestId;
     self.currentReplaceStartDate = [NSDate date];
@@ -209,7 +211,7 @@ static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
     if (!item) {
         item = [[AVPlayerItem alloc] initWithURL:url];
     }
-    item.preferredForwardBufferDuration = kYTVForegroundStartBufferSeconds;
+    item.preferredForwardBufferDuration = MAX(self.foregroundBufferDuration, 0.05);
     self.currentRequestId += 1;
     NSUInteger requestId = self.currentRequestId;
     self.currentReplaceStartDate = [NSDate date];
@@ -547,7 +549,7 @@ static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
         CMTimeRange tr = [[ranges firstObject] CMTimeRangeValue];
         NSTimeInterval start = CMTimeGetSeconds(tr.start);
         NSTimeInterval dur = CMTimeGetSeconds(tr.duration);
-        if (isfinite(start) && isfinite(dur) && (start + dur) >= kYTVStandbyBufferGoalSeconds) {
+        if (isfinite(start) && isfinite(dur) && (start + dur) >= self.standbyBufferGoalDuration) {
             bufferedEnough = YES;
         }
     }
