@@ -142,6 +142,9 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
 @property (nonatomic, assign) BOOL beginnerEntryUnlocked;
 @property (nonatomic, assign) BOOL intermediateEntryUnlocked;
 @property (nonatomic, assign) BOOL advancedEntryUnlocked;
+@property (nonatomic, assign) NSInteger beginnerLevelRecordId;
+@property (nonatomic, assign) NSInteger intermediateLevelRecordId;
+@property (nonatomic, assign) NSInteger advancedLevelRecordId;
 
 @end
 
@@ -193,6 +196,9 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     self.beginnerEntryUnlocked = YES;
     self.intermediateEntryUnlocked = NO;
     self.advancedEntryUnlocked = NO;
+    self.beginnerLevelRecordId = 1;
+    self.intermediateLevelRecordId = 2;
+    self.advancedLevelRecordId = 3;
 
     [self setupUI];
     // 返回按钮统一走工程封装（图标/点击区域等）
@@ -612,6 +618,9 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     self.beginnerEntryUnlocked = NO;
     self.intermediateEntryUnlocked = NO;
     self.advancedEntryUnlocked = NO;
+    self.beginnerLevelRecordId = 1;
+    self.intermediateLevelRecordId = 2;
+    self.advancedLevelRecordId = 3;
 
     [self yt_setCardTitle:@"" subtitle:@"" forCard:self.beginnerCard];
     [self yt_setCardTitle:@"" subtitle:@"" forCard:self.intermediateCard];
@@ -642,18 +651,21 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
                 self.beginnerProgressRatio = ratio;
                 self.beginnerBadgeUnlocked = badgeDone;
                 self.beginnerEntryUnlocked = entry;
+                self.beginnerLevelRecordId = it.levelRecordId > 0 ? it.levelRecordId : 1;
                 [self yt_setCardTitle:title subtitle:subtitle forCard:self.beginnerCard];
                 break;
             case YTLevelIdIntermediate:
                 self.intermediateProgressRatio = ratio;
                 self.intermediateBadgeUnlocked = badgeDone;
                 self.intermediateEntryUnlocked = entry;
+                self.intermediateLevelRecordId = it.levelRecordId > 0 ? it.levelRecordId : 2;
                 [self yt_setCardTitle:title subtitle:subtitle forCard:self.intermediateCard];
                 break;
             case YTLevelIdAdvanced:
                 self.advancedProgressRatio = ratio;
                 self.advancedBadgeUnlocked = badgeDone;
                 self.advancedEntryUnlocked = entry;
+                self.advancedLevelRecordId = it.levelRecordId > 0 ? it.levelRecordId : 3;
                 [self yt_setCardTitle:title subtitle:subtitle forCard:self.advancedCard];
                 break;
             default:
@@ -1074,7 +1086,19 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     [[GlobalHUDManager shared] showSpinnerOnly];
 
     __weak typeof(self) weakSelf = self;
-    [[YTMockLearningFlowBootstrapService shared] fetchBootstrapForSceneId:flowSceneId levelId:levelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
+    YTMockLearningFlowBootstrapService *bootstrapService = [YTMockLearningFlowBootstrapService shared];
+    bootstrapService.talkSceneNumericId = self.talkSceneNumericId;
+    NSInteger requestLevelId = levelId + 1;
+    if (self.didApplyTalkLevelAPI) {
+        if (levelId == YTLevelIdBeginner) {
+            requestLevelId = self.beginnerLevelRecordId > 0 ? self.beginnerLevelRecordId : 1;
+        } else if (levelId == YTLevelIdIntermediate) {
+            requestLevelId = self.intermediateLevelRecordId > 0 ? self.intermediateLevelRecordId : 2;
+        } else {
+            requestLevelId = self.advancedLevelRecordId > 0 ? self.advancedLevelRecordId : 3;
+        }
+    }
+    [bootstrapService fetchBootstrapForSceneId:flowSceneId levelId:requestLevelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
         [[GlobalHUDManager shared] hide];
         if (!self) return;
