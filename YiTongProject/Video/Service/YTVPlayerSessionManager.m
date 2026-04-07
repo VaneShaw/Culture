@@ -10,7 +10,12 @@
 
 static void *kYTVPlayerItemStatusContext = &kYTVPlayerItemStatusContext;
 static void *kYTVPlayerLayerReadyForDisplayContext = &kYTVPlayerLayerReadyForDisplayContext;
+static void *kYTVStandbyPlayerItemStatusContext = &kYTVStandbyPlayerItemStatusContext;
+static void *kYTVStandbyPlayerItemLoadedTimeRangesContext = &kYTVStandbyPlayerItemLoadedTimeRangesContext;
+static void *kYTVStandbyPlayerStatusContext = &kYTVStandbyPlayerStatusContext;
 static NSString * const kYTVPlayerSessionLogPrefix = @"[YTVPlayerSession]";
+static const NSTimeInterval kYTVStandbyBufferGoalSeconds = 0.35;
+static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
 
 @interface YTVPlayerSessionManager ()
 @property (nonatomic, strong, readwrite) AVPlayer *player;
@@ -22,6 +27,14 @@ static NSString * const kYTVPlayerSessionLogPrefix = @"[YTVPlayerSession]";
 @property (nonatomic, assign) NSUInteger firstFrameRequestId;
 @property (nonatomic, assign) BOOL firstFrameDeliveredForCurrentRequest;
 @property (nonatomic, strong) NSDate *currentReplaceStartDate;
+@property (nonatomic, strong) AVPlayer *standbyPlayer;
+@property (nonatomic, strong, nullable) AVPlayerItem *standbyObservedItem;
+@property (nonatomic, copy, nullable) NSString *standbyURLString;
+@property (nonatomic, copy, nullable) void (^standbyReadyCompletion)(BOOL ready, NSError * _Nullable error);
+@property (nonatomic, assign) BOOL standbyReady;
+@property (nonatomic, assign) BOOL standbyPrerollStarted;
+@property (nonatomic, assign) BOOL standbyPrerollFinished;
+@property (nonatomic, assign) NSUInteger standbyGeneration;
 @end
 
 @implementation YTVPlayerSessionManager
@@ -39,6 +52,10 @@ static NSString * const kYTVPlayerSessionLogPrefix = @"[YTVPlayerSession]";
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
+    @try {
+        [_standbyPlayer removeObserver:self forKeyPath:@"status" context:kYTVStandbyPlayerStatusContext];
+    } @catch (__unused NSException *e) {
+    }
     [self clearPlayback];
 }
 
@@ -50,8 +67,19 @@ static NSString * const kYTVPlayerSessionLogPrefix = @"[YTVPlayerSession]";
     if (!_player) {
         _player = [[AVPlayer alloc] init];
         _player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+        _player.automaticallyWaitsToMinimizeStalling = NO;
     }
     return _player;
+}
+
+- (AVPlayer *)standbyPlayer {
+    if (!_standbyPlayer) {
+        _standbyPlayer = [[AVPlayer alloc] init];
+        _standbyPlayer.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+        _standbyPlayer.automaticallyWaitsToMinimizeStalling = YES;
+        [_standbyPlayer addObserver:self forKeyPath:@"status" options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew context:kYTVStandbyPlayerStatusContext];
+    }
+    return _standbyPlayer;
 }
 
 - (void)replacePlaybackWithURL:(NSURL *)url completion:(void (^)(NSError * _Nullable))completion {
@@ -85,14 +113,123 @@ static NSString * const kYTVPlayerSessionLogPrefix = @"[YTVPlayerSession]";
     if (!item) {
         item = [[AVPlayerItem alloc] initWithURL:url];
     }
+    item.preferredForwardBufferDuration = kYTVForegroundStartBufferSeconds;
     self.currentRequestId += 1;
     NSUInteger requestId = self.currentRequestId;
     self.currentReplaceStartDate = [NSDate date];
     self.firstFrameDeliveredForCurrentRequest = NO;
     NSLog(@"%@ replace start request=%lu url=%@", kYTVPlayerSessionLogPrefix, (unsigned long)requestId, url.absoluteString ?: @"<nil>");
+    [self clearStandbyPlayback];
     [self ytv_bindPlayerLayerForFirstFrameObservation:playerLayer requestId:requestId];
     [self ytv_installObservedPlayerItem:item requestId:requestId completion:completion];
     return requestId;
+}
+
+- (void)prepareStandbyPlaybackWithURL:(NSURL *)url
+               preferredPlayerItem:(AVPlayerItem *)prewarmedItem
+                         completion:(void (^)(BOOL ready, NSError * _Nullable error))completion {
+    if (!url) {
+        if (completion) {
+            completion(NO, [NSError errorWithDomain:@"YTVPlayerSessionManager" code:-11 userInfo:@{NSLocalizedDescriptionKey: @"standby URL is nil"}]);
+        }
+        return;
+    }
+    NSString *u = url.absoluteString ?: @"";
+    if (u.length == 0) {
+        if (completion) {
+            completion(NO, [NSError errorWithDomain:@"YTVPlayerSessionManager" code:-12 userInfo:@{NSLocalizedDescriptionKey: @"standby URL string empty"}]);
+        }
+        return;
+    }
+    if (self.standbyReady && [self.standbyURLString isEqualToString:u] && self.standbyObservedItem) {
+        if (completion) {
+            completion(YES, nil);
+        }
+        return;
+    }
+    AVPlayerItem *item = nil;
+    if ([prewarmedItem isKindOfClass:[AVPlayerItem class]]) {
+        AVAsset *asset = prewarmedItem.asset;
+        if ([asset isKindOfClass:[AVURLAsset class]]) {
+            NSURL *assetURL = [(AVURLAsset *)asset URL];
+            if (assetURL && [assetURL.absoluteString isEqualToString:u]) {
+                // 候场与前台不可共享同一个 AVPlayerItem；这里只复用同源 asset，重新创建 item。
+                item = [AVPlayerItem playerItemWithAsset:asset];
+            }
+        }
+    }
+    if (!item) {
+        item = [[AVPlayerItem alloc] initWithURL:url];
+    }
+    item.preferredForwardBufferDuration = MAX(item.preferredForwardBufferDuration, 1.2);
+    if (self.standbyObservedItem && [self.standbyURLString isEqualToString:u]) {
+        self.standbyReadyCompletion = completion;
+        [self ytv_resolveStandbyStateForItem:self.standbyObservedItem generation:self.standbyGeneration];
+        return;
+    }
+    self.standbyGeneration += 1;
+    self.standbyReady = NO;
+    self.standbyPrerollStarted = NO;
+    self.standbyPrerollFinished = NO;
+    self.standbyURLString = u;
+    self.standbyReadyCompletion = completion;
+    [self ytv_installStandbyObservedItem:item generation:self.standbyGeneration];
+}
+
+- (BOOL)hasStandbyPlaybackMatchingURL:(NSURL *)url {
+    NSString *u = url.absoluteString ?: @"";
+    return u.length > 0 && self.standbyReady && [self.standbyURLString isEqualToString:u] && self.standbyObservedItem != nil;
+}
+
+- (BOOL)standbyPlaybackReadyForURL:(NSURL *)url {
+    return [self hasStandbyPlaybackMatchingURL:url];
+}
+
+- (NSUInteger)promoteStandbyPlaybackMatchingURL:(NSURL *)url
+                                     playerLayer:(AVPlayerLayer *)playerLayer
+                                      completion:(void (^)(NSError * _Nullable error))completion {
+    return [self promoteStandbyPlaybackByRebuildingItemMatchingURL:url playerLayer:playerLayer completion:completion];
+}
+
+- (NSUInteger)promoteStandbyPlaybackByRebuildingItemMatchingURL:(NSURL *)url
+                                                    playerLayer:(AVPlayerLayer *)playerLayer
+                                                     completion:(void (^)(NSError * _Nullable error))completion {
+    if (![self hasStandbyPlaybackMatchingURL:url]) {
+        return 0;
+    }
+    AVPlayerItem *standbyItem = self.standbyObservedItem;
+    NSString *u = self.standbyURLString;
+    AVPlayerItem *item = nil;
+    if ([standbyItem.asset isKindOfClass:[AVURLAsset class]]) {
+        NSURL *assetURL = [(AVURLAsset *)standbyItem.asset URL];
+        if (assetURL && [assetURL.absoluteString isEqualToString:(url.absoluteString ?: @"")]) {
+            item = [AVPlayerItem playerItemWithAsset:standbyItem.asset];
+        }
+    }
+    if (!item) {
+        item = [[AVPlayerItem alloc] initWithURL:url];
+    }
+    item.preferredForwardBufferDuration = kYTVForegroundStartBufferSeconds;
+    self.currentRequestId += 1;
+    NSUInteger requestId = self.currentRequestId;
+    self.currentReplaceStartDate = [NSDate date];
+    self.firstFrameDeliveredForCurrentRequest = NO;
+    NSLog(@"%@ standby promote rebuild request=%lu url=%@", kYTVPlayerSessionLogPrefix, (unsigned long)requestId, u ?: @"<nil>");
+    [self clearStandbyPlayback];
+    [self ytv_bindPlayerLayerForFirstFrameObservation:playerLayer requestId:requestId];
+    [self ytv_installObservedPlayerItem:item requestId:requestId completion:completion];
+    return requestId;
+}
+
+- (void)clearStandbyPlayback {
+    [self ytv_removeStandbyItemObservers];
+    self.standbyURLString = nil;
+    self.standbyReadyCompletion = nil;
+    self.standbyReady = NO;
+    self.standbyPrerollStarted = NO;
+    self.standbyPrerollFinished = NO;
+    [self.standbyPlayer pause];
+    [self.standbyPlayer replaceCurrentItemWithPlayerItem:nil];
 }
 
 - (void)bindPlayerLayerForFirstFrameObservation:(AVPlayerLayer *)playerLayer {
@@ -141,6 +278,31 @@ static NSString * const kYTVPlayerSessionLogPrefix = @"[YTVPlayerSession]";
                        context:(void *)context {
     if (context == kYTVPlayerItemStatusContext) {
         [self ytv_resolvePendingIfTerminalStatusForItem:(AVPlayerItem *)object];
+        return;
+    }
+    if (context == kYTVStandbyPlayerItemStatusContext) {
+        AVPlayerItem *item = (AVPlayerItem *)object;
+        if (item == self.standbyObservedItem) {
+            if (item.status == AVPlayerItemStatusReadyToPlay) {
+            } else if (item.status == AVPlayerItemStatusFailed) {
+                NSLog(@"%@ standby item failed url=%@ error=%@", kYTVPlayerSessionLogPrefix, self.standbyURLString ?: @"<nil>", item.error.localizedDescription ?: @"<nil>");
+            }
+        }
+        [self ytv_resolveStandbyStateForItem:item];
+        return;
+    }
+    if (context == kYTVStandbyPlayerItemLoadedTimeRangesContext) {
+        [self ytv_resolveStandbyStateForItem:(AVPlayerItem *)object];
+        return;
+    }
+    if (context == kYTVStandbyPlayerStatusContext) {
+        if (self.standbyObservedItem) {
+            if (self.standbyPlayer.status == AVPlayerStatusReadyToPlay) {
+            } else if (self.standbyPlayer.status == AVPlayerStatusFailed) {
+                NSLog(@"%@ standby player failed url=%@ error=%@", kYTVPlayerSessionLogPrefix, self.standbyURLString ?: @"<nil>", self.standbyPlayer.error.localizedDescription ?: @"<nil>");
+            }
+        }
+        [self ytv_resolveStandbyStateForItem:self.standbyObservedItem];
         return;
     }
     if (context == kYTVPlayerLayerReadyForDisplayContext) {
@@ -315,6 +477,7 @@ static NSString * const kYTVPlayerSessionLogPrefix = @"[YTVPlayerSession]";
 }
 
 - (void)clearPlayback {
+    [self clearStandbyPlayback];
     [self ytv_removeItemObservers];
     [self ytv_removeFirstFrameObserver];
     self.pendingReadyCompletion = nil;
@@ -323,6 +486,110 @@ static NSString * const kYTVPlayerSessionLogPrefix = @"[YTVPlayerSession]";
     self.currentReplaceStartDate = nil;
     [self.player pause];
     [self.player replaceCurrentItemWithPlayerItem:nil];
+}
+
+- (void)ytv_installStandbyObservedItem:(AVPlayerItem *)item generation:(NSUInteger)generation {
+    [self ytv_removeStandbyItemObservers];
+    self.standbyObservedItem = item;
+    [item addObserver:self forKeyPath:@"status" options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew context:kYTVStandbyPlayerItemStatusContext];
+    [item addObserver:self forKeyPath:@"loadedTimeRanges" options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew context:kYTVStandbyPlayerItemLoadedTimeRangesContext];
+    [self.standbyPlayer replaceCurrentItemWithPlayerItem:item];
+    [self.standbyPlayer pause];
+    [self ytv_resolveStandbyStateForItem:item generation:generation];
+}
+
+/// 候场预热要等 item 先 ReadyToPlay，再触发 preroll；否则 AVPlayer 会在主线程抛断言。
+- (void)ytv_resolveStandbyStateForItem:(AVPlayerItem *)item {
+    [self ytv_resolveStandbyStateForItem:item generation:self.standbyGeneration];
+}
+
+- (void)ytv_resolveStandbyStateForItem:(AVPlayerItem *)item generation:(NSUInteger)generation {
+    if (!item || item != self.standbyObservedItem || self.standbyReady || generation != self.standbyGeneration) {
+        return;
+    }
+    if (item.status == AVPlayerItemStatusFailed) {
+        NSError *err = item.error ?: [NSError errorWithDomain:@"YTVPlayerSessionManager" code:-14 userInfo:@{NSLocalizedDescriptionKey: @"standby item failed"}];
+        NSLog(@"%@ standby failed url=%@ error=%@", kYTVPlayerSessionLogPrefix, self.standbyURLString ?: @"<nil>", err.localizedDescription ?: @"<nil>");
+        [self ytv_deliverStandbyReady:NO error:err];
+        return;
+    }
+    if (item.status != AVPlayerItemStatusReadyToPlay) {
+        return;
+    }
+    if (self.standbyPlayer.status == AVPlayerStatusFailed) {
+        NSError *playerError = self.standbyPlayer.error ?: [NSError errorWithDomain:@"YTVPlayerSessionManager" code:-15 userInfo:@{NSLocalizedDescriptionKey: @"standby player failed"}];
+        [self ytv_deliverStandbyReady:NO error:playerError];
+        return;
+    }
+    if (self.standbyPlayer.status != AVPlayerStatusReadyToPlay) {
+        return;
+    }
+    if (!self.standbyPrerollStarted) {
+        self.standbyPrerollStarted = YES;
+        __weak typeof(self) weakSelf = self;
+        [self.standbyPlayer prerollAtRate:0.0 completionHandler:^(BOOL finished) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self || generation != self.standbyGeneration) {
+                return;
+            }
+            self.standbyPrerollFinished = finished;
+            if (!finished) {
+                [self ytv_deliverStandbyReady:NO error:[NSError errorWithDomain:@"YTVPlayerSessionManager" code:-13 userInfo:@{NSLocalizedDescriptionKey: @"standby preroll cancelled"}]];
+                return;
+            }
+            [self ytv_resolveStandbyStateForItem:item generation:generation];
+        }];
+        return;
+    }
+    BOOL bufferedEnough = NO;
+    NSArray *ranges = item.loadedTimeRanges;
+    if ([ranges isKindOfClass:[NSArray class]] && ranges.count > 0) {
+        CMTimeRange tr = [[ranges firstObject] CMTimeRangeValue];
+        NSTimeInterval start = CMTimeGetSeconds(tr.start);
+        NSTimeInterval dur = CMTimeGetSeconds(tr.duration);
+        if (isfinite(start) && isfinite(dur) && (start + dur) >= kYTVStandbyBufferGoalSeconds) {
+            bufferedEnough = YES;
+        }
+    }
+    if (!bufferedEnough && item.playbackLikelyToKeepUp) {
+        bufferedEnough = YES;
+    }
+    if (!bufferedEnough) {
+        return;
+    }
+    NSLog(@"%@ standby buffer ready url=%@ keepUp=%@", kYTVPlayerSessionLogPrefix, self.standbyURLString ?: @"<nil>", item.playbackLikelyToKeepUp ? @"YES" : @"NO");
+    self.standbyReady = YES;
+    NSLog(@"%@ standby ready url=%@", kYTVPlayerSessionLogPrefix, self.standbyURLString ?: @"<nil>");
+    [self ytv_deliverStandbyReady:YES error:nil];
+}
+
+- (void)ytv_deliverStandbyReady:(BOOL)ready error:(NSError *)error {
+    void (^block)(BOOL, NSError *) = self.standbyReadyCompletion;
+    self.standbyReadyCompletion = nil;
+    if (!block) {
+        return;
+    }
+    if ([NSThread isMainThread]) {
+        block(ready, error);
+    } else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            block(ready, error);
+        });
+    }
+}
+
+- (void)ytv_removeStandbyItemObservers {
+    if (_standbyObservedItem) {
+        @try {
+            [_standbyObservedItem removeObserver:self forKeyPath:@"status" context:kYTVStandbyPlayerItemStatusContext];
+        } @catch (__unused NSException *e) {
+        }
+        @try {
+            [_standbyObservedItem removeObserver:self forKeyPath:@"loadedTimeRanges" context:kYTVStandbyPlayerItemLoadedTimeRangesContext];
+        } @catch (__unused NSException *e) {
+        }
+        _standbyObservedItem = nil;
+    }
 }
 
 @end

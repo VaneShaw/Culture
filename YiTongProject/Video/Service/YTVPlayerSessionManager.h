@@ -12,6 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class AVPlayer;
 @class AVPlayerItem;
 @class AVPlayerLayer;
+@class NSURL;
 
 typedef NS_ENUM(NSInteger, YTVPlayerSessionEventType) {
     YTVPlayerSessionEventTypeItemReady = 0,
@@ -41,6 +42,28 @@ typedef void (^YTVPlayerSessionEventHandler)(YTVPlayerSessionEventType eventType
 
 /// 更新首帧监听所依附的渲染层；切 cell 重绑同一 player 时调用。
 - (void)bindPlayerLayerForFirstFrameObservation:(nullable AVPlayerLayer *)playerLayer;
+
+/// 后台候场：仅为 next1 进入可播/有缓冲状态；不触发前台 layer 绑定。
+- (void)prepareStandbyPlaybackWithURL:(NSURL *)url
+               preferredPlayerItem:(nullable AVPlayerItem *)prewarmedItem
+                         completion:(void (^)(BOOL ready, NSError * _Nullable error))completion;
+
+/// 当前前台请求是否已被后台候场命中；命中时直接接管候场 item。
+- (BOOL)hasStandbyPlaybackMatchingURL:(NSURL *)url;
+- (NSUInteger)promoteStandbyPlaybackMatchingURL:(NSURL *)url
+                                     playerLayer:(nullable AVPlayerLayer *)playerLayer
+                                      completion:(void (^)(NSError * _Nullable error))completion;
+
+/// 命中候场后复用同源 asset 重建前台 item，避免直接复用已绑定过 standbyPlayer 的 AVPlayerItem。
+- (NSUInteger)promoteStandbyPlaybackByRebuildingItemMatchingURL:(NSURL *)url
+                                                    playerLayer:(nullable AVPlayerLayer *)playerLayer
+                                                     completion:(void (^)(NSError * _Nullable error))completion;
+
+/// 候场路径是否已经达到可播态（ready + 初始缓冲阈值）。
+- (BOOL)standbyPlaybackReadyForURL:(NSURL *)url;
+
+/// 当前条或候场条切换后，取消无效候场，避免额外占用解码与带宽。
+- (void)clearStandbyPlayback;
 
 - (void)play;
 - (void)pause;

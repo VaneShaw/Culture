@@ -137,6 +137,8 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 @property (nonatomic, assign) BOOL ytv_userPausedWithPlayHint;
 /// 跟手滚动时上次已预热的「预计落屏」索引，避免 `scrollViewDidScroll` 重复刷池
 @property (nonatomic, assign) NSInteger ytv_lastProvisionalWarmIndex;
+/// 当前候场的下一条索引；用于前滑秒开候场命中。
+@property (nonatomic, assign) NSInteger ytv_standbyTargetIndex;
 /// 当前待完成播放绑定的索引；切换中用于过滤旧回调。
 @property (nonatomic, assign) NSInteger ytv_pendingBindIndex;
 /// 切源中为 YES，首帧/失败后复位。
@@ -175,6 +177,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 - (void)ytv_onInlineFullscreenSliderRelease;
 - (Float64)ytv_inlineFullscreenDurationSeconds;
 - (void)ytv_inlineFullscreenSeekToNormalized:(float)n;
+- (void)ytv_prepareStandbyPlaybackForTargetIndex:(NSInteger)targetIdx;
 @end
 
 @implementation YTVShortVideoFeedViewController
@@ -186,6 +189,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         _ytv_isFavoritesFeed = NO;
         _currentPlayIndex = NSNotFound;
         _ytv_pendingBindIndex = NSNotFound;
+        _ytv_standbyTargetIndex = NSNotFound;
         _ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
     }
     return self;
@@ -200,6 +204,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         _categoryKey = @"__favorites__";
         _currentPlayIndex = NSNotFound;
         _ytv_pendingBindIndex = NSNotFound;
+        _ytv_standbyTargetIndex = NSNotFound;
         _ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
         self.hidesBottomBarWhenPushed = YES;
     }
@@ -643,6 +648,9 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     targetIdx = MAX(0, MIN(targetIdx, maxIdx));
     [self ytv_warmAroundProvisionalDisplayIndex:targetIdx];
     // 只有当前条已稳定出首帧时，才前移候场到目标页，避免首播阶段被后台候场抢资源。
+    if (self.ytv_currentPlaybackFirstFrameReady) {
+        [self ytv_prepareStandbyPlaybackForTargetIndex:targetIdx];
+    }
 }
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
@@ -718,6 +726,9 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
 /// 预取即将出现的页内容：提前 warm 媒体并把封面压入图片缓存，减少首次展示页的卡顿感。
 - (void)ytv_prefetchContentForIndexPaths:(NSArray<NSIndexPath *> *)indexPaths {
     if (!self.ytv_categoryFeedActive || self.feedViewModel.state != YTVShortVideoFeedStateReady) {
+        self.ytv_standbyTargetIndex = NSNotFound;
+        [self.preloadManager setDeepPrewarmTargetVideoId:nil];
+        [self.playerSession clearStandbyPlayback];
         return;
     }
     if (indexPaths.count == 0) {
@@ -775,6 +786,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     self.currentPlayIndex = newIndex;
     self.ytv_pendingBindIndex = newIndex;
     self.ytv_currentPlaybackFirstFrameReady = NO;
+    self.ytv_standbyTargetIndex = NSNotFound;
     [self ytv_applyPlaybackForCurrentIndexIfPossible];
     [self ytv_resyncPlaybackAroundCurrentIndex];
 }
@@ -787,7 +799,15 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     if (self.currentPlayIndex == NSNotFound) {
         return;
     }
+    NSInteger deepIdx = self.currentPlayIndex + 1;
+    if (deepIdx >= 0 && deepIdx < (NSInteger)self.feedViewModel.numberOfItems) {
+        YTVVideoFeedItem *next = [self.feedViewModel itemAtIndex:deepIdx];
+        [self.preloadManager setDeepPrewarmTargetVideoId:next.videoId];
+    } else {
+        [self.preloadManager setDeepPrewarmTargetVideoId:nil];
+    }
     [self.preloadManager warmAroundDisplayIndex:self.currentPlayIndex items:self.feedViewModel.items];
+    [self ytv_prepareStandbyPlaybackForTargetIndex:deepIdx];
 }
 
 /// 切源 token 与切换标记回到空闲，用于列表重置、失败或当前条不可播。
@@ -837,6 +857,9 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
         return;
     }
     if (targetIdx < 0 || targetIdx >= (NSInteger)self.feedViewModel.numberOfItems) {
+        self.ytv_standbyTargetIndex = NSNotFound;
+        [self.preloadManager setDeepPrewarmTargetVideoId:nil];
+        [self.playerSession clearStandbyPlayback];
         return;
     }
     if (targetIdx == self.currentPlayIndex) {
@@ -881,25 +904,46 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     __weak typeof(self) weakSelf = self;
     AVPlayerLayer *playerLayer = cell ? cell.renderView.playerLayer : nil;
     __block NSUInteger requestId = 0;
-    requestId = [self.playerSession replacePlaybackWithURL:url
-                                   preferredPrewarmedPlayerItem:prewarmed
-                                                     playerLayer:playerLayer
-                                                      completion:^(NSError * _Nullable error) {
-        __strong typeof(weakSelf) self = weakSelf;
-        if (!self) {
-            return;
-        }
-        if (self.currentPlayIndex != bindIdx || self.ytv_pendingBindIndex != bindIdx || self.ytv_pendingPlaybackRequestId != requestId) {
-            return;
-        }
-        if (error) {
-            [self ytv_failPlaybackAtIndex:bindIdx error:error];
-            return;
-        }
-        [self.playerSession play];
-        self.ytv_userPausedWithPlayHint = NO;
-        [self ytv_refreshInteractionChrome];
-    }];
+    if ([self.playerSession standbyPlaybackReadyForURL:url]) {
+        requestId = [self.playerSession promoteStandbyPlaybackByRebuildingItemMatchingURL:url playerLayer:playerLayer completion:^(NSError * _Nullable error) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) {
+                return;
+            }
+            if (self.currentPlayIndex != bindIdx || self.ytv_pendingBindIndex != bindIdx || self.ytv_pendingPlaybackRequestId != requestId) {
+                return;
+            }
+            if (error) {
+                [self ytv_failPlaybackAtIndex:bindIdx error:error];
+                return;
+            }
+            [self.playerSession play];
+            self.ytv_userPausedWithPlayHint = NO;
+            [self ytv_refreshInteractionChrome];
+        }];
+        NSLog(@"[YTVFeed] standby handoff rebuild hit idx=%ld videoId=%@", (long)bindIdx, item.videoId ?: @"<nil>");
+    } else {
+        requestId = [self.playerSession replacePlaybackWithURL:url
+                                       preferredPrewarmedPlayerItem:prewarmed
+                                                         playerLayer:playerLayer
+                                                          completion:^(NSError * _Nullable error) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) {
+                return;
+            }
+            if (self.currentPlayIndex != bindIdx || self.ytv_pendingBindIndex != bindIdx || self.ytv_pendingPlaybackRequestId != requestId) {
+                return;
+            }
+            if (error) {
+                [self ytv_failPlaybackAtIndex:bindIdx error:error];
+                return;
+            }
+            [self.playerSession play];
+            self.ytv_userPausedWithPlayHint = NO;
+            [self ytv_refreshInteractionChrome];
+        }];
+        NSLog(@"[YTVFeed] cold switch fallback idx=%ld videoId=%@", (long)bindIdx, item.videoId ?: @"<nil>");
+    }
     if (requestId != expectedRequestId && requestId != 0) {
         self.ytv_pendingPlaybackRequestId = requestId;
     }
@@ -1031,6 +1075,7 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     [cell ytv_clearPlaybackFailureState];
     [cell ytv_hideCoverAfterFirstFrameAnimated:YES];
     [self ytv_commitPlaybackBindingAfterFirstFrame];
+    [self ytv_prepareStandbyPlaybackForTargetIndex:index + 1];
 }
 
 /// 播放失败时保留封面，避免露出黑底或旧帧。

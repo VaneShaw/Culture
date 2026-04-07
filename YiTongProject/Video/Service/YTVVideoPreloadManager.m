@@ -8,14 +8,16 @@
 #import "HeaderConfig.h"
 #import <AVFoundation/AVFoundation.h>
 
-static const NSUInteger kYTVMediaWarmMaxItems = 8;
+static const NSUInteger kYTVMediaWarmMaxItems = 12;
 static const NSTimeInterval kYTVWarmForwardBufferDuration = 2.0;
 static NSString * const kYTVVideoWarmLogPrefix = @"[YTVWarm]";
 
 typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     YTVVideoWarmEntryStateIdle = 0,
-    YTVVideoWarmEntryStatePreparing,
-    YTVVideoWarmEntryStatePrepared,
+    YTVVideoWarmEntryStatePreparingAsset,
+    YTVVideoWarmEntryStateAssetReady,
+    YTVVideoWarmEntryStateItemReady,
+    YTVVideoWarmEntryStateBufferedReady,
     YTVVideoWarmEntryStateFailed,
 };
 
@@ -27,6 +29,7 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 @property (nonatomic, strong, nullable) AVPlayerItem *playerItem;
 @property (nonatomic, assign) YTVVideoWarmEntryState state;
 @property (nonatomic, strong) NSDate *lastAccess;
+@property (nonatomic, assign) BOOL isDeepTarget;
 @end
 
 @implementation YTVVideoWarmEntry
@@ -36,6 +39,7 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 @property (nonatomic, strong) NSMutableDictionary<NSString *, YTVVideoWarmEntry *> *warmByVideoId;
 @property (nonatomic, strong) NSMutableOrderedSet<NSString *> *warmAccessOrder;
 @property (nonatomic, copy, nullable) NSString *protectedPlaybackVideoId;
+@property (nonatomic, copy, nullable) NSString *deepPrewarmTargetVideoId;
 @property (nonatomic, strong) NSSet<NSString *> *preservedWarmVideoIds;
 @end
 
@@ -59,6 +63,9 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     NSMutableArray<NSURL *> *coverURLs = [NSMutableArray array];
     NSMutableIndexSet *warmIndices = [NSMutableIndexSet indexSet];
     NSInteger n = (NSInteger)items.count;
+    if (displayIndex >= 0 && displayIndex < n) {
+        [warmIndices addIndex:(NSUInteger)displayIndex];
+    }
     if (displayIndex > 0) {
         [warmIndices addIndex:(NSUInteger)(displayIndex - 1)];
     }
@@ -72,6 +79,7 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
         [warmIndices addIndex:(NSUInteger)(displayIndex + 3)];
     }
 
+    self.deepPrewarmTargetVideoId = nil;
     NSMutableSet<NSString *> *preservedIds = [NSMutableSet set];
     if (self.protectedPlaybackVideoId.length > 0) {
         [preservedIds addObject:self.protectedPlaybackVideoId];
@@ -107,14 +115,19 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     }
 
     YTVVideoWarmEntry *entry = self.warmByVideoId[item.videoId];
+    BOOL isDeepTarget = (self.deepPrewarmTargetVideoId.length > 0 && [self.deepPrewarmTargetVideoId isEqualToString:item.videoId]);
     if (entry) {
         if (![entry.playURL isEqualToString:item.playURL]) {
             [self.warmByVideoId removeObjectForKey:item.videoId];
             [self.warmAccessOrder removeObject:item.videoId];
             entry = nil;
         } else {
+            entry.isDeepTarget = isDeepTarget;
             [self ytv_touchEntry:entry];
-            if (entry.state == YTVVideoWarmEntryStatePreparing || entry.state == YTVVideoWarmEntryStatePrepared) {
+            if (entry.state == YTVVideoWarmEntryStatePreparingAsset || entry.state == YTVVideoWarmEntryStateBufferedReady) {
+                return;
+            }
+            if (!isDeepTarget && (entry.state == YTVVideoWarmEntryStateAssetReady || entry.state == YTVVideoWarmEntryStateItemReady)) {
                 return;
             }
         }
@@ -138,9 +151,9 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     }
     entry.asset = [AVURLAsset URLAssetWithURL:url options:nil];
     entry.playerItem = nil;
-    entry.state = YTVVideoWarmEntryStatePreparing;
+    entry.isDeepTarget = isDeepTarget;
+    entry.state = YTVVideoWarmEntryStatePreparingAsset;
     [self ytv_touchEntry:entry];
-    NSLog(@"%@ warm enqueue videoId=%@ url=%@", kYTVVideoWarmLogPrefix, item.videoId ?: @"<nil>", item.playURL ?: @"<nil>");
 
     __weak typeof(self) weakSelf = self;
     AVURLAsset *asset = entry.asset;
@@ -172,24 +185,39 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
                       logError.localizedDescription ?: @"asset keys not ready");
                 return;
             }
+            currentEntry.state = YTVVideoWarmEntryStateAssetReady;
             AVPlayerItem *playerItem = [AVPlayerItem playerItemWithAsset:asset];
-            playerItem.preferredForwardBufferDuration = kYTVWarmForwardBufferDuration;
+            playerItem.preferredForwardBufferDuration = currentEntry.isDeepTarget ? MAX(kYTVWarmForwardBufferDuration, 4.0) : kYTVWarmForwardBufferDuration;
             currentEntry.playerItem = playerItem;
-            currentEntry.state = YTVVideoWarmEntryStatePrepared;
+            currentEntry.state = currentEntry.isDeepTarget ? YTVVideoWarmEntryStateBufferedReady : YTVVideoWarmEntryStateItemReady;
             [self ytv_touchEntry:currentEntry];
-            NSLog(@"%@ warm prepared videoId=%@", kYTVVideoWarmLogPrefix, currentEntry.videoId ?: @"<nil>");
         });
     }];
 }
 
 - (nullable AVPlayerItem *)preparedPlayerItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL {
     YTVVideoWarmEntry *entry = [self ytv_validEntryForVideoId:videoId playURL:playURL];
-    if (!entry || entry.state != YTVVideoWarmEntryStatePrepared) {
+    if (!entry || (entry.state != YTVVideoWarmEntryStateItemReady && entry.state != YTVVideoWarmEntryStateBufferedReady)) {
         return nil;
     }
     [self ytv_touchEntry:entry];
-    NSLog(@"%@ warm hit videoId=%@", kYTVVideoWarmLogPrefix, videoId ?: @"<nil>");
     return entry.playerItem;
+}
+
+- (BOOL)hasDeepPreparedItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL {
+    YTVVideoWarmEntry *entry = [self ytv_validEntryForVideoId:videoId playURL:playURL];
+    return entry && entry.state == YTVVideoWarmEntryStateBufferedReady;
+}
+
+- (void)setDeepPrewarmTargetVideoId:(NSString *)videoId {
+    _deepPrewarmTargetVideoId = videoId.length > 0 ? [videoId copy] : nil;
+    for (YTVVideoWarmEntry *entry in self.warmByVideoId.allValues) {
+        BOOL deep = (_deepPrewarmTargetVideoId.length > 0 && [entry.videoId isEqualToString:_deepPrewarmTargetVideoId]);
+        entry.isDeepTarget = deep;
+        if (deep && entry.state == YTVVideoWarmEntryStateItemReady) {
+            entry.state = YTVVideoWarmEntryStateBufferedReady;
+        }
+    }
 }
 
 - (void)markPlaybackProtectedVideoId:(NSString *)videoId {
@@ -255,6 +283,7 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 
 - (void)invalidateAllWarmItems {
     self.protectedPlaybackVideoId = nil;
+    self.deepPrewarmTargetVideoId = nil;
     self.preservedWarmVideoIds = [NSSet set];
     [self.warmByVideoId removeAllObjects];
     [self.warmAccessOrder removeAllObjects];

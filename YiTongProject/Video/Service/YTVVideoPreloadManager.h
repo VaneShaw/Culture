@@ -17,8 +17,14 @@ NS_ASSUME_NONNULL_BEGIN
 /// 当前索引邻域：上一条 + 后两条封面预取，并对媒体资源做真预热。
 - (void)warmAroundDisplayIndex:(NSInteger)displayIndex items:(NSArray<YTVVideoFeedItem *> *)items;
 
-/// 仅在预热条目已进入 Prepared 时返回可复用的 playerItem；否则返回 nil。
+/// 浅预热命中：`ItemReady` 或更深状态时返回可复用的 playerItem；否则返回 nil。
 - (nullable AVPlayerItem *)preparedPlayerItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL;
+
+/// 当前索引的 next1 是否已达到深预热（buffered-ready，可直接交给后台候场 player）。
+- (BOOL)hasDeepPreparedItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL;
+
+/// 指定 next1 为深预热目标；其余条目仍保持浅预热，避免带宽与内存失控。
+- (void)setDeepPrewarmTargetVideoId:(nullable NSString *)videoId;
 
 /// 当前 AVPlayer 正在使用的 videoId；裁剪 warm 池时优先保留该项。
 - (void)markPlaybackProtectedVideoId:(nullable NSString *)videoId;
