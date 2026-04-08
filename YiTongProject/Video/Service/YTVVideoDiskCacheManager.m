@@ -8,8 +8,9 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-static const NSUInteger kYTVVideoDiskCacheMaxItems = 6;
-static const unsigned long long kYTVVideoDiskCacheMaxBytes = 120ull * 1024ull * 1024ull;
+// 条数/字节略放宽，减少滑到列表后部时 LRU 过早驱逐、首条仍走 network_first 的情况。
+static const NSUInteger kYTVVideoDiskCacheMaxItems = 12;
+static const unsigned long long kYTVVideoDiskCacheMaxBytes = 256ull * 1024ull * 1024ull;
 static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
 
 @interface YTVVideoDiskCacheManager ()

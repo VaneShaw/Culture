@@ -10,8 +10,9 @@
 #import "NetworkMonitor.h"
 #import <AVFoundation/AVFoundation.h>
 
-static const NSUInteger kYTVMediaWarmMaxItems = 12;
-static const NSTimeInterval kYTVWarmForwardBufferDuration = 2.0;
+static const NSUInteger kYTVMediaWarmMaxItems = 18;
+// 略增大前向缓冲，有利于首帧更快稳定（仍低于深预热的 4s）。
+static const NSTimeInterval kYTVWarmForwardBufferDuration = 2.8;
 static NSString * const kYTVVideoWarmLogPrefix = @"[YTVWarm]";
 
 typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
@@ -129,6 +130,8 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     if (!url || (![url.scheme.lowercaseString isEqualToString:@"http"] && ![url.scheme.lowercaseString isEqualToString:@"https"])) {
         return;
     }
+    // 与 AV 预热并行排队落盘，比「仅首帧后再缓存当前条」更早形成 disk 命中。
+    [[YTVVideoCacheProxyManager sharedManager] prefetchVideoForRemoteURLString:item.playURL];
 
     YTVVideoWarmEntry *entry = self.warmByVideoId[item.videoId];
     BOOL isDeepTarget = (self.deepPrewarmTargetVideoId.length > 0 && [self.deepPrewarmTargetVideoId isEqualToString:item.videoId]);
@@ -258,13 +261,13 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     NetworkStatusType status = [NetworkMonitor sharedMonitor].currentStatus;
     BOOL fastSwipe = self.lastObservedVelocityY >= 1.15;
     if (status == NetworkStatusTypeWiFi) {
-        self.adaptiveForwardCount = fastSwipe ? 4 : 3;
+        self.adaptiveForwardCount = fastSwipe ? 5 : 4;
         self.adaptiveAllowsDeepNext2 = fastSwipe;
     } else if (status == NetworkStatusTypeCellular) {
-        self.adaptiveForwardCount = fastSwipe ? 3 : 2;
+        self.adaptiveForwardCount = fastSwipe ? 4 : 3;
         self.adaptiveAllowsDeepNext2 = NO;
     } else {
-        self.adaptiveForwardCount = 2;
+        self.adaptiveForwardCount = 3;
         self.adaptiveAllowsDeepNext2 = NO;
     }
 }

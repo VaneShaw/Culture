@@ -1518,7 +1518,16 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         [self.preloadManager prefetchPlaybackResourceForVideoId:item.videoId playURL:item.playURL];
         NSLog(@"[YTVFeed] first frame idx=%ld videoId=%@ source=%@ ttff=%.0fms", (long)index, item.videoId ?: @"<nil>", self.ytv_currentPlaybackSourceLabel ?: @"unknown", (CACurrentMediaTime() - self.ytv_currentPlaybackStartTime) * 1000.0);
     }
-    [self ytv_prepareStandbyPlaybackForTargetIndex:index + 1];
+    NSInteger nData = (NSInteger)self.feedViewModel.numberOfItems;
+    NSInteger standbyIdx = index + 1;
+    if (standbyIdx >= nData) {
+        if ([self ytv_loopRingScrollActive] && nData >= 2) {
+            standbyIdx = 0;
+        } else {
+            standbyIdx = -1;
+        }
+    }
+    [self ytv_prepareStandbyPlaybackForTargetIndex:standbyIdx];
 }
 
 /// 播放失败时保留封面，避免露出黑底或旧帧。
