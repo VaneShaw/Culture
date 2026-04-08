@@ -18,6 +18,12 @@
 #import <QuartzCore/QuartzCore.h>
 #import <math.h>
 
+#if DEBUG
+#define YTVFeedWrapLog(fmt, ...) NSLog((@"[YTVFeedWrap] " fmt), ##__VA_ARGS__)
+#else
+#define YTVFeedWrapLog(...)
+#endif
+
 static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
 /// 内联全屏：在窗口 safeArea 基础上再保证的最小留白（返回与进度条左对齐）
 static const CGFloat kYTVInlineFullscreenHostChromeInset = 16.0;
@@ -152,6 +158,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 @property (nonatomic, strong) UIView *nextLoadFailureBar;
 @property (nonatomic, strong) UILabel *nextLoadFailureLabel;
 @property (nonatomic, strong) UIButton *nextLoadFailureRetryButton;
+/// 在「末条触发的补页」已结束且当前仍停在末条、列表条数未增加时置 YES（含请求失败或成功但无新条/全去重）；用于接口仍标 hasMore 时也能回绕，且不会在列表中段补货误判。
+@property (nonatomic, assign) BOOL ytv_allowWrapFromLastAfterTailFetchIdle;
+/// `scrollViewWillEndDragging` 中已判定应回绕到首条，但 paging 可能忽略 `targetContentOffset` 时在减速结束再强制对齐。
+@property (nonatomic, assign) BOOL ytv_pendingManualWrapToHead;
 /// 用户点击画面暂停后为 YES，中央显示播放图标；切条或代码里 `play` 后清 NO
 @property (nonatomic, assign) BOOL ytv_userPausedWithPlayHint;
 /// 跟手滚动时上次已预热的「预计落屏」索引，避免 `scrollViewDidScroll` 重复刷池
@@ -207,6 +217,19 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 - (CGFloat)ytv_boundingHeightForAttributedString:(NSAttributedString *)as width:(CGFloat)w;
 - (void)ytv_layoutFullScreenChromeButtonIfNeeded;
 - (void)ytv_onChromeSeeAllTap;
+- (BOOL)ytv_shouldAllowWrapFromLastToHead;
+- (BOOL)ytv_scrollView:(UIScrollView *)scrollView atLastPageWantsNextWithVelocity:(CGPoint)velocity pageHeight:(CGFloat)h maxIndex:(NSInteger)maxIdx;
+- (BOOL)ytv_isScrollViewVisuallyOnLastPage:(UIScrollView *)scrollView pageHeight:(CGFloat)h maxIndex:(NSInteger)maxIdx;
+/// 是否已滑到当前 `contentSize` 允许的竖直方向尽头（与 ViewModel 条数解耦，避免列表有 16 条但布局高度只够 10 条时永远无法满足 idxPage==maxIdx）
+- (BOOL)ytv_scrollViewAtEffectiveVerticalEndForWrap:(UIScrollView *)scrollView;
+/// 无更多且≥2 条：首尾各多 1 个重复 cell（末条/首条），形成可双向无限滑的闭环
+- (BOOL)ytv_loopRingScrollActive;
+- (NSInteger)ytv_collectionDisplayItemCount;
+- (CGFloat)ytv_contentOffsetYForRealIndex:(NSInteger)realIdx pageHeight:(CGFloat)h;
+- (void)ytv_applyContentOffsetForRealIndex:(NSInteger)realIdx;
+- (NSInteger)ytv_collectionItemIndexForRealIndex:(NSInteger)realIdx;
+- (NSInteger)ytv_dataItemIndexForCollectionItem:(NSInteger)collectionItem;
+- (NSInteger)ytv_realPlaybackIndexFromExtendedPage:(NSInteger)extPage nData:(NSInteger)nData;
 @end
 
 @implementation YTVShortVideoFeedViewController
@@ -473,6 +496,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 #pragma mark - UI state
 
 - (void)ytv_reloadUIForViewModelState {
+    self.ytv_allowWrapFromLastAfterTailFetchIdle = NO;
+    self.ytv_pendingManualWrapToHead = NO;
     switch (self.feedViewModel.state) {
         case YTVShortVideoFeedStateLoading: {
             self.stateOverlay.hidden = NO;
@@ -531,10 +556,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
                 self.ytv_currentPlaybackFromBootstrapRestore = YES;
                 [self.collectionView reloadData];
                 [self.collectionView layoutIfNeeded];
-                CGFloat h = self.collectionView.bounds.size.height;
-                if (h > 0) {
-                    [self.collectionView setContentOffset:CGPointMake(0, safeIdx * h) animated:NO];
-                }
+                [self ytv_applyContentOffsetForRealIndex:safeIdx];
                 if (self.ytv_categoryFeedActive) {
                     [self.preloadManager warmAroundDisplayIndex:safeIdx items:self.feedViewModel.items];
                     [self ytv_maybePrefetchNextForDisplayIndex:safeIdx];
@@ -550,7 +572,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             self.currentPlayIndex = startIdx;
             self.ytv_currentPlaybackFromBootstrapRestore = self.feedViewModel.ytv_bootstrapLoadedFromSnapshot;
             if (self.feedViewModel.numberOfItems > 0) {
-                NSIndexPath *ip = [NSIndexPath indexPathForItem:startIdx inSection:0];
+                NSInteger colItem = [self ytv_collectionItemIndexForRealIndex:startIdx];
+                NSIndexPath *ip = [NSIndexPath indexPathForItem:colItem inSection:0];
                 [self.collectionView scrollToItemAtIndexPath:ip
                                             atScrollPosition:UICollectionViewScrollPositionCenteredVertically
                                                     animated:NO];
@@ -632,9 +655,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     [self.collectionView layoutIfNeeded];
     CGFloat pageH = self.collectionView.bounds.size.height;
     if (pageH > 0) {
-        [self.collectionView setContentOffset:CGPointMake(0, idx * pageH) animated:NO];
+        [self ytv_applyContentOffsetForRealIndex:idx];
     } else {
-        NSIndexPath *ip = [NSIndexPath indexPathForItem:idx inSection:0];
+        NSInteger colItem = [self ytv_collectionItemIndexForRealIndex:idx];
+        NSIndexPath *ip = [NSIndexPath indexPathForItem:colItem inSection:0];
         [self.collectionView scrollToItemAtIndexPath:ip
                                     atScrollPosition:UICollectionViewScrollPositionCenteredVertically
                                             animated:NO];
@@ -659,6 +683,144 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 }
 
 #pragma mark - Scroll → 播放绑定（分页结束后再换源，技术设计 §2）
+
+- (BOOL)ytv_shouldAllowWrapFromLastToHead {
+    if (!self.ytv_categoryFeedActive) {
+        return NO;
+    }
+    if (self.feedViewModel.ytv_isLoadingNext) {
+        return NO;
+    }
+    return !self.feedViewModel.hasMore || self.ytv_allowWrapFromLastAfterTailFetchIdle;
+}
+
+- (BOOL)ytv_scrollView:(UIScrollView *)scrollView atLastPageWantsNextWithVelocity:(CGPoint)velocity pageHeight:(CGFloat)h maxIndex:(NSInteger)maxIdx {
+    static const CGFloat kYTVWrapUpVelocityThreshold = 0.02f;
+    if (velocity.y > kYTVWrapUpVelocityThreshold) {
+        return YES;
+    }
+    CGFloat maxYByCount = (CGFloat)maxIdx * h;
+    CGFloat maxScrollY = MAX(0, scrollView.contentSize.height - scrollView.bounds.size.height);
+    CGFloat capY = MIN(maxYByCount, maxScrollY);
+    if (scrollView.contentOffset.y > capY + 0.5f) {
+        return YES;
+    }
+    return NO;
+}
+
+- (BOOL)ytv_isScrollViewVisuallyOnLastPage:(UIScrollView *)scrollView pageHeight:(CGFloat)h maxIndex:(NSInteger)maxIdx {
+    if (h < 1 || maxIdx < 0) {
+        return NO;
+    }
+    CGFloat maxY = (CGFloat)maxIdx * h;
+    CGFloat y = scrollView.contentOffset.y;
+    NSInteger idx = (NSInteger)llround(y / h);
+    idx = MAX(0, MIN(idx, maxIdx));
+    return idx >= maxIdx && fabs(y - maxY) < h * 0.2f;
+}
+
+- (BOOL)ytv_scrollViewAtEffectiveVerticalEndForWrap:(UIScrollView *)scrollView {
+    CGFloat bh = scrollView.bounds.size.height;
+    CGFloat ch = scrollView.contentSize.height;
+    if (ch < 1 || bh < 1) {
+        return NO;
+    }
+    CGFloat maxOffY = MAX(0, ch - bh);
+    return scrollView.contentOffset.y >= maxOffY - 3.0;
+}
+
+- (BOOL)ytv_loopRingScrollActive {
+    if (!self.ytv_categoryFeedActive) {
+        return NO;
+    }
+    if (self.feedViewModel.state != YTVShortVideoFeedStateReady) {
+        return NO;
+    }
+    if (self.feedViewModel.numberOfItems < 2) {
+        return NO;
+    }
+    return !self.feedViewModel.hasMore;
+}
+
+- (NSInteger)ytv_collectionDisplayItemCount {
+    NSInteger n = (NSInteger)self.feedViewModel.numberOfItems;
+    if (n < 1) {
+        return 0;
+    }
+    if ([self ytv_loopRingScrollActive]) {
+        return n + 2;
+    }
+    return n;
+}
+
+- (CGFloat)ytv_contentOffsetYForRealIndex:(NSInteger)realIdx pageHeight:(CGFloat)h {
+    if (h < 1) {
+        return 0;
+    }
+    NSInteger n = (NSInteger)self.feedViewModel.numberOfItems;
+    if (n < 1) {
+        return 0;
+    }
+    realIdx = MAX(0, MIN(realIdx, n - 1));
+    if ([self ytv_loopRingScrollActive]) {
+        return (CGFloat)(realIdx + 1) * h;
+    }
+    return (CGFloat)realIdx * h;
+}
+
+- (void)ytv_applyContentOffsetForRealIndex:(NSInteger)realIdx {
+    CGFloat h = self.collectionView.bounds.size.height;
+    if (h < 1) {
+        return;
+    }
+    CGFloat y = [self ytv_contentOffsetYForRealIndex:realIdx pageHeight:h];
+    [self.collectionView setContentOffset:CGPointMake(0, y) animated:NO];
+}
+
+- (NSInteger)ytv_collectionItemIndexForRealIndex:(NSInteger)realIdx {
+    NSInteger n = (NSInteger)self.feedViewModel.numberOfItems;
+    if (n < 1) {
+        return 0;
+    }
+    realIdx = MAX(0, MIN(realIdx, n - 1));
+    if ([self ytv_loopRingScrollActive]) {
+        return realIdx + 1;
+    }
+    return realIdx;
+}
+
+- (NSInteger)ytv_dataItemIndexForCollectionItem:(NSInteger)collectionItem {
+    NSInteger n = (NSInteger)self.feedViewModel.numberOfItems;
+    if (n < 1) {
+        return 0;
+    }
+    if (![self ytv_loopRingScrollActive]) {
+        return MAX(0, MIN(collectionItem, n - 1));
+    }
+    if (collectionItem <= 0) {
+        return n - 1;
+    }
+    if (collectionItem >= n + 1) {
+        return 0;
+    }
+    return collectionItem - 1;
+}
+
+- (NSInteger)ytv_realPlaybackIndexFromExtendedPage:(NSInteger)extPage nData:(NSInteger)nData {
+    if (nData < 1) {
+        return 0;
+    }
+    if (![self ytv_loopRingScrollActive] || nData < 2) {
+        return MAX(0, MIN(extPage, nData - 1));
+    }
+    if (extPage <= 0) {
+        return nData - 1;
+    }
+    if (extPage >= nData + 1) {
+        return 0;
+    }
+    return extPage - 1;
+}
 
 - (void)ytv_warmAroundProvisionalDisplayIndex:(NSInteger)idx {
     if (!self.ytv_categoryFeedActive) {
@@ -689,41 +851,66 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (pageH < 1) {
         return;
     }
-    NSInteger idx = (NSInteger)llround(scrollView.contentOffset.y / pageH);
-    [self ytv_warmAroundProvisionalDisplayIndex:idx];
+    NSInteger extPage = (NSInteger)llround(scrollView.contentOffset.y / pageH);
+    NSInteger nData = (NSInteger)self.feedViewModel.numberOfItems;
+    NSInteger realWarm = [self ytv_realPlaybackIndexFromExtendedPage:extPage nData:nData];
+    [self ytv_warmAroundProvisionalDisplayIndex:realWarm];
     [self ytv_layoutFullScreenChromeButtonIfNeeded];
 }
 
-/// 流边界：首条下拉不跳末条；**仅**在「已无更多可拉取」时末条上滑回第一条（否则与静默补货冲突：第 10 条会被误判为全列表末尾而跳回首条）。
+/// 流边界：无更多时用首尾环形重复页（`ytv_loopRingScrollActive`）；否则用 target=0 + pending 兜底。
 - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoint)velocity targetContentOffset:(inout CGPoint *)targetContentOffset {
     if (scrollView != self.collectionView) {
         return;
     }
+    self.ytv_pendingManualWrapToHead = NO;
     if (!self.ytv_categoryFeedActive) {
+        YTVFeedWrapLog(@"willEndDragging: 跳过 categoryFeedActive=NO");
         return;
     }
     NSInteger n = (NSInteger)self.feedViewModel.numberOfItems;
     if (n < 2) {
+        YTVFeedWrapLog(@"willEndDragging: 跳过 列表条数 n=%ld < 2", (long)n);
         return;
     }
     CGFloat h = scrollView.bounds.size.height;
     if (h < 1) {
+        YTVFeedWrapLog(@"willEndDragging: 跳过 pageH=%.2f", h);
         return;
     }
-    NSInteger maxIdx = n - 1;
+    BOOL ringOn = [self ytv_loopRingScrollActive];
+    NSInteger displayCount = [self ytv_collectionDisplayItemCount];
+    NSInteger maxPageIdx = displayCount - 1;
     NSInteger idxPage = (NSInteger)llround(scrollView.contentOffset.y / h);
-    idxPage = MAX(0, MIN(idxPage, maxIdx));
-    BOOL allowWrapToHead = !self.feedViewModel.hasMore && !self.feedViewModel.ytv_isLoadingNext;
-    if (idxPage >= maxIdx && velocity.y > 0.2 && allowWrapToHead) {
-        *targetContentOffset = CGPointMake(0, 0);
+    idxPage = MAX(0, MIN(idxPage, maxPageIdx));
+    NSInteger dataMaxIdx = n - 1;
+    if (!ringOn) {
+        BOOL allowWrapToHead = [self ytv_shouldAllowWrapFromLastToHead];
+        BOOL wantsNext = [self ytv_scrollView:scrollView atLastPageWantsNextWithVelocity:velocity pageHeight:h maxIndex:dataMaxIdx];
+        BOOL onLastByIndex = (idxPage >= dataMaxIdx);
+        BOOL atEffectiveEnd = [self ytv_scrollViewAtEffectiveVerticalEndForWrap:scrollView];
+        CGFloat maxScrollY = MAX(0, scrollView.contentSize.height - scrollView.bounds.size.height);
+        BOOL shouldWrap = wantsNext && allowWrapToHead && (onLastByIndex || atEffectiveEnd);
+        self.ytv_pendingManualWrapToHead = shouldWrap;
+        CGFloat maxY = (CGFloat)dataMaxIdx * h;
+        YTVFeedWrapLog(@"willEndDragging: ring=0 idxPage=%ld dataMax=%ld curPlay=%ld offY=%.2f maxY=%.2f contentH=%.2f maxScrollY=%.2f vy=%.4f onLastIdx=%d atEnd=%d wantsNext=%d allowWrap=%d shouldJump0=%d ->targetY=%.2f",
+            (long)idxPage, (long)dataMaxIdx, (long)self.currentPlayIndex, scrollView.contentOffset.y, maxY, scrollView.contentSize.height, maxScrollY, velocity.y,
+            (int)onLastByIndex, (int)atEffectiveEnd, (int)wantsNext, (int)allowWrapToHead, (int)shouldWrap, targetContentOffset->y);
+        if (shouldWrap) {
+            *targetContentOffset = CGPointMake(0, 0);
+            YTVFeedWrapLog(@"willEndDragging: 已把 targetContentOffset 改为 0（无环形兜底）");
+        }
+    } else {
+        YTVFeedWrapLog(@"willEndDragging: ring=1 displayPages=%ld idxPage=%ld dataMax=%ld curPlay=%ld offY=%.2f vy=%.4f ->targetY=%.2f（系统分页，首尾重复页）",
+            (long)displayCount, (long)idxPage, (long)dataMaxIdx, (long)self.currentPlayIndex, scrollView.contentOffset.y, velocity.y, targetContentOffset->y);
     }
-    NSInteger targetIdx = (NSInteger)llround(targetContentOffset->y / h);
-    targetIdx = MAX(0, MIN(targetIdx, maxIdx));
+    NSInteger targetExt = (NSInteger)llround(targetContentOffset->y / h);
+    targetExt = MAX(0, MIN(targetExt, maxPageIdx));
+    NSInteger warmDataIdx = [self ytv_realPlaybackIndexFromExtendedPage:targetExt nData:n];
     [self.preloadManager updateAdaptiveHintWithScrollVelocity:velocity.y];
-    [self ytv_warmAroundProvisionalDisplayIndex:targetIdx];
-    // 只有当前条已稳定出首帧时，才前移候场到目标页，避免首播阶段被后台候场抢资源。
+    [self ytv_warmAroundProvisionalDisplayIndex:warmDataIdx];
     if (self.ytv_currentPlaybackFirstFrameReady) {
-        [self ytv_prepareStandbyPlaybackForTargetIndex:targetIdx];
+        [self ytv_prepareStandbyPlaybackForTargetIndex:warmDataIdx];
     }
 }
 
@@ -732,6 +919,23 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         return;
     }
     [self ytv_syncVisibleCellsForActivePlaybackIndex:self.currentPlayIndex];
+    if (self.ytv_pendingManualWrapToHead && ![self ytv_loopRingScrollActive]) {
+        YTVFeedWrapLog(@"didEndDecelerating: pendingManualWrap=YES offY=%.2f", scrollView.contentOffset.y);
+        self.ytv_pendingManualWrapToHead = NO;
+        CGFloat h = scrollView.bounds.size.height;
+        NSInteger n = (NSInteger)self.feedViewModel.numberOfItems;
+        if (h >= 1 && n >= 2) {
+            NSInteger maxIdx = n - 1;
+            BOOL onLastVisually = [self ytv_isScrollViewVisuallyOnLastPage:scrollView pageHeight:h maxIndex:maxIdx];
+            BOOL atEffectiveEnd = [self ytv_scrollViewAtEffectiveVerticalEndForWrap:scrollView];
+            BOOL allow = [self ytv_shouldAllowWrapFromLastToHead];
+            YTVFeedWrapLog(@"didEndDecelerating: 兜底 visuallyOnLast=%d atEffectiveEnd=%d allowWrap=%d", (int)onLastVisually, (int)atEffectiveEnd, (int)allow);
+            if ((onLastVisually || atEffectiveEnd) && allow) {
+                [scrollView setContentOffset:CGPointMake(0, 0) animated:NO];
+                YTVFeedWrapLog(@"didEndDecelerating: 已 setContentOffset(0) 强制回第一条");
+            }
+        }
+    }
     [self ytv_syncPlayIndexFromContentOffset];
 }
 
@@ -741,7 +945,26 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     }
     [self ytv_syncVisibleCellsForActivePlaybackIndex:self.currentPlayIndex];
     if (!decelerate) {
+        YTVFeedWrapLog(@"didEndDragging: willDecelerate=NO pendingWrap=%d offY=%.2f", (int)self.ytv_pendingManualWrapToHead, scrollView.contentOffset.y);
+        if (self.ytv_pendingManualWrapToHead && ![self ytv_loopRingScrollActive]) {
+            self.ytv_pendingManualWrapToHead = NO;
+            CGFloat h = scrollView.bounds.size.height;
+            NSInteger n = (NSInteger)self.feedViewModel.numberOfItems;
+            if (h >= 1 && n >= 2) {
+                NSInteger maxIdx = n - 1;
+                BOOL onLastVisually = [self ytv_isScrollViewVisuallyOnLastPage:scrollView pageHeight:h maxIndex:maxIdx];
+                BOOL atEffectiveEnd = [self ytv_scrollViewAtEffectiveVerticalEndForWrap:scrollView];
+                BOOL allow = [self ytv_shouldAllowWrapFromLastToHead];
+                YTVFeedWrapLog(@"didEndDragging: 兜底 visuallyOnLast=%d atEffectiveEnd=%d allowWrap=%d", (int)onLastVisually, (int)atEffectiveEnd, (int)allow);
+                if ((onLastVisually || atEffectiveEnd) && allow) {
+                    [scrollView setContentOffset:CGPointMake(0, 0) animated:NO];
+                    YTVFeedWrapLog(@"didEndDragging: 已 setContentOffset(0) 强制回第一条");
+                }
+            }
+        }
         [self ytv_syncPlayIndexFromContentOffset];
+    } else {
+        YTVFeedWrapLog(@"didEndDragging: willDecelerate=YES pendingWrap=%d（等 didEndDecelerating）", (int)self.ytv_pendingManualWrapToHead);
     }
 }
 
@@ -753,9 +976,26 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (pageH < 1 || self.feedViewModel.numberOfItems == 0) {
         return;
     }
-    NSInteger idx = (NSInteger)llround(self.collectionView.contentOffset.y / pageH);
-    NSInteger maxIdx = (NSInteger)self.feedViewModel.numberOfItems - 1;
+    NSInteger nData = (NSInteger)self.feedViewModel.numberOfItems;
+    NSInteger extPage = (NSInteger)llround(self.collectionView.contentOffset.y / pageH);
+    if ([self ytv_loopRingScrollActive] && nData >= 2) {
+        if (extPage <= 0) {
+            YTVFeedWrapLog(@"syncPlayIdxFromOffset: 环形顶重复末条 ext=%ld -> 对齐真实末条", (long)extPage);
+            [self.collectionView setContentOffset:CGPointMake(0, (CGFloat)nData * pageH) animated:NO];
+            extPage = nData;
+        } else if (extPage >= nData + 1) {
+            YTVFeedWrapLog(@"syncPlayIdxFromOffset: 环形底重复首条 ext=%ld -> 对齐真实首条", (long)extPage);
+            [self.collectionView setContentOffset:CGPointMake(0, pageH) animated:NO];
+            extPage = 1;
+        }
+    }
+    NSInteger idx = [self ytv_realPlaybackIndexFromExtendedPage:extPage nData:nData];
+    NSInteger maxIdx = nData - 1;
     idx = MAX(0, MIN(idx, maxIdx));
+    if (idx == maxIdx || idx != self.currentPlayIndex) {
+        YTVFeedWrapLog(@"syncPlayIdxFromOffset: offY=%.2f idx=%ld maxIdx=%ld curPlay=%ld sameIdx=%d",
+            self.collectionView.contentOffset.y, (long)idx, (long)maxIdx, (long)self.currentPlayIndex, (int)(idx == self.currentPlayIndex));
+    }
     if (idx == self.currentPlayIndex) {
         [self ytv_resyncPlaybackAroundCurrentIndex];
         return;
@@ -769,34 +1009,88 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     }
     __weak typeof(self) weakSelf = self;
     NSInteger keepIndex = self.currentPlayIndex;
+    NSInteger countAtRequest = (NSInteger)self.feedViewModel.numberOfItems;
+    NSInteger maxIdxAtRequest = countAtRequest > 0 ? countAtRequest - 1 : NSNotFound;
+    BOOL requestWhileOnLastLoaded = (maxIdxAtRequest != NSNotFound && idx == maxIdxAtRequest);
+    YTVFeedWrapLog(@"maybePrefetch: displayIdx=%ld nItems=%ld onLastReq=%d", (long)idx, (long)countAtRequest, (int)requestWhileOnLastLoaded);
     [self.feedViewModel loadNextPageIfNeededForDisplayIndex:idx completion:^(BOOL appendedAny, NSUInteger appendedCount, NSError *error) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) {
             return;
         }
+        if (appendedAny) {
+            self.ytv_allowWrapFromLastAfterTailFetchIdle = NO;
+        } else {
+            NSInteger maxNow = (NSInteger)self.feedViewModel.numberOfItems - 1;
+            BOOL stillOnLast = (maxNow >= 0 && self.currentPlayIndex == maxNow);
+            if (requestWhileOnLastLoaded) {
+                if (stillOnLast && !self.feedViewModel.ytv_isLoadingNext) {
+                    self.ytv_allowWrapFromLastAfterTailFetchIdle = YES;
+                } else if (!stillOnLast) {
+                    self.ytv_allowWrapFromLastAfterTailFetchIdle = NO;
+                }
+            } else if (!stillOnLast) {
+                self.ytv_allowWrapFromLastAfterTailFetchIdle = NO;
+            }
+        }
+        YTVFeedWrapLog(@"prefetchDone: idx=%ld appended=%d appendedCount=%lu err=%@ hasMore=%d loadNext=%d tailIdle=%d curPlay=%ld",
+            (long)idx, (int)appendedAny, (unsigned long)appendedCount, error.localizedDescription ?: @"(nil)",
+            self.feedViewModel.hasMore, self.feedViewModel.ytv_isLoadingNext, self.ytv_allowWrapFromLastAfterTailFetchIdle,
+            (long)self.currentPlayIndex);
         if (error != nil && !appendedAny) {
             NSString *msg = [YTVShortVideoFeedViewModel ytv_userFacingMessageForFeedError:error];
             [self ytv_showNextLoadFailureWithMessage:msg];
         }
         if (!appendedAny) {
+            NSInteger expect = [self ytv_collectionDisplayItemCount];
+            NSInteger actual = (NSInteger)[self.collectionView numberOfItemsInSection:0];
+            if (expect != actual && expect > 0 && self.feedViewModel.state == YTVShortVideoFeedStateReady) {
+                NSInteger keep = self.currentPlayIndex;
+                if (keep == NSNotFound) {
+                    keep = 0;
+                }
+                keep = MAX(0, MIN(keep, (NSInteger)self.feedViewModel.numberOfItems - 1));
+                [self.collectionView reloadData];
+                [self.collectionView layoutIfNeeded];
+                [self ytv_applyContentOffsetForRealIndex:keep];
+                YTVFeedWrapLog(@"prefetchDone: reloadData 同步环形 cell expect=%ld actual=%ld", (long)expect, (long)actual);
+            }
             return;
         }
         [self ytv_hideNextLoadFailureBar];
-        NSUInteger oldCount = [self.collectionView numberOfItemsInSection:0];
-        NSUInteger newCount = self.feedViewModel.numberOfItems;
-        if (newCount <= oldCount || appendedCount == 0) {
+        NSUInteger newDataCount = self.feedViewModel.numberOfItems;
+        if (appendedCount == 0 || newDataCount < appendedCount) {
             return;
         }
+        NSUInteger oldDataCount = newDataCount - appendedCount;
         NSMutableArray<NSIndexPath *> *indexPaths = [NSMutableArray array];
-        for (NSUInteger i = oldCount; i < newCount; i++) {
-            [indexPaths addObject:[NSIndexPath indexPathForItem:i inSection:0]];
+        if ([self ytv_loopRingScrollActive]) {
+            for (NSUInteger ext = oldDataCount + 1; ext <= newDataCount; ext++) {
+                [indexPaths addObject:[NSIndexPath indexPathForItem:ext inSection:0]];
+            }
+        } else {
+            for (NSUInteger i = oldDataCount; i < newDataCount; i++) {
+                [indexPaths addObject:[NSIndexPath indexPathForItem:i inSection:0]];
+            }
         }
         [self.collectionView performBatchUpdates:^{
             [self.collectionView insertItemsAtIndexPaths:indexPaths];
         } completion:^(__unused BOOL finished) {
-            CGFloat h = self.collectionView.bounds.size.height;
-            if (h > 0 && keepIndex != NSNotFound && keepIndex < (NSInteger)newCount) {
-                [self.collectionView setContentOffset:CGPointMake(0, keepIndex * h) animated:NO];
+            if (keepIndex != NSNotFound && keepIndex < (NSInteger)newDataCount) {
+                [self ytv_applyContentOffsetForRealIndex:keepIndex];
+            }
+            NSInteger expectAfter = [self ytv_collectionDisplayItemCount];
+            NSInteger actualAfter = (NSInteger)[self.collectionView numberOfItemsInSection:0];
+            if (expectAfter != actualAfter && expectAfter > 0 && self.feedViewModel.state == YTVShortVideoFeedStateReady) {
+                NSInteger keep = keepIndex != NSNotFound ? keepIndex : self.currentPlayIndex;
+                if (keep == NSNotFound) {
+                    keep = 0;
+                }
+                keep = MAX(0, MIN(keep, (NSInteger)self.feedViewModel.numberOfItems - 1));
+                [self.collectionView reloadData];
+                [self.collectionView layoutIfNeeded];
+                [self ytv_applyContentOffsetForRealIndex:keep];
+                YTVFeedWrapLog(@"insertDone: reloadData 补环形 expect=%ld actual=%ld", (long)expectAfter, (long)actualAfter);
             }
             [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
         }];
@@ -821,7 +1115,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         if (indexPath.section != 0) {
             continue;
         }
-        NSInteger idx = MAX(0, MIN((NSInteger)indexPath.item, maxIndex));
+        NSInteger idx = [self ytv_dataItemIndexForCollectionItem:(NSInteger)indexPath.item];
+        idx = MAX(0, MIN(idx, maxIndex));
         furthestIndex = (furthestIndex == NSNotFound) ? idx : MAX(furthestIndex, idx);
         YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:idx];
         if (item.coverURL.length > 0) {
@@ -853,6 +1148,11 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 /// 播放页真正切换时，先记录旧索引的 warm 命中，再进入新的绑定流程。
 - (void)ytv_beginPlaybackSwitchToIndex:(NSInteger)newIndex fromOldIndex:(NSInteger)oldIndex {
     [self ytv_hideNextLoadFailureBar];
+    NSInteger nItems = (NSInteger)self.feedViewModel.numberOfItems;
+    NSInteger tailIdx = nItems > 0 ? nItems - 1 : NSNotFound;
+    if (tailIdx != NSNotFound && newIndex != tailIdx) {
+        self.ytv_allowWrapFromLastAfterTailFetchIdle = NO;
+    }
     self.ytv_userPausedWithPlayHint = NO;
     if (oldIndex != NSNotFound && oldIndex != newIndex) {
         NSUInteger n = self.feedViewModel.numberOfItems;
@@ -886,15 +1186,27 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (self.currentPlayIndex == NSNotFound) {
         return;
     }
+    NSInteger nData = (NSInteger)self.feedViewModel.numberOfItems;
     NSInteger deepIdx = self.currentPlayIndex + 1;
-    if (deepIdx >= 0 && deepIdx < (NSInteger)self.feedViewModel.numberOfItems) {
+    if (deepIdx >= 0 && deepIdx < nData) {
         YTVVideoFeedItem *next = [self.feedViewModel itemAtIndex:deepIdx];
         [self.preloadManager setDeepPrewarmTargetVideoId:next.videoId];
+    } else if ([self ytv_loopRingScrollActive] && nData >= 2 && self.currentPlayIndex == nData - 1) {
+        YTVVideoFeedItem *head = [self.feedViewModel itemAtIndex:0];
+        [self.preloadManager setDeepPrewarmTargetVideoId:head.videoId];
     } else {
         [self.preloadManager setDeepPrewarmTargetVideoId:nil];
     }
     [self.preloadManager warmAroundDisplayIndex:self.currentPlayIndex items:self.feedViewModel.items];
-    [self ytv_prepareStandbyPlaybackForTargetIndex:deepIdx];
+    NSInteger standbyIdx = self.currentPlayIndex + 1;
+    if (standbyIdx >= nData) {
+        if ([self ytv_loopRingScrollActive] && nData >= 2) {
+            standbyIdx = 0;
+        } else {
+            standbyIdx = -1;
+        }
+    }
+    [self ytv_prepareStandbyPlaybackForTargetIndex:standbyIdx];
 }
 
 /// 切源 token 与切换标记回到空闲，用于列表重置、失败或当前条不可播。
@@ -1112,7 +1424,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         return;
     }
     NSIndexPath *ip = [self.collectionView indexPathForCell:cell];
-    if (!ip || ip.item != self.currentPlayIndex) {
+    NSInteger tapData = ip ? [self ytv_dataItemIndexForCollectionItem:(NSInteger)ip.item] : NSNotFound;
+    if (!ip || tapData != self.currentPlayIndex) {
         return;
     }
     if (self.ytv_userPausedWithPlayHint) {
@@ -1135,7 +1448,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             continue;
         }
         NSIndexPath *indexPath = [self.collectionView indexPathForCell:rawCell];
-        if (indexPath && indexPath.item == index) {
+        NSInteger dataIdx = indexPath ? [self ytv_dataItemIndexForCollectionItem:(NSInteger)indexPath.item] : NSNotFound;
+        if (indexPath && dataIdx == index) {
             return (YTVShortVideoCell *)rawCell;
         }
     }
@@ -1146,7 +1460,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (index == NSNotFound || index < 0 || index >= (NSInteger)self.feedViewModel.numberOfItems) {
         return nil;
     }
-    NSIndexPath *indexPath = [NSIndexPath indexPathForItem:index inSection:0];
+    NSInteger colItem = [self ytv_collectionItemIndexForRealIndex:index];
+    NSIndexPath *indexPath = [NSIndexPath indexPathForItem:colItem inSection:0];
     UICollectionViewCell *cell = [self.collectionView cellForItemAtIndexPath:indexPath];
     if (![cell isKindOfClass:[YTVShortVideoCell class]]) {
         return nil;
@@ -1163,7 +1478,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         }
         YTVShortVideoCell *cell = (YTVShortVideoCell *)rawCell;
         NSIndexPath *indexPath = [self.collectionView indexPathForCell:cell];
-        BOOL isActive = (indexPath != nil && indexPath.item == activeIndex);
+        NSInteger dataIdx = indexPath ? [self ytv_dataItemIndexForCollectionItem:(NSInteger)indexPath.item] : NSNotFound;
+        BOOL isActive = (indexPath != nil && dataIdx == activeIndex);
         if (isActive) {
             [cell renderView].playerLayer.player = self.playerSession.player;
             continue;
@@ -1254,7 +1570,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         }
         YTVShortVideoCell *c = (YTVShortVideoCell *)raw;
         NSIndexPath *rip = [self.collectionView indexPathForCell:c];
-        BOOL isCurrent = rip && rip.item == self.currentPlayIndex;
+        NSInteger dataIdx = rip ? [self ytv_dataItemIndexForCollectionItem:(NSInteger)rip.item] : NSNotFound;
+        BOOL isCurrent = (rip != nil && dataIdx == self.currentPlayIndex);
         [c ytv_setPausedPlayHintVisible:isCurrent && self.ytv_userPausedWithPlayHint];
     }
 }
@@ -1358,7 +1675,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (idx < 0) {
         return;
     }
-    NSIndexPath *ip = [NSIndexPath indexPathForItem:idx inSection:0];
+    NSInteger colItem = [self ytv_collectionItemIndexForRealIndex:idx];
+    NSIndexPath *ip = [NSIndexPath indexPathForItem:colItem inSection:0];
     UICollectionViewCell *raw = [self.collectionView cellForItemAtIndexPath:ip];
     if ([raw isKindOfClass:[YTVShortVideoCell class]]) {
         YTVVideoFeedItem *it = [self.feedViewModel itemAtIndex:idx];
@@ -1494,7 +1812,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (self.currentPlayIndex == NSNotFound) {
         return;
     }
-    NSIndexPath *ip = [NSIndexPath indexPathForItem:self.currentPlayIndex inSection:0];
+    NSInteger colItem = [self ytv_collectionItemIndexForRealIndex:self.currentPlayIndex];
+    NSIndexPath *ip = [NSIndexPath indexPathForItem:colItem inSection:0];
     UICollectionViewCell *raw = [self.collectionView cellForItemAtIndexPath:ip];
     if (![raw isKindOfClass:[YTVShortVideoCell class]]) {
         self.fullScreenChromeButton.alpha = 0;
@@ -1544,6 +1863,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 
 - (void)ytv_onNextLoadFailureRetryTap {
     [self ytv_hideNextLoadFailureBar];
+    self.ytv_allowWrapFromLastAfterTailFetchIdle = NO;
     if (self.currentPlayIndex == NSNotFound) {
         return;
     }
@@ -1582,10 +1902,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             self.currentPlayIndex = newIdx;
             [self.collectionView reloadData];
             [self.collectionView layoutIfNeeded];
-            CGFloat h = self.collectionView.bounds.size.height;
-            if (h > 0) {
-                [self.collectionView setContentOffset:CGPointMake(0, newIdx * h) animated:NO];
-            }
+            [self ytv_applyContentOffsetForRealIndex:newIdx];
             [self ytv_applyPlaybackForCurrentIndexIfPossible];
             [self ytv_maybePrefetchNextForDisplayIndex:newIdx];
             [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
@@ -2087,12 +2404,13 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (section != 0) {
         return 0;
     }
-    return (NSInteger)self.feedViewModel.numberOfItems;
+    return (NSInteger)[self ytv_collectionDisplayItemCount];
 }
 
 - (__kindof UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
     YTVShortVideoCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:kYTVShortVideoCellId forIndexPath:indexPath];
-    YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:indexPath.item];
+    NSInteger dataIdx = [self ytv_dataItemIndexForCollectionItem:(NSInteger)indexPath.item];
+    YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:dataIdx];
     [cell configureWithItem:item];
     __weak typeof(self) weakSelf = self;
     cell.ytv_onVideoAreaTap = ^(YTVShortVideoCell *c) {
@@ -2111,9 +2429,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         if (!retryIndexPath) {
             return;
         }
-        [self ytv_beginPlaybackSwitchToIndex:retryIndexPath.item fromOldIndex:self.currentPlayIndex];
+        NSInteger retryIdx = [self ytv_dataItemIndexForCollectionItem:(NSInteger)retryIndexPath.item];
+        [self ytv_beginPlaybackSwitchToIndex:retryIdx fromOldIndex:self.currentPlayIndex];
     };
-    BOOL current = (indexPath.item == self.currentPlayIndex);
+    BOOL current = (dataIdx == self.currentPlayIndex);
     if (current) {
         [cell.renderView attachPlayer:self.playerSession.player];
         [self.playerSession bindPlayerLayerForFirstFrameObservation:cell.renderView.playerLayer];

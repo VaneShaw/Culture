@@ -11,6 +11,12 @@
 #import "YTVFeedResumeCache.h"
 #import "YTVVideoFavoritesRepository.h"
 
+#if DEBUG
+#define YTVFeedWrapLog(fmt, ...) NSLog((@"[YTVFeedWrap/VM] " fmt), ##__VA_ARGS__)
+#else
+#define YTVFeedWrapLog(...)
+#endif
+
 static const NSInteger kYTVFeedPageSize = 10;
 static const NSInteger kYTVFeedLowWaterMark = 5;
 static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
@@ -439,6 +445,8 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
 
 - (void)loadNextPageIfNeededForDisplayIndex:(NSInteger)displayIndex completion:(YTVFeedLoadNextCompletion)completion {
     if (!self.hasMore || self.isLoadingNext || self.mutableItems.count == 0) {
+        YTVFeedWrapLog(@"loadNext skip: displayIdx=%ld hasMore=%d isLoadingNext=%d count=%lu",
+            (long)displayIndex, self.hasMore, self.isLoadingNext, (unsigned long)self.mutableItems.count);
         if (completion) {
             completion(NO, 0, nil);
         }
@@ -446,11 +454,14 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
     }
     NSInteger remainingAfter = (NSInteger)self.mutableItems.count - 1 - displayIndex;
     if (remainingAfter > kYTVFeedLowWaterMark) {
+        YTVFeedWrapLog(@"loadNext skip: displayIdx=%ld remainingAfter=%ld > lowWater=%ld",
+            (long)displayIndex, (long)remainingAfter, (long)kYTVFeedLowWaterMark);
         if (completion) {
             completion(NO, 0, nil);
         }
         return;
     }
+    YTVFeedWrapLog(@"loadNext start: displayIdx=%ld count=%lu remainingAfter=%ld", (long)displayIndex, (unsigned long)self.mutableItems.count, (long)remainingAfter);
     self.isLoadingNext = YES;
     NSUInteger oldCount = self.mutableItems.count;
     __block BOOL anyAppended = NO;
