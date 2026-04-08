@@ -15,8 +15,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface YTVVideoPreloadManager : NSObject
 
-/// 当前索引邻域：上一条 + 后两条封面预取，并对媒体资源做真预热。
+/// 当前索引邻域：上一条 + 自适应前向若干条封面预取，并对媒体做真预热。
 - (void)warmAroundDisplayIndex:(NSInteger)displayIndex items:(NSArray<YTVVideoFeedItem *> *)items;
+/// `pinHeadTail==YES` 时额外固定预热列表头尾各 2 条（环形无更多时避免末条邻域不含首条、wrap 冷启动）。
+- (void)warmAroundDisplayIndex:(NSInteger)displayIndex items:(NSArray<YTVVideoFeedItem *> *)items ringHeadTailPinned:(BOOL)pinHeadTail;
 
 /// 浅预热命中：`ItemReady` 或更深状态时返回可复用的 playerItem；否则返回 nil。
 - (nullable AVPlayerItem *)preparedPlayerItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL;

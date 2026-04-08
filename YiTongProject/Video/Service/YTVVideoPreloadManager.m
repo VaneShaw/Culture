@@ -65,6 +65,10 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 }
 
 - (void)warmAroundDisplayIndex:(NSInteger)displayIndex items:(NSArray<YTVVideoFeedItem *> *)items {
+    [self warmAroundDisplayIndex:displayIndex items:items ringHeadTailPinned:NO];
+}
+
+- (void)warmAroundDisplayIndex:(NSInteger)displayIndex items:(NSArray<YTVVideoFeedItem *> *)items ringHeadTailPinned:(BOOL)pinHeadTail {
     if (items.count == 0) {
         self.preservedWarmVideoIds = [NSSet set];
         return;
@@ -93,6 +97,16 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
         }];
         if (idx != NSNotFound) {
             [warmIndices addIndex:idx];
+        }
+    }
+    if (pinHeadTail && n >= 2) {
+        [warmIndices addIndex:0];
+        [warmIndices addIndex:(NSUInteger)(n - 1)];
+        if (n >= 3) {
+            [warmIndices addIndex:1];
+        }
+        if (n >= 4) {
+            [warmIndices addIndex:(NSUInteger)(n - 2)];
         }
     }
 

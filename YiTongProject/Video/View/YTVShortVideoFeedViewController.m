@@ -224,6 +224,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 - (BOOL)ytv_scrollViewAtEffectiveVerticalEndForWrap:(UIScrollView *)scrollView;
 /// 无更多且≥2 条：首尾各多 1 个重复 cell（末条/首条），形成可双向无限滑的闭环
 - (BOOL)ytv_loopRingScrollActive;
+/// 环形无更多时预热池须钉住列表头尾，避免在末条邻域预热不到首条导致 wrap 冷启动。
+- (BOOL)ytv_shouldPinHeadTailInWarmPool;
 - (NSInteger)ytv_collectionDisplayItemCount;
 - (CGFloat)ytv_contentOffsetYForRealIndex:(NSInteger)realIdx pageHeight:(CGFloat)h;
 - (void)ytv_applyContentOffsetForRealIndex:(NSInteger)realIdx;
@@ -558,7 +560,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
                 [self.collectionView layoutIfNeeded];
                 [self ytv_applyContentOffsetForRealIndex:safeIdx];
                 if (self.ytv_categoryFeedActive) {
-                    [self.preloadManager warmAroundDisplayIndex:safeIdx items:self.feedViewModel.items];
+                    [self.preloadManager warmAroundDisplayIndex:safeIdx items:self.feedViewModel.items ringHeadTailPinned:[self ytv_shouldPinHeadTailInWarmPool]];
                     [self ytv_maybePrefetchNextForDisplayIndex:safeIdx];
                     [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
                 }
@@ -579,7 +581,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
                                                     animated:NO];
             }
             if (self.ytv_categoryFeedActive) {
-                [self.preloadManager warmAroundDisplayIndex:startIdx items:self.feedViewModel.items];
+                [self.preloadManager warmAroundDisplayIndex:startIdx items:self.feedViewModel.items ringHeadTailPinned:[self ytv_shouldPinHeadTailInWarmPool]];
                 [self ytv_applyPlaybackForCurrentIndexIfPossible];
                 [self ytv_maybePrefetchNextForDisplayIndex:startIdx];
             }
@@ -666,7 +668,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (self.ytv_categoryFeedActive) {
         [self ytv_applyPlaybackForCurrentIndexIfPossible];
         [self ytv_maybePrefetchNextForDisplayIndex:idx];
-        [self.preloadManager warmAroundDisplayIndex:idx items:self.feedViewModel.items];
+        [self.preloadManager warmAroundDisplayIndex:idx items:self.feedViewModel.items ringHeadTailPinned:[self ytv_shouldPinHeadTailInWarmPool]];
     }
     [self ytv_refreshInteractionChrome];
 }
@@ -740,6 +742,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         return NO;
     }
     return !self.feedViewModel.hasMore;
+}
+
+- (BOOL)ytv_shouldPinHeadTailInWarmPool {
+    return [self ytv_loopRingScrollActive];
 }
 
 - (NSInteger)ytv_collectionDisplayItemCount {
@@ -840,7 +846,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     }
     self.ytv_lastProvisionalWarmIndex = clamped;
     [self.preloadManager updateAdaptiveHintWithScrollVelocity:0];
-    [self.preloadManager warmAroundDisplayIndex:clamped items:self.feedViewModel.items];
+    [self.preloadManager warmAroundDisplayIndex:clamped items:self.feedViewModel.items ringHeadTailPinned:[self ytv_shouldPinHeadTailInWarmPool]];
 }
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
@@ -1130,7 +1136,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         [[SDWebImagePrefetcher sharedImagePrefetcher] prefetchURLs:coverURLs];
     }
     if (furthestIndex != NSNotFound) {
-        [self.preloadManager warmAroundDisplayIndex:furthestIndex items:self.feedViewModel.items];
+        [self.preloadManager warmAroundDisplayIndex:furthestIndex items:self.feedViewModel.items ringHeadTailPinned:[self ytv_shouldPinHeadTailInWarmPool]];
     }
 }
 
@@ -1197,7 +1203,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     } else {
         [self.preloadManager setDeepPrewarmTargetVideoId:nil];
     }
-    [self.preloadManager warmAroundDisplayIndex:self.currentPlayIndex items:self.feedViewModel.items];
+    [self.preloadManager warmAroundDisplayIndex:self.currentPlayIndex items:self.feedViewModel.items ringHeadTailPinned:[self ytv_shouldPinHeadTailInWarmPool]];
     NSInteger standbyIdx = self.currentPlayIndex + 1;
     if (standbyIdx >= nData) {
         if ([self ytv_loopRingScrollActive] && nData >= 2) {
@@ -1277,7 +1283,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     self.ytv_standbyTargetIndex = targetIdx;
     self.ytv_playbackState = YTVFeedPlaybackStateStandbyPreparing;
     [self.preloadManager setDeepPrewarmTargetVideoId:target.videoId];
-    [self.preloadManager warmAroundDisplayIndex:MAX(self.currentPlayIndex, 0) items:self.feedViewModel.items];
+    [self.preloadManager warmAroundDisplayIndex:MAX(self.currentPlayIndex, 0) items:self.feedViewModel.items ringHeadTailPinned:[self ytv_shouldPinHeadTailInWarmPool]];
     AVPlayerItem *prepared = [self.preloadManager preparedPlayerItemForVideoId:target.videoId playURL:target.playURL];
     __weak typeof(self) weakSelf = self;
     [self.playerSession prepareStandbyPlaybackWithURL:url preferredPlayerItem:prepared completion:^(BOOL ready, NSError * _Nullable error) {
