@@ -1,10 +1,11 @@
 //
 //  YTFillBlankUnitView.m
-//  YiTongProject
 //
 
 #import "YTFillBlankUnitView.h"
 #import "HeaderConfig.h"
+#import "YTInternalUnitViewSupport.h"
+#import "YTUnitViewProtocol.h"
 
 @interface YTFillBlankUnitViewLegacyInternal ()
 @property (nonatomic, strong) UIView *cardView;
@@ -13,10 +14,18 @@
 @property (nonatomic, strong) UILabel *prefixLabel;
 @property (nonatomic, strong) UILabel *suffixLabel;
 @property (nonatomic, strong) UILabel *blankWordLabel;
+@property (nonatomic, strong) UIView *blankWrap;
 @property (nonatomic, strong) UIView *blankLine;
 @property (nonatomic, strong) UIView *optionsRow;
 @property (nonatomic, strong) NSMutableArray<UIButton *> *optionButtons;
 @property (nonatomic, copy, nullable) NSString *selectedOptionId;
+
+/// 多空：`sentence_template` 中 `__` 的个数
+@property (nonatomic, assign) NSInteger fillBlankSlotCount;
+@property (nonatomic, strong) NSMutableArray<NSString *> *selectedFillOptionIdsOrdered;
+@property (nonatomic, assign) NSInteger currentFillSlotIndex;
+@property (nonatomic, strong) NSMutableArray<UILabel *> *multiBlankWordLabels;
+@property (nonatomic, strong) NSMutableArray<UIView *> *multiBlankWraps;
 @end
 
 @implementation YTFillBlankUnitViewLegacyInternal
@@ -25,6 +34,10 @@
     self = [super init];
     if (self) {
         _optionButtons = [NSMutableArray array];
+        _fillBlankSlotCount = 1;
+        _selectedFillOptionIdsOrdered = [NSMutableArray array];
+        _multiBlankWordLabels = [NSMutableArray array];
+        _multiBlankWraps = [NSMutableArray array];
 
         _cardView = [[UIView alloc] init];
         _cardView.backgroundColor = [UIColor whiteColor];
@@ -51,59 +64,7 @@
         [_sentenceRow mas_makeConstraints:^(MASConstraintMaker *make) {
             make.top.equalTo(self.titleLabel.mas_bottom).offset(26);
             make.left.right.equalTo(self.cardView).inset(16);
-            make.height.mas_equalTo(44);
-        }];
-
-        _prefixLabel = [[UILabel alloc] init];
-        _prefixLabel.textColor = BLACK_COLOR_1F;
-        _prefixLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
-        _prefixLabel.text = @"";
-        [_sentenceRow addSubview:_prefixLabel];
-
-        _suffixLabel = [[UILabel alloc] init];
-        _suffixLabel.textColor = BLACK_COLOR_1F;
-        _suffixLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
-        _suffixLabel.text = @"?";
-        [_sentenceRow addSubview:_suffixLabel];
-
-        UIView *blankWrap = [[UIView alloc] init];
-        blankWrap.backgroundColor = [UIColor clearColor];
-        [_sentenceRow addSubview:blankWrap];
-
-        _blankWordLabel = [[UILabel alloc] init];
-        _blankWordLabel.textAlignment = NSTextAlignmentCenter;
-        _blankWordLabel.textColor = BLACK_COLOR_1F;
-        _blankWordLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
-        _blankWordLabel.text = @"";
-        [blankWrap addSubview:_blankWordLabel];
-
-        _blankLine = [[UIView alloc] init];
-        _blankLine.backgroundColor = [UIColor colorWithWhite:0.78 alpha:1];
-        [blankWrap addSubview:_blankLine];
-
-        [_prefixLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.equalTo(self.sentenceRow);
-            make.centerY.equalTo(self.sentenceRow);
-        }];
-        [blankWrap mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.equalTo(self.prefixLabel.mas_right).offset(6);
-            make.centerY.equalTo(self.sentenceRow);
-            make.width.mas_equalTo(54);
-            make.height.mas_equalTo(34);
-        }];
-        [_suffixLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.equalTo(blankWrap.mas_right).offset(6);
-            make.centerY.equalTo(self.sentenceRow);
-            make.right.lessThanOrEqualTo(self.sentenceRow);
-        }];
-        [_blankWordLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.right.top.equalTo(blankWrap);
-            make.bottom.equalTo(self.blankLine.mas_top).offset(-3);
-        }];
-        [_blankLine mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.right.equalTo(blankWrap);
-            make.bottom.equalTo(blankWrap);
-            make.height.mas_equalTo(1);
+            make.height.mas_greaterThanOrEqualTo(44);
         }];
 
         _optionsRow = [[UIView alloc] init];
@@ -120,27 +81,206 @@
     return self;
 }
 
+- (void)yt_clearSentenceRow {
+    for (UIView *v in self.sentenceRow.subviews) {
+        [v removeFromSuperview];
+    }
+    self.prefixLabel = nil;
+    self.suffixLabel = nil;
+    self.blankWordLabel = nil;
+    self.blankLine = nil;
+    self.blankWrap = nil;
+    [self.multiBlankWordLabels removeAllObjects];
+    [self.multiBlankWraps removeAllObjects];
+}
+
+- (void)yt_rebuildSingleBlankWithStem:(NSString *)stem {
+    [self yt_clearSentenceRow];
+
+    NSRange blankRange = [stem rangeOfString:@"__"];
+    if (blankRange.location != NSNotFound) {
+        NSString *pre = [stem substringToIndex:blankRange.location];
+        NSString *suf = [stem substringFromIndex:blankRange.location + blankRange.length];
+        self.prefixLabel = [[UILabel alloc] init];
+        self.prefixLabel.textColor = BLACK_COLOR_1F;
+        self.prefixLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
+        self.prefixLabel.text = pre.length ? pre : @"";
+        [self.sentenceRow addSubview:self.prefixLabel];
+
+        self.blankWrap = [[UIView alloc] init];
+        self.blankWrap.backgroundColor = [UIColor clearColor];
+        [self.sentenceRow addSubview:self.blankWrap];
+
+        self.blankWordLabel = [[UILabel alloc] init];
+        self.blankWordLabel.textAlignment = NSTextAlignmentCenter;
+        self.blankWordLabel.textColor = BLACK_COLOR_1F;
+        self.blankWordLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
+        self.blankWordLabel.text = @"";
+        [self.blankWrap addSubview:self.blankWordLabel];
+
+        self.blankLine = [[UIView alloc] init];
+        self.blankLine.backgroundColor = [UIColor colorWithWhite:0.78 alpha:1];
+        [self.blankWrap addSubview:self.blankLine];
+
+        self.suffixLabel = [[UILabel alloc] init];
+        self.suffixLabel.textColor = BLACK_COLOR_1F;
+        self.suffixLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
+        NSString *trim = [suf stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        self.suffixLabel.text = (trim.length > 0) ? trim : @"？";
+        [self.sentenceRow addSubview:self.suffixLabel];
+
+        [self.prefixLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.top.equalTo(self.sentenceRow);
+        }];
+        [self.blankWrap mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.equalTo(self.prefixLabel.mas_right).offset(6);
+            make.top.equalTo(self.sentenceRow);
+            make.width.mas_equalTo(54);
+            make.height.mas_equalTo(34);
+        }];
+        [self.suffixLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.equalTo(self.blankWrap.mas_right).offset(6);
+            make.top.equalTo(self.sentenceRow);
+            make.right.lessThanOrEqualTo(self.sentenceRow);
+        }];
+        [self.blankWordLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.right.top.equalTo(self.blankWrap);
+            make.bottom.equalTo(self.blankLine.mas_top).offset(-3);
+        }];
+        [self.blankLine mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.right.equalTo(self.blankWrap);
+            // 下划线相对占位区底边上移，与两侧中文基线更齐
+            make.bottom.equalTo(self.blankWrap).offset(-10);
+            make.height.mas_equalTo(1);
+        }];
+        [self.sentenceRow mas_updateConstraints:^(MASConstraintMaker *make) {
+            make.bottom.equalTo(self.blankWrap.mas_bottom);
+        }];
+    } else {
+        self.prefixLabel = [[UILabel alloc] init];
+        self.prefixLabel.textColor = BLACK_COLOR_1F;
+        self.prefixLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
+        self.prefixLabel.numberOfLines = 0;
+        self.prefixLabel.text = stem.length ? stem : @"";
+        [self.sentenceRow addSubview:self.prefixLabel];
+        [self.prefixLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.sentenceRow);
+        }];
+    }
+}
+
+- (void)yt_rebuildMultiBlankWithParts:(NSArray<NSString *> *)parts {
+    [self yt_clearSentenceRow];
+    NSInteger blankCount = (NSInteger)parts.count - 1;
+    if (blankCount < 1) {
+        [self yt_rebuildSingleBlankWithStem:[parts componentsJoinedByString:@""]];
+        return;
+    }
+
+    UIView *prev = nil;
+    for (NSInteger i = 0; i < parts.count; i++) {
+        NSString *seg = parts[i];
+        if (seg.length > 0) {
+            UILabel *segLab = [[UILabel alloc] init];
+            segLab.textColor = BLACK_COLOR_1F;
+            segLab.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
+            segLab.numberOfLines = 0;
+            segLab.text = seg;
+            [self.sentenceRow addSubview:segLab];
+            [segLab mas_makeConstraints:^(MASConstraintMaker *make) {
+                if (prev) {
+                    make.left.equalTo(prev.mas_right).offset(4);
+                } else {
+                    make.left.equalTo(self.sentenceRow);
+                }
+                make.top.equalTo(self.sentenceRow);
+            }];
+            prev = segLab;
+        }
+        if (i + 1 < parts.count) {
+            UIView *wrap = [[UIView alloc] init];
+            wrap.backgroundColor = [UIColor clearColor];
+            wrap.layer.cornerRadius = 4;
+            [self.sentenceRow addSubview:wrap];
+            [self.multiBlankWraps addObject:wrap];
+
+            UILabel *wlab = [[UILabel alloc] init];
+            wlab.textAlignment = NSTextAlignmentCenter;
+            wlab.textColor = BLACK_COLOR_1F;
+            wlab.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
+            wlab.text = @"";
+            [wrap addSubview:wlab];
+            [self.multiBlankWordLabels addObject:wlab];
+
+            UIView *line = [[UIView alloc] init];
+            line.backgroundColor = [UIColor colorWithWhite:0.78 alpha:1];
+            [wrap addSubview:line];
+
+            [wlab mas_makeConstraints:^(MASConstraintMaker *make) {
+                make.left.right.top.equalTo(wrap);
+                make.bottom.equalTo(line.mas_top).offset(-3);
+            }];
+            [line mas_makeConstraints:^(MASConstraintMaker *make) {
+                make.left.right.equalTo(wrap);
+                make.bottom.equalTo(wrap).offset(-10);
+                make.height.mas_equalTo(1);
+            }];
+            CGFloat w = MAX(54, 44);
+            [wrap mas_makeConstraints:^(MASConstraintMaker *make) {
+                if (prev) {
+                    make.left.equalTo(prev.mas_right).offset(4);
+                } else {
+                    make.left.equalTo(self.sentenceRow);
+                }
+                make.top.equalTo(self.sentenceRow);
+                make.width.mas_greaterThanOrEqualTo(w);
+                make.height.mas_equalTo(34);
+            }];
+            prev = wrap;
+        }
+    }
+    if (prev) {
+        [prev mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.right.lessThanOrEqualTo(self.sentenceRow);
+        }];
+        [self.sentenceRow mas_updateConstraints:^(MASConstraintMaker *make) {
+            make.bottom.equalTo(prev.mas_bottom);
+        }];
+    }
+}
+
 - (void)configureWithUnit:(YTUnit *)unit theme:(YTDifficultyTheme *)theme audio:(YTAudioMuxService *)audio recording:(YTRecordingService *)recording pronounceEvaluator:(id<YTPronounceEvaluating>)pronounceEvaluator answerEvaluator:(id<YTAnswerEvaluating>)answerEvaluator {
     [super configureWithUnit:unit theme:theme audio:audio recording:recording pronounceEvaluator:pronounceEvaluator answerEvaluator:answerEvaluator];
     self.selectedOptionId = nil;
-    self.blankWordLabel.text = @"";
+    [self.selectedFillOptionIdsOrdered removeAllObjects];
+    self.currentFillSlotIndex = 0;
 
     self.primaryState.kind = YTUnitPrimaryKindSubmit;
     self.primaryState.title = @"Submit";
     self.primaryState.enabled = NO;
     [self emitPrimaryState];
 
+    {
+        NSString *instr = [unit yt_resolvedStemInstructionText];
+        self.titleLabel.text = instr.length ? instr : NSLocalizedString(@"Choose the correct word", @"");
+    }
+
     NSString *stem = unit.titleCN ?: @"";
-    NSRange blankRange = [stem rangeOfString:@"__"];
-    if (blankRange.location != NSNotFound) {
-        NSString *pre = [stem substringToIndex:blankRange.location];
-        NSString *suf = [stem substringFromIndex:blankRange.location + blankRange.length];
-        self.prefixLabel.text = pre.length ? pre : @"";
-        NSString *trim = [suf stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        self.suffixLabel.text = (trim.length > 0) ? trim : @"？";
+    NSArray<NSString *> *parts = [stem componentsSeparatedByString:@"__"];
+    NSInteger blankSlots = (NSInteger)parts.count - 1;
+    if (blankSlots < 1) {
+        blankSlots = 1;
+    }
+    self.fillBlankSlotCount = blankSlots;
+
+    if (self.fillBlankSlotCount <= 1) {
+        [self yt_rebuildSingleBlankWithStem:stem];
+        self.blankWordLabel.text = @"";
     } else {
-        self.prefixLabel.text = stem.length ? stem : @"";
-        self.suffixLabel.text = @"";
+        for (NSInteger i = 0; i < self.fillBlankSlotCount; i++) {
+            [self.selectedFillOptionIdsOrdered addObject:@""];
+        }
+        [self yt_rebuildMultiBlankWithParts:parts];
     }
 
     for (UIView *v in self.optionsRow.subviews) {
@@ -189,21 +329,55 @@
     }
 }
 
+- (BOOL)yt_allFillSlotsSatisfied {
+    if (self.fillBlankSlotCount <= 1) {
+        return self.selectedOptionId.length > 0;
+    }
+    if (self.selectedFillOptionIdsOrdered.count != self.fillBlankSlotCount) {
+        return NO;
+    }
+    for (NSString *s in self.selectedFillOptionIdsOrdered) {
+        if (s.length == 0) return NO;
+    }
+    return YES;
+}
+
 - (void)onSelectFillBlankOption:(UIButton *)sender {
     NSInteger idx = sender.tag;
     if (idx < 0 || idx >= self.unit.options.count) return;
     NSDictionary *opt = self.unit.options[idx];
-    self.selectedOptionId = sender.accessibilityIdentifier ?: opt[@"id"];
-    self.blankWordLabel.text = opt[@"text"] ?: @"";
+    NSString *oid = sender.accessibilityIdentifier ?: opt[@"id"];
+    NSString *text = opt[@"text"] ?: @"";
 
-    UIColor *selBorder = [theAppDelegate.window colorWithHexString:@"#D4D4E4" alpha:1];
-    for (UIButton *btn in self.optionButtons) {
-        BOOL sel = [btn.accessibilityIdentifier isEqualToString:self.selectedOptionId ?: @""];
-        btn.layer.borderColor = sel ? selBorder.CGColor : [UIColor colorWithWhite:0.85 alpha:1].CGColor;
-        btn.layer.borderWidth = sel ? 3 : 1;
-        btn.backgroundColor = [UIColor whiteColor];
+    if (self.fillBlankSlotCount <= 1) {
+        self.selectedOptionId = oid;
+        self.blankWordLabel.text = text;
+        UIColor *selBorder = [theAppDelegate.window colorWithHexString:@"#D4D4E4" alpha:1];
+        for (UIButton *btn in self.optionButtons) {
+            BOOL sel = [btn.accessibilityIdentifier isEqualToString:self.selectedOptionId ?: @""];
+            btn.layer.borderColor = sel ? selBorder.CGColor : [UIColor colorWithWhite:0.85 alpha:1].CGColor;
+            btn.layer.borderWidth = sel ? 3 : 1;
+            btn.backgroundColor = [UIColor whiteColor];
+        }
+        self.primaryState.enabled = (self.selectedOptionId.length > 0);
+        [self emitPrimaryState];
+        return;
     }
-    self.primaryState.enabled = (self.selectedOptionId.length > 0);
+
+    if (self.currentFillSlotIndex >= self.fillBlankSlotCount) {
+        return;
+    }
+    if (!sender.enabled) return;
+
+    self.selectedFillOptionIdsOrdered[self.currentFillSlotIndex] = oid ?: @"";
+    if ((NSUInteger)self.currentFillSlotIndex < self.multiBlankWordLabels.count) {
+        self.multiBlankWordLabels[self.currentFillSlotIndex].text = text;
+    }
+    sender.enabled = NO;
+
+    self.currentFillSlotIndex += 1;
+
+    self.primaryState.enabled = [self yt_allFillSlotsSatisfied];
     [self emitPrimaryState];
 }
 
@@ -211,15 +385,48 @@
     UIColor *correctC = self.theme.primaryColor ?: (self.theme.correctColor ?: [UIColor colorWithRed:0.2 green:0.75 blue:0.4 alpha:1]);
     UIColor *wrongBorderC = [theAppDelegate.window colorWithHexString:@"#FF9593" alpha:1];
     UIColor *wrongFillC = [theAppDelegate.window colorWithHexString:@"#FFF0F1" alpha:1];
-    for (UIButton *btn in self.optionButtons) {
-        BOOL isSel = [btn.accessibilityIdentifier isEqualToString:self.selectedOptionId ?: @""];
-        if (!isSel) {
-            btn.layer.borderColor = [UIColor colorWithWhite:0.85 alpha:1].CGColor;
-            btn.layer.borderWidth = 1;
-            btn.backgroundColor = [UIColor whiteColor];
-            continue;
+
+    if (self.fillBlankSlotCount <= 1) {
+        for (UIButton *btn in self.optionButtons) {
+            BOOL isSel = [btn.accessibilityIdentifier isEqualToString:self.selectedOptionId ?: @""];
+            if (!isSel) {
+                btn.layer.borderColor = [UIColor colorWithWhite:0.85 alpha:1].CGColor;
+                btn.layer.borderWidth = 1;
+                btn.backgroundColor = [UIColor whiteColor];
+                continue;
+            }
+            if (isCorrect) {
+                btn.layer.borderColor = correctC.CGColor;
+                btn.layer.borderWidth = 3;
+                btn.backgroundColor = [correctC colorWithAlphaComponent:0.2];
+            } else {
+                btn.layer.borderColor = wrongBorderC.CGColor;
+                btn.layer.borderWidth = 3;
+                btn.backgroundColor = wrongFillC;
+            }
         }
-        if (isCorrect) {
+        return;
+    }
+
+    NSArray<NSString *> *wants = self.unit.correctFillTexts ?: @[];
+    for (NSInteger slot = 0; slot < self.fillBlankSlotCount; slot++) {
+        if ((NSUInteger)slot >= self.selectedFillOptionIdsOrdered.count) break;
+        NSString *oid = self.selectedFillOptionIdsOrdered[(NSUInteger)slot];
+        UIButton *btn = nil;
+        for (UIButton *b in self.optionButtons) {
+            if ([(b.accessibilityIdentifier ?: @"") isEqualToString:oid]) {
+                btn = b;
+                break;
+            }
+        }
+        if (!btn) continue;
+        BOOL slotOk = isCorrect;
+        if (!isCorrect && (NSUInteger)slot < wants.count) {
+            NSString *want = [wants[(NSUInteger)slot] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            NSString *txt = [btn titleForState:UIControlStateNormal] ?: @"";
+            slotOk = [txt isEqualToString:want];
+        }
+        if (slotOk) {
             btn.layer.borderColor = correctC.CGColor;
             btn.layer.borderWidth = 3;
             btn.backgroundColor = [correctC colorWithAlphaComponent:0.2];
@@ -232,11 +439,29 @@
 }
 
 - (void)handlePrimaryActionWithCompletion:(void (^)(YTUnitSubmitResult * _Nullable, NSError * _Nullable))completion {
-    if (self.selectedOptionId.length == 0) {
+    if (self.fillBlankSlotCount <= 1) {
+        if (self.selectedOptionId.length == 0) {
+            if (completion) completion(nil, [NSError errorWithDomain:@"YTFillBlankUnitView" code:4001 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Please choose an option", @"")}]);
+            return;
+        }
+        NSDictionary *answerPayload = YTAnswerPayloadForSelectedOptionId(self.selectedOptionId);
+        __weak typeof(self) weakSelf = self;
+        [self evaluateAnswerPayload:answerPayload completion:^(YTUnitSubmitResult * _Nullable r, NSError * _Nullable error) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            BOOL correct = r.isCorrect;
+            self.completeSignalSatisfied = correct;
+            [self applySubmitFeedbackCorrect:correct];
+            if (completion) completion(r, error);
+        }];
+        return;
+    }
+
+    if (![self yt_allFillSlotsSatisfied]) {
         if (completion) completion(nil, [NSError errorWithDomain:@"YTFillBlankUnitView" code:4001 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Please choose an option", @"")}]);
         return;
     }
-    NSDictionary *answerPayload = YTAnswerPayloadForSelectedOptionId(self.selectedOptionId);
+    NSDictionary *answerPayload = YTAnswerPayloadForSelectedFillOptionIds([self.selectedFillOptionIdsOrdered copy]);
     __weak typeof(self) weakSelf = self;
     [self evaluateAnswerPayload:answerPayload completion:^(YTUnitSubmitResult * _Nullable r, NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
@@ -249,6 +474,43 @@
 }
 
 - (void)applyRestoredAnswerSnapshot:(NSDictionary *)snapshot {
+    NSArray<NSString *> *ids = YTSelectedFillOptionIdsFromPayload(snapshot);
+    if (ids.count > 1 && self.fillBlankSlotCount > 1) {
+        if (ids.count != self.fillBlankSlotCount) return;
+        [self.selectedFillOptionIdsOrdered removeAllObjects];
+        for (NSString *oid in ids) {
+            [self.selectedFillOptionIdsOrdered addObject:oid ?: @""];
+        }
+        self.currentFillSlotIndex = self.fillBlankSlotCount;
+        for (NSInteger s = 0; s < (NSInteger)ids.count; s++) {
+            NSString *oid = ids[(NSUInteger)s];
+            NSString *txt = @"";
+            for (NSDictionary *opt in self.unit.options) {
+                id iid = opt[@"id"];
+                NSString *os = [iid isKindOfClass:[NSString class]] ? (NSString *)iid : [NSString stringWithFormat:@"%@", iid];
+                if ([os isEqualToString:oid]) {
+                    txt = opt[@"text"] ?: @"";
+                    break;
+                }
+            }
+            if ((NSUInteger)s < self.multiBlankWordLabels.count) {
+                self.multiBlankWordLabels[(NSUInteger)s].text = txt;
+            }
+            for (UIButton *btn in self.optionButtons) {
+                if ([(btn.accessibilityIdentifier ?: @"") isEqualToString:oid]) {
+                    btn.enabled = NO;
+                    break;
+                }
+            }
+        }
+        [self applySubmitFeedbackCorrect:YES];
+        self.completeSignalSatisfied = YES;
+        self.primaryState.kind = YTUnitPrimaryKindContinue;
+        self.primaryState.title = @"Talk_Continue";
+        self.primaryState.enabled = YES;
+        [self emitPrimaryState];
+        return;
+    }
     NSString *sid = YTSelectedOptionIdFromPayload(snapshot);
     if (sid.length == 0) return;
     for (UIButton *btn in self.optionButtons) {

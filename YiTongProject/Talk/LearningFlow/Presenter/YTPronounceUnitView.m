@@ -5,8 +5,25 @@
 
 #import "YTPronounceUnitView.h"
 #import "HeaderConfig.h"
+#import "YTInternalUnitViewSupport.h"
 #import "VideoPlayerView.h"
 #import "VideoFullScreenViewController.h"
+
+/// Presenter 继承 `NSObject`（`YTBaseUnitView`），不能重写 `layoutSubviews`；用内容容器 View 转发布局回调。
+@interface YTPronounceFrontContentView : UIView
+@property (nonatomic, copy, nullable) void (^onDidLayoutSubviews)(void);
+@end
+
+@implementation YTPronounceFrontContentView
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    if (self.onDidLayoutSubviews) {
+        self.onDidLayoutSubviews();
+    }
+}
+
+@end
 
 #pragma mark - 语法页：点状虚线竖线
 
@@ -101,7 +118,10 @@
         self.preferredMaxLayoutWidth = w;
     }
     [super layoutSubviews];
-    [self yt_positionPlayButtonIfNeeded];
+    // 播放键由 Auto Layout 与拼音并排居中时，不再手动改 frame
+    if (self.playButton) {
+        [self yt_positionPlayButtonIfNeeded];
+    }
 }
 
 - (NSAttributedString *)yt_attributedStringForLayout {
@@ -181,6 +201,73 @@
 
 @end
 
+#pragma mark - 媒体区图片：按 AspectFit 实际绘制区域生成圆角位图（适配不同宽高比）
+
+/// 媒体图圆角半径（与卡片 18pt 协调）
+static CGFloat const kYTPronounceMediaImageCornerRadius = 12.0;
+
+@interface YTPronounceMediaImageView : UIImageView
+/// 原始图（网络/本地）；展示前会按当前 bounds 做 AspectFit + 圆角栅格化
+@property (nonatomic, strong) UIImage *sourceImage;
+@property (nonatomic, assign) CGFloat roundedCornerRadius;
+@property (nonatomic, assign) CGSize lastRoundedBoundsSize;
+/// YES：占位阶段仅在画布中心「半宽×半高」区域内绘制（与 `talk_default` 小图效果一致）
+@property (nonatomic, assign) BOOL usesHalfSizePlaceholder;
+@end
+
+@implementation YTPronounceMediaImageView
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.contentMode = UIViewContentModeScaleAspectFit;
+        self.backgroundColor = [UIColor clearColor];
+        self.clipsToBounds = NO;
+        _roundedCornerRadius = kYTPronounceMediaImageCornerRadius;
+        _lastRoundedBoundsSize = CGSizeZero;
+        _usesHalfSizePlaceholder = NO;
+    }
+    return self;
+}
+
+- (void)setSourceImage:(UIImage *)sourceImage {
+    _sourceImage = sourceImage;
+    self.lastRoundedBoundsSize = CGSizeZero;
+    [self yt_applyRoundedImageIfNeeded];
+}
+
+- (void)setRoundedCornerRadius:(CGFloat)roundedCornerRadius {
+    _roundedCornerRadius = roundedCornerRadius;
+    self.lastRoundedBoundsSize = CGSizeZero;
+    [self yt_applyRoundedImageIfNeeded];
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    [self yt_applyRoundedImageIfNeeded];
+}
+
+- (void)yt_applyRoundedImageIfNeeded {
+    CGSize sz = self.bounds.size;
+    if (sz.width < 1.0 || sz.height < 1.0) {
+        [super setImage:nil];
+        return;
+    }
+    if (!self.sourceImage) {
+        [super setImage:nil];
+        return;
+    }
+    if (CGSizeEqualToSize(sz, self.lastRoundedBoundsSize) && self.image != nil) {
+        return;
+    }
+    self.lastRoundedBoundsSize = sz;
+    CGFloat frac = self.usesHalfSizePlaceholder ? 0.5 : 1.0;
+    UIImage *rounded = YTTalkImageAspectFitInBounds(self.sourceImage, sz, self.roundedCornerRadius, frac);
+    [super setImage:rounded];
+}
+
+@end
+
 #pragma mark - Pronounce (recording)
 
 /**
@@ -212,22 +299,105 @@
 @property (nonatomic, strong) UILabel *pinyinLabel;
 @property (nonatomic, strong) UILabel *enLabel;
 @property (nonatomic, strong) UIButton *playButton;
-@property (nonatomic, strong) UILabel *recordHintLabel;
 @property (nonatomic, assign) BOOL hasPlayedOnce;
 @property (nonatomic, assign) BOOL isScoring;
 @property (nonatomic, assign) BOOL shouldOpenMicSettings;
 @property (nonatomic, strong) UIView *cardView;
 @property (nonatomic, strong) UIView *frontContentView;
+/// 接口 `stem_text`：卡片顶部说明（与 `titleCN` 主文案区分）
+@property (nonatomic, strong) UILabel *stemInstructionLabel;
+/// 拼音 + 播放按钮作为一整行在卡片内水平居中
+@property (nonatomic, strong) UIView *pinyinRowWrapper;
 @property (nonatomic, strong) UIView *grammarContentView;
 @property (nonatomic, assign) BOOL showingGrammar;
-/// 最近一次成功 `stopRecording` 得到的本地文件 URL 字符串（`fileURL.absoluteString`），供调试回放
-@property (nonatomic, copy, nullable) NSString *lastRecordingFileURLString;
 /// 题型页：可进入语法页时，底部与语法页同位的翻转按钮
 @property (nonatomic, strong) UIButton *grammarFlipToGrammarButton;
-#if DEBUG
-@property (nonatomic, strong) UIButton *debugPlayMyRecordingButton;
-#endif
 @end
+
+/// `grammar_keyword` 等：无 `...` 时按整段子串匹配；含 `...` 时优先匹配句中字面 keyword（如「去...吗」整段），否则按「前缀…后缀」只高亮两端（如「去学校吗」→「去」「吗」）
+static NSArray<NSValue *> *YTRangesForGrammarKeywordInString(NSString *fullText, NSString *keyword) {
+    if (![fullText isKindOfClass:[NSString class]] || fullText.length == 0) return @[];
+    if (![keyword isKindOfClass:[NSString class]] || keyword.length == 0) return @[];
+
+    NSMutableArray<NSValue *> *ranges = [NSMutableArray array];
+    static NSString *const kEllipsisWildcard = @"...";
+
+    if ([keyword rangeOfString:kEllipsisWildcard].location == NSNotFound) {
+        NSRange search = NSMakeRange(0, fullText.length);
+        while (search.location < fullText.length) {
+            NSRange r = [fullText rangeOfString:keyword options:0 range:search];
+            if (r.location == NSNotFound) break;
+            [ranges addObject:[NSValue valueWithRange:r]];
+            NSUInteger next = r.location + r.length;
+            if (next >= fullText.length) break;
+            search = NSMakeRange(next, fullText.length - next);
+        }
+        return ranges;
+    }
+
+    // 含 `...`：先尝试句中字面出现完整 keyword（如展示用「去...吗」）
+    NSRange litSearch = NSMakeRange(0, fullText.length);
+    while (litSearch.location < fullText.length) {
+        NSRange litR = [fullText rangeOfString:keyword options:0 range:litSearch];
+        if (litR.location == NSNotFound) break;
+        [ranges addObject:[NSValue valueWithRange:litR]];
+        NSUInteger next = litR.location + litR.length;
+        if (next >= fullText.length) break;
+        litSearch = NSMakeRange(next, fullText.length - next);
+    }
+    if (ranges.count > 0) {
+        return ranges;
+    }
+
+    NSArray<NSString *> *parts = [keyword componentsSeparatedByString:kEllipsisWildcard];
+    if (parts.count < 2) {
+        return @[];
+    }
+    NSString *prefix = parts.firstObject ?: @"";
+    NSString *suffix = parts.lastObject ?: @"";
+    if (prefix.length == 0 && suffix.length == 0) {
+        return @[];
+    }
+
+    NSUInteger cursor = 0;
+    while (cursor < fullText.length) {
+        NSRange preSearch = NSMakeRange(cursor, fullText.length - cursor);
+        NSRange preR = NSMakeRange(NSNotFound, 0);
+        if (prefix.length > 0) {
+            preR = [fullText rangeOfString:prefix options:0 range:preSearch];
+            if (preR.location == NSNotFound) break;
+        } else {
+            preR = NSMakeRange(cursor, 0);
+        }
+
+        NSUInteger afterPre = preR.location + preR.length;
+        if (suffix.length == 0) {
+            if (prefix.length > 0) {
+                [ranges addObject:[NSValue valueWithRange:preR]];
+            }
+            cursor = afterPre;
+            continue;
+        }
+
+        NSRange sufSearch = NSMakeRange(afterPre, fullText.length - afterPre);
+        NSRange sufR = [fullText rangeOfString:suffix options:0 range:sufSearch];
+        if (sufR.location == NSNotFound) {
+            if (prefix.length > 0) {
+                cursor = preR.location + 1;
+            } else {
+                break;
+            }
+            continue;
+        }
+
+        if (prefix.length > 0) {
+            [ranges addObject:[NSValue valueWithRange:preR]];
+        }
+        [ranges addObject:[NSValue valueWithRange:sufR]];
+        cursor = sufR.location + sufR.length;
+    }
+    return ranges;
+}
 
 @implementation YTPronounceUnitViewLegacyInternal
 
@@ -267,8 +437,15 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
             make.edges.equalTo(self.rootView);
         }];
 
-        _frontContentView = [[UIView alloc] init];
+        YTPronounceFrontContentView *front = [[YTPronounceFrontContentView alloc] init];
+        _frontContentView = front;
         _frontContentView.backgroundColor = [UIColor clearColor];
+        __weak typeof(self) weakSelf = self;
+        front.onDidLayoutSubviews = ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            [self yt_updatePinyinPreferredMaxLayoutWidthIfNeeded];
+        };
         [_cardView addSubview:_frontContentView];
         [_frontContentView mas_makeConstraints:^(MASConstraintMaker *make) {
             make.edges.equalTo(self.cardView);
@@ -317,7 +494,11 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
         _pinyinLabel.lineBreakMode = NSLineBreakByCharWrapping;
         _pinyinLabel.textColor = textColor63637D;
         _pinyinLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:16];
-        [self.frontContentView addSubview:_pinyinLabel];
+
+        _pinyinRowWrapper = [[UIView alloc] init];
+        _pinyinRowWrapper.backgroundColor = [UIColor clearColor];
+        [self.frontContentView addSubview:_pinyinRowWrapper];
+        [_pinyinRowWrapper addSubview:_pinyinLabel];
 
         _enLabel = [[UILabel alloc] init];
         _enLabel.textAlignment = NSTextAlignmentCenter;
@@ -337,17 +518,8 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
         }
         [_playButton setImage:voicePlay forState:UIControlStateNormal];
         [_playButton addTarget:self action:@selector(onPlay) forControlEvents:UIControlEventTouchUpInside];
-        [self.frontContentView addSubview:_playButton];
-        pinyin.playButton = _playButton;
-        pinyin.playSpacing = 8.0;
-        _playButton.translatesAutoresizingMaskIntoConstraints = YES;
-
-        _recordHintLabel = [[UILabel alloc] init];
-        _recordHintLabel.textAlignment = NSTextAlignmentCenter;
-        _recordHintLabel.textColor = [UIColor colorWithWhite:0.55 alpha:1];
-        _recordHintLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
-        _recordHintLabel.numberOfLines = 2;
-        [self.frontContentView addSubview:_recordHintLabel];
+        [_pinyinRowWrapper addSubview:_playButton];
+        // 与播放键横向并排居中，改由 Masonry 约束，不再在 YTPinyinLabel 内手动布局
 
         _dashedLineView = [[UIView alloc] init];
         _dashedLineView.backgroundColor = [self dashedPatternColor];
@@ -358,21 +530,29 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
             make.centerX.equalTo(self.frontContentView);
             make.left.right.equalTo(self.frontContentView).inset(20);
             make.top.equalTo(self.mediaContainerView.mas_bottom).offset(kYTPronounceMediaToTitleGap);
-            make.bottom.equalTo(self.pinyinLabel.mas_top).offset(-6);
+            make.bottom.equalTo(self.pinyinRowWrapper.mas_top).offset(-6);
         }];
-        [_pinyinLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.equalTo(self.frontContentView).offset(kYTPronouncePinyinHorizontalInset);
-            make.right.equalTo(self.frontContentView).offset(-kYTPronouncePinyinHorizontalInset);
+        [_pinyinRowWrapper mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.centerX.equalTo(self.frontContentView);
             make.top.equalTo(self.cnTextView.mas_bottom).offset(6);
         }];
-        [_recordHintLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(self.pinyinLabel.mas_bottom).offset(8);
-            make.left.right.equalTo(self.frontContentView).inset(20);
+        // 拼音行最大宽度：与原先左右各 kYTPronouncePinyinHorizontalInset 一致，再减去间距与播放按钮
+        CGFloat kPinyinRowButtonAndSpacing = 8.0 + 28.0;
+        [_pinyinLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.top.bottom.equalTo(self.pinyinRowWrapper);
+            make.width.lessThanOrEqualTo(self.frontContentView).offset(-(kYTPronouncePinyinHorizontalInset * 2.0 + kPinyinRowButtonAndSpacing));
         }];
+        [_playButton mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.equalTo(self.pinyinLabel.mas_right).offset(8);
+            make.centerY.equalTo(self.pinyinLabel);
+            make.size.mas_equalTo(CGSizeMake(28, 28));
+            make.right.equalTo(self.pinyinRowWrapper);
+        }];
+        [_pinyinLabel setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
 
         [self.dashedLineView mas_makeConstraints:^(MASConstraintMaker *make) {
-            // 虚线固定放在拼音下方（不依赖 recordHint，避免空文案时链路不稳定）
-            make.top.equalTo(self.pinyinLabel.mas_bottom).offset(22);
+            // 虚线固定放在拼音行下方
+            make.top.equalTo(self.pinyinRowWrapper.mas_bottom).offset(22);
             make.left.right.equalTo(self.frontContentView).inset(20);
             make.height.mas_equalTo(1);
         }];
@@ -405,6 +585,28 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
     return self;
 }
 
+- (UILabel *)stemInstructionLabel {
+    if (!_stemInstructionLabel) {
+        _stemInstructionLabel = [[UILabel alloc] init];
+        _stemInstructionLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
+        _stemInstructionLabel.textColor = [UIColor colorWithWhite:0.55 alpha:1];
+        _stemInstructionLabel.numberOfLines = 0;
+        _stemInstructionLabel.textAlignment = NSTextAlignmentLeft;
+        [self.frontContentView addSubview:_stemInstructionLabel];
+    }
+    return _stemInstructionLabel;
+}
+
+- (void)yt_updatePinyinPreferredMaxLayoutWidthIfNeeded {
+    if (!self.pinyinLabel || !self.frontContentView) return;
+    CGFloat maxLabel = CGRectGetWidth(self.frontContentView.bounds) - (kYTPronouncePinyinHorizontalInset * 2.0 + 8.0 + 28.0);
+    if (maxLabel > 1.0) {
+        self.pinyinLabel.preferredMaxLayoutWidth = maxLabel;
+        [self.pinyinLabel invalidateIntrinsicContentSize];
+        [self.pinyinRowWrapper setNeedsLayout];
+    }
+}
+
 - (UIButton *)grammarFlipToGrammarButton {
     if (!_grammarFlipToGrammarButton) {
         UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -427,44 +629,6 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
     return _grammarFlipToGrammarButton;
 }
 
-#if DEBUG
-
-- (UIButton *)debugPlayMyRecordingButton {
-    if (!_debugPlayMyRecordingButton) {
-        _debugPlayMyRecordingButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_debugPlayMyRecordingButton setTitle:NSLocalizedString(@"Play my recording (debug)", @"") forState:UIControlStateNormal];
-        _debugPlayMyRecordingButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
-        _debugPlayMyRecordingButton.tintColor = BLACK_COLOR_1F;
-        _debugPlayMyRecordingButton.backgroundColor = [UIColor colorWithWhite:0.92 alpha:1];
-        _debugPlayMyRecordingButton.layer.cornerRadius = 8;
-        _debugPlayMyRecordingButton.contentEdgeInsets = UIEdgeInsetsMake(6, 10, 6, 10);
-        [_debugPlayMyRecordingButton addTarget:self action:@selector(onDebugPlayMyRecording) forControlEvents:UIControlEventTouchUpInside];
-        _debugPlayMyRecordingButton.hidden = YES;
-        [self.frontContentView addSubview:_debugPlayMyRecordingButton];
-        [_debugPlayMyRecordingButton mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.top.equalTo(self.frontContentView).offset(8);
-            make.right.equalTo(self.frontContentView).offset(-12);
-        }];
-    }
-    return _debugPlayMyRecordingButton;
-}
-
-- (void)debugUpdatePlayMyRecordingButtonVisibility {
-    BOOL show = (self.lastRecordingFileURLString.length > 0);
-    self.debugPlayMyRecordingButton.hidden = !show;
-}
-
-- (void)onDebugPlayMyRecording {
-    if (self.lastRecordingFileURLString.length == 0) {
-        return;
-    }
-    [self.audio stop];
-    [self.audio playURLString:self.lastRecordingFileURLString completion:^(__unused BOOL success, __unused NSError *_Nullable error) {
-    }];
-}
-
-#endif
-
 -(void)configureWithUnit:(YTUnit *)unit theme:(YTDifficultyTheme *)theme audio:(YTAudioMuxService *)audio recording:(YTRecordingService *)recording pronounceEvaluator:(id<YTPronounceEvaluating>)pronounceEvaluator answerEvaluator:(id<YTAnswerEvaluating>)answerEvaluator {
     [super configureWithUnit:unit theme:theme audio:audio recording:recording pronounceEvaluator:pronounceEvaluator answerEvaluator:answerEvaluator];
 
@@ -473,12 +637,6 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
     self.isScoring = NO;
     self.shouldOpenMicSettings = NO;
     self.showingGrammar = NO;
-    self.lastRecordingFileURLString = nil;
-#if DEBUG
-    if (self.debugPlayMyRecordingButton) {
-        self.debugPlayMyRecordingButton.hidden = YES;
-    }
-#endif
     if (self.grammarContentView.superview) {
         [self.grammarContentView removeFromSuperview];
     }
@@ -491,9 +649,34 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
     }
 
     [self rebuildMediaWithUnit:unit];
+
+    NSString *stemInstr = [unit yt_resolvedStemInstructionText];
+    BOOL showStem = (stemInstr.length > 0);
+    UILabel *sl = self.stemInstructionLabel;
+    sl.text = stemInstr ?: @"";
+    sl.hidden = !showStem;
+    [sl mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.left.right.equalTo(self.frontContentView).inset(16);
+        make.top.equalTo(self.frontContentView).offset(12);
+        if (!showStem) {
+            make.height.mas_equalTo(0);
+        }
+    }];
+    [self.mediaContainerView mas_remakeConstraints:^(MASConstraintMaker *make) {
+        if (showStem) {
+            make.top.equalTo(sl.mas_bottom).offset(8);
+        } else {
+            make.top.equalTo(self.frontContentView).offset(40);
+        }
+        make.left.right.equalTo(self.frontContentView).inset(20);
+        make.height.greaterThanOrEqualTo(@160);
+        make.bottom.equalTo(self.cnTextView.mas_top).offset(-kYTPronounceMediaToTitleGap);
+    }];
+
     // 约束布局完成后再计算分页 frame，避免初次 bounds=0 导致“看不到媒体”
     dispatch_async(dispatch_get_main_queue(), ^{
         [self layoutMediaIfNeeded];
+        [self yt_updatePinyinPreferredMaxLayoutWidthIfNeeded];
     });
     [self applyCNAttributedTextForUnit:unit];
     BOOL canOpenGrammar = (unit.highlightTexts.count > 0);
@@ -506,12 +689,18 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
     [self.pinyinLabel setNeedsLayout];
     self.enLabel.text = unit.titleEN ?: @"";
 
-    self.recordHintLabel.text = @"";
-
     // 默认主按钮为录音入口（由容器统一渲染按钮样式）
     self.primaryState.kind = YTUnitPrimaryKindRecord;
     self.primaryState.title = @"Start recording";
     self.primaryState.enabled = YES;
+
+    // 后台已标记完成：解锁下一题，主按钮为「再来一次」可重录（不沿用本地快照）
+    if (unit.answeredCorrectFromServer) {
+        self.completeSignalSatisfied = YES;
+        self.primaryState.kind = YTUnitPrimaryKindRecord;
+        self.primaryState.title = NSLocalizedString(@"Talk_Record_Again", @"");
+        self.primaryState.enabled = YES;
+    }
     [self emitPrimaryState];
 }
 
@@ -528,7 +717,7 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
     } else if (unit.imageName.length > 0) {
         [fallback addObject:@{@"type": @"image", @"name": unit.imageName ?: @""}];
     } else {
-        [fallback addObject:@{@"type": @"image", @"name": @"take_img1"}];
+        [fallback addObject:@{@"type": @"image", @"name": @"talk_default"}];
     }
     return fallback;
 }
@@ -647,12 +836,10 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
                 make.height.equalTo(videoShell.mas_width).multipliedBy(kYTTalkVideoPlayerAspectRatio);
             }];
 
-            UIImageView *poster = [[UIImageView alloc] init];
-            poster.contentMode = UIViewContentModeScaleAspectFit;
-            poster.clipsToBounds = YES;
-            poster.backgroundColor = [UIColor clearColor];
-            poster.image = [UIImage imageNamed:@"take_img1"];
+            YTPronounceMediaImageView *poster = [[YTPronounceMediaImageView alloc] init];
             poster.tag = kMediaVideoPosterTag;
+            poster.usesHalfSizePlaceholder = YES;
+            poster.sourceImage = [UIImage imageNamed:@"talk_default"];
             [videoShell addSubview:poster];
             [poster mas_makeConstraints:^(MASConstraintMaker *make) {
                 make.edges.equalTo(videoShell);
@@ -667,9 +854,7 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
                 make.edges.equalTo(videoShell);
             }];
         } else {
-            UIImageView *iv = [[UIImageView alloc] init];
-            iv.contentMode = UIViewContentModeScaleAspectFit;
-            iv.clipsToBounds = YES;
+            YTPronounceMediaImageView *iv = [[YTPronounceMediaImageView alloc] init];
             [page addSubview:iv];
             iv.frame = page.bounds;
             iv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -679,14 +864,28 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
             if ([name isKindOfClass:[NSString class]] && name.length > 0) {
                 ph = [UIImage imageNamed:name];
             }
-            if (!ph) ph = [UIImage imageNamed:@"take_img1"];
+            if (!ph) ph = [UIImage imageNamed:@"talk_default"];
 
             NSString *urlStr = it[@"url"];
             if ([urlStr isKindOfClass:[NSString class]] && urlStr.length > 0) {
                 NSURL *url = [NSURL URLWithString:urlStr];
-                [iv sd_setImageWithURL:url placeholderImage:ph];
+                iv.usesHalfSizePlaceholder = YES;
+                iv.sourceImage = ph;
+                __weak typeof(iv) weakIv = iv;
+                [iv sd_setImageWithURL:url
+                     placeholderImage:ph
+                              options:SDWebImageAvoidAutoSetImage
+                             progress:nil
+                            completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
+                    __strong typeof(weakIv) strongIv = weakIv;
+                    if (!strongIv) return;
+                    strongIv.usesHalfSizePlaceholder = (image == nil);
+                    strongIv.sourceImage = image ?: ph;
+                }];
             } else {
-                iv.image = ph;
+                UIImage *def = [UIImage imageNamed:@"talk_default"];
+                iv.usesHalfSizePlaceholder = (ph == def);
+                iv.sourceImage = ph;
             }
         }
     }
@@ -884,19 +1083,16 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
         };
         for (NSString *token in unit.highlightTexts) {
             if (![token isKindOfClass:[NSString class]] || token.length == 0) continue;
-            NSRange search = NSMakeRange(0, text.length);
-            while (search.location < text.length) {
-                NSRange r = [text rangeOfString:token options:0 range:search];
-                if (r.location == NSNotFound) break;
-                NSString *encoded = [token stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]] ?: @"";
-                NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"ytvocab://highlight?text=%@", encoded]];
+            NSString *encoded = [token stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]] ?: @"";
+            NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"ytvocab://highlight?text=%@", encoded]];
+            NSArray<NSValue *> *rangeValues = YTRangesForGrammarKeywordInString(text, token);
+            for (NSValue *rv in rangeValues) {
+                NSRange r = [rv rangeValue];
+                if (r.location == NSNotFound || r.length == 0) continue;
+                if (NSMaxRange(r) > text.length) continue;
                 if (url) {
                     [att addAttribute:NSLinkAttributeName value:url range:r];
                 }
-                // 防止死循环：从当前匹配末尾继续
-                NSUInteger next = r.location + r.length;
-                if (next >= text.length) break;
-                search = NSMakeRange(next, text.length - next);
             }
         }
     } else {
@@ -1103,14 +1299,10 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
         NSForegroundColorAttributeName: formula.textColor
     }];
     if (formulaHighlightText.length > 0) {
-        NSRange search = NSMakeRange(0, formulaText.length);
-        while (search.location < formulaText.length) {
-            NSRange r = [formulaText rangeOfString:formulaHighlightText options:0 range:search];
-            if (r.location == NSNotFound) break;
+        for (NSValue *rv in YTRangesForGrammarKeywordInString(formulaText, formulaHighlightText)) {
+            NSRange r = [rv rangeValue];
+            if (r.location == NSNotFound || NSMaxRange(r) > formulaText.length) continue;
             [fAtt addAttribute:NSForegroundColorAttributeName value:hl range:r];
-            NSUInteger next = r.location + r.length;
-            if (next >= formulaText.length) break;
-            search = NSMakeRange(next, formulaText.length - next);
         }
     }
     formula.attributedText = fAtt;
@@ -1219,14 +1411,10 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
             NSForegroundColorAttributeName: BLACK_COLOR_1F
         }];
         if (highlightText.length > 0) {
-            NSRange search = NSMakeRange(0, cnText.length);
-            while (search.location < cnText.length) {
-                NSRange rr = [cnText rangeOfString:highlightText options:0 range:search];
-                if (rr.location == NSNotFound) break;
+            for (NSValue *rv in YTRangesForGrammarKeywordInString(cnText, highlightText)) {
+                NSRange rr = [rv rangeValue];
+                if (rr.location == NSNotFound || NSMaxRange(rr) > cnText.length) continue;
                 [cnAtt addAttribute:NSForegroundColorAttributeName value:hl range:rr];
-                NSUInteger next = rr.location + rr.length;
-                if (next >= cnText.length) break;
-                search = NSMakeRange(next, cnText.length - next);
             }
         }
         cnLabel.attributedText = cnAtt;
@@ -1278,7 +1466,6 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
 - (void)onPlay {
     if (self.unit.audioURLString.length == 0) {
         self.hasPlayedOnce = YES;
-        self.recordHintLabel.text = NSLocalizedString(@"No reference audio; please use recording to practice.", @"");
         return;
     }
     __weak typeof(self) weakSelf = self;
@@ -1286,7 +1473,6 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
         self.hasPlayedOnce = YES;
-        self.recordHintLabel.text = NSLocalizedString(@"Playback complete (standard pronunciation)", @"");
     }];
 }
 
@@ -1300,8 +1486,8 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
         if (completion) completion(nil, nil);
         return;
     }
-    // 已达标且主按钮已切 Continue：点击应交给容器 goNext，勿再进入开始录音分支
-    if (self.completeSignalSatisfied && ![self.recording isRecording]) {
+    // 已达标且主按钮为 Continue：点击交给容器 goNext；仍为 Record（如来后台已完成的「再来一次」）则允许重新进入录音
+    if (self.completeSignalSatisfied && ![self.recording isRecording] && self.primaryState.kind != YTUnitPrimaryKindRecord) {
         if (completion) completion(nil, nil);
         return;
     }
@@ -1343,10 +1529,8 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
                 if ([error.domain isEqualToString:@"YTRecordingService"] && error.code == 2002) {
                     self.shouldOpenMicSettings = YES;
                     self.primaryState.title = @"Go to Settings to enable microphone";
-                    self.recordHintLabel.text = NSLocalizedString(@"Microphone permission denied, please enable it in system settings before recording.", @"");
                 } else {
                     self.primaryState.title = @"Start recording";
-                    self.recordHintLabel.text = NSLocalizedString(@"Recording failed; please try again.", @"");
                 }
                 [self emitPrimaryState];
                 if (completion) completion(nil, error);
@@ -1371,19 +1555,13 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
             self.primaryState.title = @"Start recording";
             self.primaryState.enabled = YES;
             [self emitPrimaryState];
-            self.recordHintLabel.text = NSLocalizedString(@"Scoring failed; please try again later.", @"");
             if (completion) completion(nil, error);
             return;
         }
 
-        self.lastRecordingFileURLString = fileURL.absoluteString;
-#if DEBUG
-        [self debugUpdatePlayMyRecordingButtonVisibility];
-#endif
-
         NSString *expected = self.unit.titleCN.length ? self.unit.titleCN : (self.unit.titlePinyin ?: @"");
         __weak typeof(self) weakEval = self;
-        [self.pronounceEvaluator evaluateRecordingAtURL:fileURL expectedText:expected completion:^(YTScoreResult * _Nullable result, NSError * _Nullable error2) {
+        [self.pronounceEvaluator evaluateRecordingAtURL:fileURL unit:self.unit expectedText:expected completion:^(YTScoreResult * _Nullable result, NSError * _Nullable error2) {
             __strong typeof(weakEval) self = weakEval;
             if (!self) return;
             self.isScoring = NO;
@@ -1391,7 +1569,6 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
                 self.primaryState.title = @"Start recording";
                 self.primaryState.enabled = YES;
                 [self emitPrimaryState];
-                self.recordHintLabel.text = NSLocalizedString(@"Scoring failed; please try again later.", @"");
                 if (completion) completion(nil, error2);
                 return;
             }
@@ -1402,14 +1579,10 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
                 self.primaryState.kind = YTUnitPrimaryKindContinue;
                 self.primaryState.title = @"Correct";
                 self.primaryState.enabled = YES;
-                NSString *fmt = NSLocalizedString(@"Score %ld (completed)", @"");
-                self.recordHintLabel.text = [NSString stringWithFormat:fmt, (long)result.score];
             } else {
                 self.completeSignalSatisfied = NO;
                 self.primaryState.title = @"Try again";
                 self.primaryState.enabled = YES;
-                NSString *fmt = NSLocalizedString(@"Score %ld (retry)", @"");
-                self.recordHintLabel.text = [NSString stringWithFormat:fmt, (long)result.score];
             }
             [self emitPrimaryState];
             if (completion) completion(nil, nil);

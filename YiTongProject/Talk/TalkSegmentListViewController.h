@@ -14,6 +14,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithType:(NSString *)type;
 
+/// 重新请求 `/talk/scene` 并刷新列表（与 MJRefresh 下拉刷新相同逻辑）
+- (void)reloadData;
+
 @end
 
 NS_ASSUME_NONNULL_END

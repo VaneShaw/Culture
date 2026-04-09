@@ -12,22 +12,24 @@
 #import "YTLearningFlowBootstrap.h"
 #import "YTLearningFlowBootstrapService.h"
 #import "YTDifficultyTheme.h"
-#import "YTMockUnitFactory.h"
 #import "YTMockLearningFlowBootstrapService.h"
 #import "YTLocalAnswerEvaluator.h"
-#import "YTLocalPronounceEvaluator.h"
+#import "YTServerPronounceEvaluator.h"
 #import "YTLearningProgressStoring.h"
 #import "YTUnitViewFactory.h"
-#import "YTInternalUnitViewSupport.h"
 #import "YTAnswerResultBottomSheet.h"
 #import "YTResumeLearningAlertView.h"
 #import "YTTipAlertView.h"
 #import "YTTalkLearningDataService.h"
+#import "YTTalkCompleteSubmit.h"
 #import "YTDepthPrimaryButton.h"
 #import "YTRecordingService.h"
 #import "YTAudioMuxService.h"
 #import "YTRecordingMeterBarsView.h"
 #import "YTUnit.h"
+#import "TalkTopicHomeViewController.h"
+#import "TalkViewController.h"
+#import "GlobalHUDManager.h"
 #import <QuartzCore/QuartzCore.h>
 
 /// 学习流底栏左右切图资源前缀：`talk_nav_{simple|medium|hard}_*`
@@ -69,7 +71,7 @@ static UIColor *YTBlendColorTowardWhite(UIColor *color, CGFloat amount) {
  PRD MVP 约束（当前版本）：
  - 练习题：须答对才计入进度；未答对时底部右箭头置灰，答对后才可进入下一题
  - 部分 unit 不计进度（见 `-[YTUnit countsTowardProgress]`）
- - 续学位置与已完成集合落地本地（无接口先跑通闭环）
+ - 续学位置与已完成集合以 `/talk/unit` 等接口为准，顶部进度仅认服务端 `progress_percent`
  */
 static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown";
 
@@ -85,9 +87,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 @property (nonatomic, strong) NSMutableSet<NSString *> *completedUnitIds;
 /// 续学弹窗选「继续上次学习」时为 YES，才从本地/后台恢复已答对题目的答案；选「从头开始」为 NO
 @property (nonatomic, assign) BOOL resumePrefillCorrectAnswers;
-/// YES：不请求 YTTalkLearningDataService，用 init 传入的 units 经插入过渡/完成页后从第 0 步开始
-@property (nonatomic, assign) BOOL skipFetchUsePreloaded;
-
 @property (nonatomic, strong) UIView *progressBackgroundView;
 /// 进度条左侧：宽度 = 总宽 × 进度，内铺「主题色 → 轨道色」渐变，与右侧纯色无缝衔接
 @property (nonatomic, strong) UIView *progressLeftGradientHost;
@@ -118,44 +117,69 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 @property (nonatomic, strong) YTRecordingMeterBarsView *recordingMeterBarsView;
 /// 波形水平流动累加相位（静音时不再增长，见 `yt_onRecordingMeterTick:`）
 @property (nonatomic, assign) CGFloat recordingMeterWavePhaseAccum;
+/// 顶部进度条仅使用服务端 `progress_percent`（话题页注入、`/talk/complete`、发音评估等）；无效区间按 0% 展示
+@property (nonatomic, assign) NSInteger serverProgressPercent;
+/// 话题页带入的初始进度 0～100；`-1` 表示未注入（下一难度无缝切换等）
+@property (nonatomic, assign) NSInteger initialProgressPercent;
 
 @end
 
 @implementation TalkLearningFlowViewController
 
 - (instancetype)initWithSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId {
-    return [self initWithSceneId:sceneId levelId:levelId preloadedUnits:nil skipFetchUsePreloaded:NO];
+    return [self initWithSceneId:sceneId levelId:levelId initialProgressPercent:-1];
 }
 
 - (instancetype)initWithSceneId:(NSString *)sceneId
                         levelId:(YTLevelId)levelId
              preloadedBootstrap:(YTLearningFlowBootstrap *)preloadedBootstrap {
-    self = [self initWithSceneId:sceneId levelId:levelId preloadedUnits:preloadedBootstrap.units skipFetchUsePreloaded:NO];
+    return [self initWithSceneId:sceneId levelId:levelId preloadedBootstrap:preloadedBootstrap initialProgressPercent:-1];
+}
+
+- (instancetype)initWithSceneId:(NSString *)sceneId
+                        levelId:(YTLevelId)levelId
+             preloadedBootstrap:(YTLearningFlowBootstrap *)preloadedBootstrap
+        initialProgressPercent:(NSInteger)initialProgressPercent {
+    self = [self initWithSceneId:sceneId levelId:levelId initialProgressPercent:initialProgressPercent];
     if (self) {
         _preloadedBootstrap = preloadedBootstrap;
+        _units = preloadedBootstrap.units ?: @[];
     }
     return self;
 }
 
-- (instancetype)initWithSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId preloadedUnits:(NSArray<YTUnit *> *)preloadedUnits {
-    return [self initWithSceneId:sceneId levelId:levelId preloadedUnits:preloadedUnits skipFetchUsePreloaded:NO];
-}
-
-- (instancetype)initWithSceneId:(NSString *)sceneId levelId:(YTLevelId)levelId preloadedUnits:(NSArray<YTUnit *> *)preloadedUnits skipFetchUsePreloaded:(BOOL)skip {
+- (instancetype)initWithSceneId:(NSString *)sceneId
+                        levelId:(YTLevelId)levelId
+           initialProgressPercent:(NSInteger)initialProgressPercent {
     self = [super init];
     if (self) {
         _sceneId = [sceneId copy];
         _levelId = levelId;
         _currentIndex = 0;
         _completedUnitIds = [NSMutableSet set];
-        _units = preloadedUnits ?: @[];
-        _skipFetchUsePreloaded = skip;
+        _units = @[];
         _bootstrapService = [YTMockLearningFlowBootstrapService shared];
-        _pronounceEvaluator = [YTLocalPronounceEvaluator shared];
         _answerEvaluator = [YTLocalAnswerEvaluator shared];
         _progressStore = [YTTalkLearningDataService shared];
+        _initialProgressPercent = initialProgressPercent;
+        _serverProgressPercent = -1;
+        _talkSceneNumericId = 0;
+        _talkDidApplyLevelAPI = NO;
+        _talkBeginnerLevelRecordId = 1;
+        _talkIntermediateLevelRecordId = 2;
+        _talkAdvancedLevelRecordId = 3;
+        [self yt_seedServerProgressPercentFromEntryIfNeeded];
     }
     return self;
+}
+
+/// 进入页与话题卡一致：有注入时用该百分比驱动顶部条，直到 `/talk/complete` 带回新 `progress_percent`
+- (void)yt_seedServerProgressPercentFromEntryIfNeeded {
+    if (self.initialProgressPercent >= 0 && self.initialProgressPercent <= 100) {
+        self.serverProgressPercent = self.initialProgressPercent;
+    } else {
+        self.serverProgressPercent = -1;
+    }
 }
 
 #pragma mark - 生命周期
@@ -185,6 +209,15 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    __weak typeof(self) weakSelf = self;
+    self.pronounceEvaluator = [[YTServerPronounceEvaluator alloc] initWithProgressPercentHandler:^(NSInteger pct) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        if (pct >= 0 && pct <= 100) {
+            self.serverProgressPercent = pct;
+            [self updateProgressUI];
+        }
+    }];
     self.pageId = @"talk_learning_flow";
     self.theme = [YTDifficultyTheme themeForLevel:self.levelId];
     self.view.backgroundColor = self.theme.backgroundColor;
@@ -222,25 +255,32 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         [self applyBootstrapAndStart:self.preloadedBootstrap];
         return;
     }
-    if (self.skipFetchUsePreloaded && self.units.count > 0) {
-        [self applyPreloadedUnitsAndStartFresh];
-        return;
-    }
-    // 模拟接口：点击难度获取内容，返回 units + 上次学习位置 + 已完成列表
+    YTMockLearningFlowBootstrapService *svc = [YTMockLearningFlowBootstrapService shared];
+    NSInteger sceneNumeric = [self yt_effectiveTalkSceneNumericId];
+    svc.talkSceneNumericId = sceneNumeric;
+    NSInteger requestLevelId = [self yt_requestLevelIdForTalkAPIForDisplayLevel:self.levelId];
     __weak typeof(self) weakSelf = self;
-    [self.bootstrapService fetchBootstrapForSceneId:self.sceneId levelId:self.levelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
+    [[GlobalHUDManager shared] showSpinnerOnly];
+    [svc fetchBootstrapForSceneId:self.sceneId levelId:requestLevelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
         __strong typeof(weakSelf) self = weakSelf;
+        [[GlobalHUDManager shared] hide];
         if (!self) return;
-        if (!bootstrap) return;
+        if (!bootstrap || error) {
+            NSString *msg = error.localizedDescription.length > 0 ? error.localizedDescription : NSLocalizedString(@"加载学习流失败，请稍后重试", @"");
+            [YTTipAlertView showInView:self.view
+                              topTitle:nil
+                           contentText:msg
+                    primaryButtonTitle:NSLocalizedString(@"OK", @"")
+                   secondaryButtonTitle:nil
+                                onClose:nil
+                             onConfirm:^{
+                [self.navigationController popViewControllerAnimated:YES];
+            }
+                              onCancel:nil];
+            return;
+        }
         [self applyBootstrapAndStart:bootstrap];
     }];
-}
-
-/// 下一难度无缝切换：与 `startFlow` 中插入过渡/完成页、恢复已完成集合逻辑一致，但不走接口与续学
-- (void)applyPreloadedUnitsAndStartFresh {
-    self.units = [YTMockUnitFactory learningFlowUnitsFromRawUnits:self.units sceneId:self.sceneId levelId:self.levelId];
-    [self restoreCompletedUnits];
-    [self routeEntryAfterUnitsReady];
 }
 
 - (void)applyBootstrapAndStart:(YTLearningFlowBootstrap *)bootstrap {
@@ -249,14 +289,50 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 }
 
 - (void)applyBootstrap:(YTLearningFlowBootstrap *)bootstrap {
-    self.units = [YTMockUnitFactory learningFlowUnitsFromRawUnits:bootstrap.units sceneId:self.sceneId levelId:self.levelId];
+    [self yt_seedServerProgressPercentFromEntryIfNeeded];
+    self.units = bootstrap.units ?: @[];
     [self.completedUnitIds removeAllObjects];
     if (bootstrap.completedUnitIds.count > 0) {
         [self.completedUnitIds addObjectsFromArray:bootstrap.completedUnitIds];
     }
 
-    // 拉取到已完成列表后立刻刷新顶部进度（含续学弹窗未点「继续」时也要与本地一致）
+    [self yt_recomputePracticeTransitionLastFlags];
+
+    // 拉取到已完成列表后刷新顶部条（百分比仍以服务端为准；无有效服务端值时显示 0%）
     [self updateProgressUI];
+}
+
+/// 本关最后一个 `PracticeTransition` 用于过场页主按钮：困难最后一页过场为「探索其他场景」并回根栈，其余为「下一等级」
+- (void)yt_recomputePracticeTransitionLastFlags {
+    for (YTUnit *u in self.units) {
+        u.yt_isLastPracticeTransitionInLevel = NO;
+    }
+    for (NSInteger i = (NSInteger)self.units.count - 1; i >= 0; i--) {
+        YTUnit *u = self.units[i];
+        if (u.unitType == YTUnitTypePracticeTransition) {
+            u.yt_isLastPracticeTransitionInLevel = YES;
+            break;
+        }
+    }
+}
+
+/// 过场页 / 完成页主按钮：以入口 `self.levelId` 为准；仅困难最后一页过场或困难完成页为「探索其他场景」，其余为「下一等级」
+- (void)yt_applyTalkFlowPrimaryTitleForTransitionOrCompletionWithUnit:(nullable YTUnit *)cu
+                                                               state:(YTUnitPrimaryState *)state
+                                                    isRecordingState:(BOOL)isRecordingState {
+    if (isRecordingState || !cu || !state) return;
+    if (state.kind != YTUnitPrimaryKindContinue && state.kind != YTUnitPrimaryKindGotIt) return;
+    if (cu.unitType == YTUnitTypePracticeTransition) {
+        BOOL explore = (self.levelId == YTLevelIdAdvanced && cu.yt_isLastPracticeTransitionInLevel);
+        NSString *key = explore ? @"Talk_LevelComplete_Primary_Explore" : @"Talk_PracticeTransition_NextLevel";
+        [self.primaryButton setTitle:NSLocalizedString(key, @"") forState:UIControlStateNormal];
+        return;
+    }
+    if (cu.unitType == YTUnitTypeLevelCompletion) {
+        BOOL explore = (self.levelId == YTLevelIdAdvanced);
+        NSString *key = explore ? @"Talk_LevelComplete_Primary_Explore" : @"Talk_PracticeTransition_NextLevel";
+        [self.primaryButton setTitle:NSLocalizedString(key, @"") forState:UIControlStateNormal];
+    }
 }
 
 - (void)routeEntryFromBootstrap:(YTLearningFlowBootstrap *)bootstrap {
@@ -266,9 +342,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 }
 
 - (BOOL)isCurrentProgressFullyCompleted {
-    // 进度 = 已完成计入进度 unit 数 / 本关计入进度 unit 总数
-    // 允许一点点浮点误差
-    CGFloat p = [self currentProgress];
+    CGFloat p = [self yt_displayProgressRatio];
     return (p >= 1.0 - 1e-5);
 }
 
@@ -295,9 +369,9 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         return;
     }
 
-    CGFloat p = [self currentProgress];
-    if (p <= 1e-5) {
-        // 进度为 0：无续学可恢复，不弹「继续/从头开始」询问，直接进入第一题
+    CGFloat p = [self yt_displayProgressRatio];
+    // 顶部条无有效 `progress_percent` 时显示 0%，但续学与否仍以接口 `is_unit_completed` / `is_line_completed` 汇总的 completedUnitIds 为准
+    if (p <= 1e-5 && self.completedUnitIds.count == 0) {
         self.resumePrefillCorrectAnswers = NO;
         [self showUnitAtIndex:0];
         return;
@@ -441,9 +515,80 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     [self.progressStore clearAnswerSnapshotsForSceneId:self.sceneId levelId:self.levelId];
     [self.progressStore clearLastPositionForSceneId:self.sceneId levelId:self.levelId];
     [self.completedUnitIds removeAllObjects];
-    [self persistCompletedUnits];
     [self resetLearnStateFlagsOnAllUnits];
     [self showUnitAtIndex:0];
+}
+
+/// 先请求 `POST /talk/relearnLevel`（scene_id、level_id），成功后再本地清空并从第一题开始
+- (void)requestRelearnLevelThenRestartFromBeginning {
+    NSInteger sceneNumeric = [self yt_effectiveTalkSceneNumericId];
+    if (sceneNumeric <= 0) {
+        [YTTipAlertView showInView:self.view
+                          topTitle:nil
+                       contentText:NSLocalizedString(@"无效场景，无法重新学习", @"")
+                primaryButtonTitle:NSLocalizedString(@"OK", @"")
+               secondaryButtonTitle:nil
+                            onClose:nil
+                         onConfirm:nil
+                          onCancel:nil];
+        return;
+    }
+    NSInteger requestLevelId = [self yt_requestLevelIdForTalkAPIForDisplayLevel:self.levelId];
+    NSMutableDictionary *params = [NSMutableDictionary dictionary];
+    params = [LanguageHelper currentLanguageParams:params];
+    params[@"scene_id"] = @(sceneNumeric);
+    params[@"level_id"] = @(requestLevelId);
+
+    [[GlobalHUDManager shared] showSpinnerOnly];
+    __weak typeof(self) weakSelf = self;
+    [HttpTools postRequest:@"/talk/relearnLevel" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        [[GlobalHUDManager shared] hide];
+        if (!self) {
+            return;
+        }
+        if (!success || response.code != 0) {
+            NSString *msg = (response.msg.length > 0) ? response.msg : NSLocalizedString(@"重新学习失败，请稍后重试", @"");
+            [YTTipAlertView showInView:self.view
+                              topTitle:nil
+                           contentText:msg
+                    primaryButtonTitle:NSLocalizedString(@"OK", @"")
+                   secondaryButtonTitle:nil
+                                onClose:nil
+                             onConfirm:nil
+                              onCancel:nil];
+            return;
+        }
+        NSInteger pct = -1;
+        if ([response.data isKindOfClass:[NSDictionary class]]) {
+            NSDictionary *data = (NSDictionary *)response.data;
+            id pp = data[@"progress_percent"];
+            if ([pp respondsToSelector:@selector(integerValue)]) {
+                pct = [pp integerValue];
+            }
+        }
+        if (pct >= 0 && pct <= 100) {
+            self.serverProgressPercent = pct;
+        } else {
+            self.serverProgressPercent = 0;
+        }
+        [self restartLearningFromBeginning];
+    } failure:^(NSError *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        [[GlobalHUDManager shared] hide];
+        if (!self) {
+            return;
+        }
+        NSString *msg = error.localizedDescription.length > 0 ? error.localizedDescription : NSLocalizedString(@"网络异常，请稍后重试", @"");
+        [YTTipAlertView showInView:self.view
+                          topTitle:nil
+                       contentText:msg
+                primaryButtonTitle:NSLocalizedString(@"OK", @"")
+               secondaryButtonTitle:nil
+                            onClose:nil
+                         onConfirm:nil
+                          onCancel:nil];
+    }];
 }
 
 - (void)showRestartLearningConfirmAlert {
@@ -458,14 +603,14 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
                      onConfirm:^{
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
-        [self restartLearningFromBeginning];
+        [self requestRelearnLevelThenRestartFromBeginning];
     }
                       onCancel:nil];
 }
 
 - (void)showResumePrompt {
     // 续学弹窗：与 YTTipAlertView 同风格的卡片 + 圆环进度 + 继续/重新开始（无关闭按钮时仅能通过两按钮选择）
-    CGFloat progressRatio = [self currentProgress];
+    CGFloat progressRatio = [self yt_displayProgressRatio];
     __weak typeof(self) weakSelf = self;
     [YTResumeLearningAlertView showInView:self.view
                             progressRatio:progressRatio
@@ -480,7 +625,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
                                 onRestart:^{
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
-        [self restartLearningFromBeginning];
+        [self requestRelearnLevelThenRestartFromBeginning];
     }];
 }
 
@@ -500,9 +645,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     [self mountUnitViewForUnit:u];
     [self updateBottomBarLayoutForCurrentUnit];
     [self updateNavButtons];
-
-    // 模拟接口：进入新步骤时调用，更新当前用户所在页面
-    [self.progressStore saveCurrentPositionForSceneId:self.sceneId levelId:self.levelId unitId:u.unitId stepIndex:u.stepIndex unitType:u.unitType completion:nil];
 }
 
 - (BOOL)isCurrentStepUnlockedForNext {
@@ -520,16 +662,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     for (NSInteger i = 0; i < self.units.count; i++) {
         YTUnitType t = self.units[i].unitType;
         if (t == YTUnitTypePracticeTransition || [YTUnit yt_isExerciseQuestionType:t]) {
-            return i;
-        }
-    }
-    return NSNotFound;
-}
-
-/// 第一道练习题下标；无练习题时为 NSNotFound
-- (NSInteger)indexOfFirstExerciseQuestion {
-    for (NSInteger i = 0; i < self.units.count; i++) {
-        if ([YTUnit yt_isExerciseQuestionType:self.units[i].unitType]) {
             return i;
         }
     }
@@ -571,11 +703,8 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         }
         if (t == YTUnitTypeLevelCompletion) {
             BOOL hasPrev = (self.currentIndex > 0);
-            NSInteger firstExIdx = [self indexOfFirstExerciseQuestion];
             NSInteger lockIdx = [self indexOfFirstUnitBlockingReturnToPronounce];
-            if (firstExIdx != NSNotFound && self.currentIndex >= firstExIdx) {
-                hasPrev = (self.currentIndex > firstExIdx);
-            } else if (lockIdx != NSNotFound && self.currentIndex >= lockIdx) {
+            if (lockIdx != NSNotFound && self.currentIndex >= lockIdx) {
                 hasPrev = (self.currentIndex > lockIdx);
             }
             self.prevButton.enabled = hasPrev;
@@ -584,13 +713,10 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
             return;
         }
     }
-   // 左箭头：过渡页起不可回发音；进入第一道练习题后也不可再回到过渡页（只能在本段练习题间后退）
+   // 左箭头：从「第一道过渡页/习题」起不可再回到前面的发音区；习题可左滑回到过渡页（lockIdx 为过渡页或首题中较早者）
     BOOL hasPrev = (self.currentIndex > 0);
-    NSInteger firstExIdx = [self indexOfFirstExerciseQuestion];
     NSInteger lockIdx = [self indexOfFirstUnitBlockingReturnToPronounce];
-    if (firstExIdx != NSNotFound && self.currentIndex >= firstExIdx) {
-        hasPrev = (self.currentIndex > firstExIdx);
-    } else if (lockIdx != NSNotFound && self.currentIndex >= lockIdx) {
+    if (lockIdx != NSNotFound && self.currentIndex >= lockIdx) {
         hasPrev = (self.currentIndex > lockIdx);
     }
     // 右箭头：须本题已达成完成条件（练习题为答对等）才解锁下一题
@@ -638,6 +764,8 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         self.primaryButton.tag = state.kind;
         // 过渡页：深色主按钮；完成页与练习题等统一用难度主题色（录音态见上）
         YTUnit *cu = (self.currentIndex >= 0 && self.currentIndex < self.units.count) ? self.units[self.currentIndex] : nil;
+        // 主按钮文案以学习流入口难度为准（勿仅用 unit.levelId，避免接口与入口不一致误显示「探索其他场景」）
+        [self yt_applyTalkFlowPrimaryTitleForTransitionOrCompletionWithUnit:cu state:state isRecordingState:isRecordingState];
         UIColor *faceColor;
         if (cu && cu.unitType == YTUnitTypePracticeTransition) {
             faceColor = [theAppDelegate.window colorWithHexString:@"#1F2540" alpha:1];
@@ -666,13 +794,11 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
                   pronounceEvaluator:self.pronounceEvaluator
                      answerEvaluator:self.answerEvaluator];
 
-    // 续学「继续」：优先接口 `progress.answerPayload`；否则用本题标答字段推导（与《后端精简版》§4.4 一致），不再依赖单独答案快照接口
+    // 答案回填：仅用 `/talk/unit` 映射到 `serverAnswerPayload`（含 `progress.answerPayload` 或由题干 correct_answer 推导），不读本地快照推导
     NSDictionary *restorePayload = nil;
     BOOL completed = (u.unitId.length > 0 && [self.completedUnitIds containsObject:u.unitId]);
     if (u.serverAnswerPayload.count > 0 && (u.answeredCorrectFromServer || (self.resumePrefillCorrectAnswers && completed))) {
         restorePayload = u.serverAnswerPayload;
-    } else if (self.resumePrefillCorrectAnswers && completed && [u countsTowardProgress]) {
-        restorePayload = YTRestoreAnswerPayloadFromUnit(u);
     }
     if (restorePayload.count > 0) {
         __weak typeof(self) weakSelf = self;
@@ -720,13 +846,80 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         }
 
         if (kind == YTUnitPrimaryKindSubmit) {
-            // 提交：展示对错反馈（错误时给出正确答案）；仅答对时计入进度
-            BOOL correct = submitResult ? submitResult.isCorrect : YES;
-            // 答对进度由 completedUnitIds + 下次 learning-flow 下发标答/`progress` 恢复 UI，不再写入本地答案快照
-            // 先计入完成并刷新顶部进度，再弹出结果页（避免弹层盖住时误以为进度未变）
-            if (correct) [self markUnitCompletedIfNeeded:u];
-            [self showAnswerResultSheetCorrect:correct submitResult:submitResult];
-            [self updateNavButtons];
+            // 先本地判题：错则直接弹错，不调接口
+            BOOL localCorrect = submitResult ? submitResult.isCorrect : YES;
+            if (!localCorrect) {
+                [self showAnswerResultSheetCorrect:NO submitResult:submitResult];
+                [self updateNavButtons];
+                return;
+            }
+            // 非练习题提交（不应出现）或无需远程校验：保持原逻辑
+            if (![u countsTowardProgress] || ![YTUnit yt_isExerciseQuestionType:u.unitType]) {
+                if (localCorrect) [self markUnitCompletedIfNeeded:u];
+                [self showAnswerResultSheetCorrect:localCorrect submitResult:submitResult];
+                [self updateNavButtons];
+                return;
+            }
+            // 无 ref_table / unitId 时无法调 `/talk/complete`，回退为仅本地
+            if (u.refTable.length == 0 || u.unitId.length == 0) {
+                [self markUnitCompletedIfNeeded:u];
+                [self showAnswerResultSheetCorrect:YES submitResult:submitResult];
+                [self updateNavButtons];
+                return;
+            }
+            NSString *answerJSON = [YTTalkCompleteSubmit answerJSONStringFromAnswerPayload:submitResult.answerPayload unit:u];
+            NSInteger apiLevelId = (NSInteger)self.levelId + 1;
+            __weak typeof(self) weakSelf = self;
+            [YTTalkCompleteSubmit submitWithSceneId:self.sceneId
+                                            levelId:apiLevelId
+                                               unit:u
+                                   answerJSONString:answerJSON
+                                   readAudioFileURL:nil
+                                         completion:^(BOOL httpSuccess, BOOL serverCorrect, NSInteger progressPercent, NSInteger rawScore, NSError *error) {
+                __strong typeof(weakSelf) self = weakSelf;
+                if (!self) return;
+                (void)rawScore;
+                if (!httpSuccess || error) {
+                    NSString *base = error.localizedDescription ?: NSLocalizedString(@"Request failed", @"");
+                    NSString *correct = [u yt_displayCorrectAnswerText];
+                    NSString *msg = base;
+                    if (correct.length > 0) {
+                        msg = [NSString stringWithFormat:@"%@\n\n%@ %@", base, NSLocalizedString(@"Correct answer:", @"After API error, label before reference answer"), correct];
+                    }
+                    __weak typeof(self) weakTip = self;
+                    [YTTipAlertView showInView:self.view
+                                      topTitle:nil
+                                   contentText:msg
+                            primaryButtonTitle:NSLocalizedString(@"OK", @"")
+                           secondaryButtonTitle:nil
+                                        onClose:^{
+                        __strong typeof(weakTip) s = weakTip;
+                        if (s) {
+                            [s updateNavButtons];
+                        }
+                                    }
+                                 onConfirm:^{
+                        __strong typeof(weakTip) s = weakTip;
+                        if (s) {
+                            [s updateNavButtons];
+                        }
+                                    }
+                                  onCancel:nil];
+                    [self updateNavButtons];
+                    return;
+                }
+                if (progressPercent >= 0 && progressPercent <= 100) {
+                    self.serverProgressPercent = progressPercent;
+                    [self updateProgressUI];
+                }
+                if (serverCorrect) {
+                    [self markUnitCompletedIfNeeded:u];
+                    [self showAnswerResultSheetCorrect:YES submitResult:submitResult];
+                } else {
+                    [self showAnswerResultSheetCorrect:NO submitResult:submitResult];
+                }
+                [self updateNavButtons];
+            }];
             return;
         }
 
@@ -734,6 +927,11 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
             // Continue/GotIt：仅当题型自身“达成完成条件”时才计入完成
             if ([u countsTowardProgress] && [self.unitView isUnitCompleteSignalSatisfied]) {
                 [self markUnitCompletedIfNeeded:u];
+            }
+            // 困难难度、本关最后一个过场页：与完成页「探索其他场景」一致，回场景对话根栈
+            if (u.unitType == YTUnitTypePracticeTransition && self.levelId == YTLevelIdAdvanced && u.yt_isLastPracticeTransitionInLevel) {
+                [self yt_popToTalkSceneRootAfterAdvancedFinish];
+                return;
             }
             [self goNext];
             return;
@@ -783,6 +981,9 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     NSString *correctText = submitResult.correctAnswerText ?: @"";
     // 听音类题型：如果有拼音提示，则把拼音放在前面一起展示（由调用方拼好传入弹窗）
     YTUnit *u = (self.currentIndex >= 0 && self.currentIndex < self.units.count) ? self.units[self.currentIndex] : nil;
+    if (correctText.length == 0 && u) {
+        correctText = [u yt_displayCorrectAnswerText];
+    }
     if (u) {
         BOOL isListening = [u yt_isListeningExercise];
         if (isListening && (u.titlePinyin.length > 0)) {
@@ -822,10 +1023,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 - (void)goPrev {
     NSInteger prev = self.currentIndex - 1;
     if (prev < 0) return;
-    NSInteger firstExIdx = [self indexOfFirstExerciseQuestion];
-    if (firstExIdx != NSNotFound && self.currentIndex >= firstExIdx && prev < firstExIdx) {
-        return;
-    }
     NSInteger lockIdx = [self indexOfFirstUnitBlockingReturnToPronounce];
     if (lockIdx != NSNotFound && self.currentIndex >= lockIdx && prev < lockIdx) {
         return;
@@ -845,6 +1042,21 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     [self showUnitAtIndex:next];
 }
 
+/// 困难难度：完成页 / 最后一页过场页「探索其他场景」统一回根栈并切到场景 Tab
+- (void)yt_popToTalkSceneRootAfterAdvancedFinish {
+    if (theAppDelegate.tabBarController_startApp) {
+        theAppDelegate.tabBarController_startApp.selectedIndex = 1;
+    }
+    UINavigationController *nav = self.navigationController;
+    [nav popToRootViewControllerAnimated:YES];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *root = nav.viewControllers.firstObject;
+        if ([root isKindOfClass:[TalkViewController class]]) {
+            [(TalkViewController *)root yt_reloadCurrentSegmentList];
+        }
+    });
+}
+
 /// 本关学习流结束：完成页「进入下一等级」无缝进下一难度；最高难度或兜底则 pop 回话题页
 - (void)finishLevelFlow {
     YTUnit *u = (self.currentIndex >= 0 && self.currentIndex < self.units.count) ? self.units[self.currentIndex] : nil;
@@ -855,77 +1067,139 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     }
     // 困难难度完成后回到 Tab 的场景对话首页（而非仅退一层到上级页）
     if (onLevelCompletePage && self.levelId == YTLevelIdAdvanced) {
-        if (theAppDelegate.tabBarController_startApp) {
-            theAppDelegate.tabBarController_startApp.selectedIndex = 1;
-        }
-        [self.navigationController popToRootViewControllerAnimated:YES];
+        [self yt_popToTalkSceneRootAfterAdvancedFinish];
         return;
     }
     [self.navigationController popViewControllerAnimated:YES];
 }
 
 /// 栈仍为 [话题首页, 学习流]，仅替换顶层学习流为下一难度，动画上像从当前页直接进入下一难度
+- (NSInteger)yt_effectiveTalkSceneNumericId {
+    if (self.talkSceneNumericId > 0) {
+        return self.talkSceneNumericId;
+    }
+    if (self.sceneId.length > 0) {
+        NSInteger n = [self.sceneId integerValue];
+        if (n > 0) {
+            return n;
+        }
+    }
+    return 0;
+}
+
+/// 与 `TalkTopicHomeViewController` 中 `pushLearningFlowWithLevel:` 的 `requestLevelId` 规则一致
+- (NSInteger)yt_requestLevelIdForTalkAPIForDisplayLevel:(YTLevelId)displayLevel {
+    NSInteger requestLevelId = (NSInteger)displayLevel + 1;
+    if (self.talkDidApplyLevelAPI) {
+        if (displayLevel == YTLevelIdBeginner) {
+            requestLevelId = self.talkBeginnerLevelRecordId > 0 ? self.talkBeginnerLevelRecordId : 1;
+        } else if (displayLevel == YTLevelIdIntermediate) {
+            requestLevelId = self.talkIntermediateLevelRecordId > 0 ? self.talkIntermediateLevelRecordId : 2;
+        } else {
+            requestLevelId = self.talkAdvancedLevelRecordId > 0 ? self.talkAdvancedLevelRecordId : 3;
+        }
+    }
+    return requestLevelId;
+}
+
+- (void)yt_copyTalkLevelContextToLearningFlowVC:(TalkLearningFlowViewController *)vc {
+    vc.talkSceneNumericId = self.talkSceneNumericId;
+    vc.talkDidApplyLevelAPI = self.talkDidApplyLevelAPI;
+    vc.talkBeginnerLevelRecordId = self.talkBeginnerLevelRecordId;
+    vc.talkIntermediateLevelRecordId = self.talkIntermediateLevelRecordId;
+    vc.talkAdvancedLevelRecordId = self.talkAdvancedLevelRecordId;
+}
+
+- (void)yt_replaceTopWithLearningFlowVC:(TalkLearningFlowViewController *)nextVC {
+    nextVC.hidesBottomBarWhenPushed = YES;
+    UINavigationController *nav = self.navigationController;
+    if (!nav) {
+        return;
+    }
+    NSMutableArray<UIViewController *> *stack = [nav.viewControllers mutableCopy];
+    if (stack.count == 0) {
+        return;
+    }
+    [stack removeLastObject];
+    [stack addObject:nextVC];
+    [nav setViewControllers:stack animated:YES];
+}
+
 - (void)transitionToNextDifficultyLevelSeamlessly {
     YTLevelId next = (YTLevelId)(self.levelId + 1);
     if (next > YTLevelIdAdvanced) {
         [self.navigationController popViewControllerAnimated:YES];
         return;
     }
-    NSArray<YTUnit *> *nextUnits = [YTMockUnitFactory learningFlowUnitsForSceneId:self.sceneId levelId:next];
-    if (nextUnits.count == 0) {
-        [self.navigationController popViewControllerAnimated:YES];
+    NSInteger sceneNumeric = [self yt_effectiveTalkSceneNumericId];
+    if (sceneNumeric <= 0) {
+        [YTTipAlertView showInView:self.view
+                          topTitle:nil
+                       contentText:NSLocalizedString(@"无效场景，无法进入下一难度", @"")
+                primaryButtonTitle:NSLocalizedString(@"OK", @"")
+               secondaryButtonTitle:nil
+                            onClose:nil
+                         onConfirm:nil
+                          onCancel:nil];
         return;
     }
-    TalkLearningFlowViewController *nextVC = [[TalkLearningFlowViewController alloc] initWithSceneId:self.sceneId
-                                                                                             levelId:next
-                                                                                      preloadedUnits:nextUnits
-                                                                              skipFetchUsePreloaded:YES];
-    nextVC.hidesBottomBarWhenPushed = YES;
-    UINavigationController *nav = self.navigationController;
-    if (!nav) return;
-    NSMutableArray<UIViewController *> *stack = [nav.viewControllers mutableCopy];
-    if (stack.count == 0) return;
-    [stack removeLastObject];
-    [stack addObject:nextVC];
-    [nav setViewControllers:stack animated:YES];
+    NSInteger requestLevelId = [self yt_requestLevelIdForTalkAPIForDisplayLevel:next];
+    YTMockLearningFlowBootstrapService *svc = [YTMockLearningFlowBootstrapService shared];
+    svc.talkSceneNumericId = sceneNumeric;
+    [[GlobalHUDManager shared] showSpinnerOnly];
+    __weak typeof(self) weakSelf = self;
+    [svc fetchBootstrapForSceneId:self.sceneId levelId:requestLevelId completion:^(YTLearningFlowBootstrap * _Nullable bootstrap, NSError * _Nullable error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        [[GlobalHUDManager shared] hide];
+        if (!self) {
+            return;
+        }
+        if (!bootstrap || error) {
+            [YTTipAlertView showInView:self.view
+                              topTitle:nil
+                           contentText:NSLocalizedString(@"加载下一难度失败，请稍后重试", @"")
+                    primaryButtonTitle:NSLocalizedString(@"OK", @"")
+                   secondaryButtonTitle:nil
+                                onClose:nil
+                             onConfirm:nil
+                              onCancel:nil];
+            return;
+        }
+        // 与话题卡 `/talk/level` 的 `progress_percent` 一致；栈中无话题页或未知时按 0% 注入
+        CGFloat entryRatio = -1.0;
+        for (UIViewController *vc in self.navigationController.viewControllers) {
+            if ([vc isKindOfClass:[TalkTopicHomeViewController class]]) {
+                entryRatio = [(TalkTopicHomeViewController *)vc progressRatioForDisplayLevel:next];
+                break;
+            }
+        }
+        NSInteger entryPct = 0;
+        if (entryRatio >= 0.0) {
+            entryPct = (NSInteger)llround(MAX(0.0, MIN(1.0, entryRatio)) * 100.0);
+        }
+        TalkLearningFlowViewController *nextVC = [[TalkLearningFlowViewController alloc] initWithSceneId:self.sceneId
+                                                                                                  levelId:next
+                                                                                       preloadedBootstrap:bootstrap
+                                                                                   initialProgressPercent:entryPct];
+        [self yt_copyTalkLevelContextToLearningFlowVC:nextVC];
+        nextVC.talkSceneNumericId = sceneNumeric;
+        [self yt_replaceTopWithLearningFlowVC:nextVC];
+    }];
 }
 
 #pragma mark - 进度/解锁
 
-- (void)restoreCompletedUnits {
-    // 已完成集合（本地持久化）：用于进度计算与“重复进入不丢进度”
-    // Key 维度：sceneId + levelId（不同场景/难度互不干扰）
-    NSString *key = [self completedUnitsStorageKey];
-    NSArray *arr = [KUSER_DEFAULT objectForKey:key];
-    if ([arr isKindOfClass:[NSArray class]]) {
-        for (id v in arr) {
-            if ([v isKindOfClass:[NSString class]]) {
-                [self.completedUnitIds addObject:v];
-            }
-        }
+/// 顶部条、续学弹窗圆环：仅使用 `serverProgressPercent`；无有效服务端百分比时按 0（不用本地 completed 估算）
+- (CGFloat)yt_displayProgressRatio {
+    if (self.serverProgressPercent >= 0 && self.serverProgressPercent <= 100) {
+        return MIN(MAX((CGFloat)self.serverProgressPercent / 100.0, 0.0), 1.0);
     }
-}
-
-- (void)persistCompletedUnits {
-    // NSUserDefaults：存字符串数组即可（避免复杂结构）
-    NSString *key = [self completedUnitsStorageKey];
-    [KUSER_DEFAULT setObject:self.completedUnitIds.allObjects forKey:key];
-}
-
-- (NSString *)completedUnitsStorageKey {
-    return [NSString stringWithFormat:@"talk_completed_units_%@_%ld", self.sceneId, (long)self.levelId];
-}
-
-- (CGFloat)currentProgress {
-    // 进度 = 已写入 completed 的单元数 / 本关计入进度的单元总数。
-    // 「何时写入」由 markUnitCompletedIfNeeded 各分支保证（练习答对、发音/跟读完成等），与顶部条展示一致。
-    return [YTMockUnitFactory progressRatioForUnits:self.units completedUnitIdentifiers:self.completedUnitIds];
+    return 0.0;
 }
 
 - (void)updateProgressUI {
     (void)self.progressBackgroundView;
-    CGFloat p = [self currentProgress];
-    p = MIN(MAX(p, 0.0), 1.0);
+    CGFloat p = [self yt_displayProgressRatio];
     NSInteger percent = (NSInteger)round(p * 100.0);
     NSString *progressPrefix = NSLocalizedString(@"Progress", @"");
     // 进度胶囊文案：所有难度统一展示“Progress”，避免 Intermediate/Advanced 被误显示为“Vocabulary”
@@ -1008,16 +1282,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     if ([self.completedUnitIds containsObject:uid]) return;
 
     [self.completedUnitIds addObject:uid];
-    [self persistCompletedUnits];
-    [self updateProgressUI];
     [self updateNavButtons];
-    // 下一帧再刷一次，避免与弹窗/布局同帧竞态导致胶囊文案未刷新
-    __weak typeof(self) weakSelf = self;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        __strong typeof(weakSelf) self = weakSelf;
-        if (!self) return;
-        [self updateProgressUI];
-    });
 }
 
 #pragma mark - Helpers

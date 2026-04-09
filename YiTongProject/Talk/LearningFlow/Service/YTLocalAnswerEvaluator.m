@@ -4,14 +4,32 @@
 //
 
 #import "YTLocalAnswerEvaluator.h"
+#import "YTUnit.h"
+#import "YTUnitViewProtocol.h"
 
 static NSString *YTLocalAnswerEvaluatorCorrectOptionTextForUnit(YTUnit *unit) {
+    if (unit.unitType == YTUnitTypeExerciseChooseWordFillBlank && unit.correctFillTexts.count > 0) {
+        return [unit.correctFillTexts componentsJoinedByString:@"，"];
+    }
     for (NSDictionary *opt in unit.options) {
         if ([opt[@"id"] isEqual:unit.correctOptionId]) {
             return [opt[@"text"] isKindOfClass:[NSString class]] ? opt[@"text"] : @"";
         }
     }
     return @"";
+}
+
+static NSString *YTSelectedOptionTextForUnit(YTUnit *unit, NSString *selectedOptionId) {
+    if (selectedOptionId.length == 0) return nil;
+    for (NSDictionary *opt in unit.options) {
+        if (![opt isKindOfClass:[NSDictionary class]]) continue;
+        id oid = opt[@"id"];
+        NSString *oidStr = [oid isKindOfClass:[NSString class]] ? (NSString *)oid : [NSString stringWithFormat:@"%@", oid];
+        if ([oidStr isEqualToString:selectedOptionId]) {
+            return [opt[@"text"] isKindOfClass:[NSString class]] ? opt[@"text"] : nil;
+        }
+    }
+    return nil;
 }
 
 @implementation YTLocalAnswerEvaluator
@@ -44,7 +62,32 @@ static NSString *YTLocalAnswerEvaluatorCorrectOptionTextForUnit(YTUnit *unit) {
 
     if ([YTUnit yt_isSelectedOptionExerciseType:unit.unitType]) {
         NSString *selectedOptionId = [answerPayload[YTAnswerPayloadKeySelectedOptionId] isKindOfClass:[NSString class]] ? answerPayload[YTAnswerPayloadKeySelectedOptionId] : @"";
-        isCorrect = [selectedOptionId isEqualToString:unit.correctOptionId ?: @""];
+        if (unit.unitType == YTUnitTypeExerciseChooseWordFillBlank && unit.correctFillTexts.count > 0) {
+            NSArray *fillIds = [answerPayload[YTAnswerPayloadKeySelectedFillOptionIds] isKindOfClass:[NSArray class]] ? answerPayload[YTAnswerPayloadKeySelectedFillOptionIds] : nil;
+            if (fillIds.count == unit.correctFillTexts.count) {
+                BOOL allOk = YES;
+                for (NSInteger i = 0; i < fillIds.count; i++) {
+                    id oidObj = fillIds[i];
+                    NSString *oid = [oidObj isKindOfClass:[NSString class]] ? (NSString *)oidObj : [NSString stringWithFormat:@"%@", oidObj];
+                    NSString *selText = YTSelectedOptionTextForUnit(unit, oid) ?: @"";
+                    id wantObj = unit.correctFillTexts[i];
+                    NSString *want = [wantObj isKindOfClass:[NSString class]] ? (NSString *)wantObj : @"";
+                    want = [want stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                    NSString *selTrim = [selText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                    if (![selTrim isEqualToString:want]) {
+                        allOk = NO;
+                        break;
+                    }
+                }
+                isCorrect = allOk;
+            } else {
+                NSString *want = unit.correctFillTexts.firstObject ?: @"";
+                NSString *selText = YTSelectedOptionTextForUnit(unit, selectedOptionId) ?: @"";
+                isCorrect = (want.length > 0 && [selText isEqualToString:want]);
+            }
+        } else {
+            isCorrect = [selectedOptionId isEqualToString:unit.correctOptionId ?: @""];
+        }
         result.isCorrect = isCorrect;
         if (isCorrect) {
             result.answerPayload = answerPayload;

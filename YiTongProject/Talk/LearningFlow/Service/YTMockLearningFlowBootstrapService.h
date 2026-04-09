@@ -8,12 +8,14 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// Mock 启动服务：当前阶段用本地 mock 内容 + 本地进度拼装 bootstrap
+FOUNDATION_EXPORT NSString *const YTTalkLearningFlowBootstrapErrorDomain;
+
+/// 学习流启动：仅请求 `POST /talk/unit`，无本地题目数据兜底。
 @interface YTMockLearningFlowBootstrapService : NSObject <YTLearningFlowBootstrapService>
 
 + (instancetype)shared;
 
-/// 列表页进入学习流时可注入真实场景数值 id；<=0 时自动回退本地 mock。
+/// 与 `/talk/scene` 列表项 `id` 一致；<=0 时 `fetchBootstrap` 失败（不加载本地 Mock）。
 @property (nonatomic, assign) NSInteger talkSceneNumericId;
 
 @end

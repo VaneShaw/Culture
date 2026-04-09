@@ -240,6 +240,8 @@
 
 /* Talk - LearningFlow */
 "Talk_Continue" = "继续";
+"Talk_Record_Again" = "再来一次";
+"Talk_PracticeTransition_NextLevel" = "下一等级";
 "Talk_SceneList_Action_Learning" = "学习";
 "Talk_SceneList_Action_ViewDetails" = "查看详情";
 "Talk_LevelEntry_Locked" = "该等级暂不可进入。";

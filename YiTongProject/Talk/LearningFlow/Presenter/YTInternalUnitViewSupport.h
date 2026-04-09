@@ -29,11 +29,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 FOUNDATION_EXPORT NSDictionary * _Nullable YTAnswerPayloadForSelectedOptionId(NSString * _Nullable selectedOptionId);
 FOUNDATION_EXPORT NSDictionary * _Nullable YTAnswerPayloadForOrderedTokenTexts(NSArray<NSString *> * _Nullable orderedTokenTexts);
+FOUNDATION_EXPORT NSDictionary * _Nullable YTAnswerPayloadForSelectedFillOptionIds(NSArray<NSString *> * _Nullable orderedOptionIds);
 FOUNDATION_EXPORT NSString * _Nullable YTSelectedOptionIdFromPayload(NSDictionary * _Nullable payload);
 FOUNDATION_EXPORT NSArray<NSString *> * _Nullable YTOrderedTokenTextsFromPayload(NSDictionary * _Nullable payload);
+FOUNDATION_EXPORT NSArray<NSString *> * _Nullable YTSelectedFillOptionIdsFromPayload(NSDictionary * _Nullable payload);
 
 /// 续学：无 `progress.answerPayload` 时，由本题标答（`correctOptionId` / `correctSentenceText` + `options`）推导与提交答案相同的 payload 结构
 FOUNDATION_EXPORT NSDictionary * _Nullable YTRestoreAnswerPayloadFromUnit(YTUnit * _Nullable unit);
+
+/// 将图片按 AspectFit 绘入与 `boundsSize` 同尺寸的位图；`contentFraction` 为 1 时用满画布，为 0.5 时在居中「半宽×半高」区域内 AspectFit（用于 `talk_default` 占位视觉缩小）
+FOUNDATION_EXPORT UIImage * _Nullable YTTalkImageAspectFitInBounds(UIImage * _Nullable image, CGSize boundsSize, CGFloat cornerRadius, CGFloat contentFraction);
 
 /// 第一阶段拆分：先把发音题 Presenter 的公开类名独立出去，内部实现仍复用旧代码。
 @interface YTPronounceUnitViewLegacyInternal : YTBaseUnitView

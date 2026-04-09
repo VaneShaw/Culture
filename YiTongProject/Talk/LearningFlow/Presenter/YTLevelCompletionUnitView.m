@@ -197,7 +197,10 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
         }];
     }
 
-    self.headlineLabel.text = [unit yt_resolvedTitleDisplayText];
+    {
+        NSString *instr = [unit yt_resolvedStemInstructionText];
+        self.headlineLabel.text = instr.length ? instr : [unit yt_resolvedTitleDisplayText];
+    }
     self.subtitleLabel.text = unit.completionSubtitle ?: @"";
 
     UIImage *img = [UIImage imageNamed:[self yt_badgeImageNameForLevel:unit.levelId]];

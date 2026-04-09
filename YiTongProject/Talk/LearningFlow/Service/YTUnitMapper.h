@@ -15,6 +15,9 @@ NS_ASSUME_NONNULL_BEGIN
                                     sceneId:(NSString *)sceneId
                                     levelId:(YTLevelId)levelId;
 
+/// 与 `mapUnitsFromResponse:` 内部一致：解析 `payload.content`，无嵌套时回退为顶层题干字典
++ (NSDictionary *)yt_resolvedContentFromTalkUnitPayload:(NSDictionary *)payload;
+
 @end
 
 NS_ASSUME_NONNULL_END

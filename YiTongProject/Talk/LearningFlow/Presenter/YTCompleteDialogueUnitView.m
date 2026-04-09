@@ -8,11 +8,48 @@
 #import "YTAnswerEvaluating.h"
 #import "YTPronounceEvaluating.h"
 #import "HeaderConfig.h"
+#import "NSDictionary+YTSafe.h"
+#import "YTUnit.h"
 #import <QuartzCore/QuartzCore.h>
+
+/// 将接口里表示填空的「—／－」等替换为 UI 判题用的 `__`（与 `answerAttributedStringForTemplate:` 一致）
+static NSString *YTNormalizeBlankMarkerInTemplate(NSString *s) {
+    if (s.length == 0) return @"__";
+    if ([s rangeOfString:@"__"].location != NSNotFound) return [s copy];
+    NSMutableString *m = [s mutableCopy];
+    NSArray<NSString *> *markers = @[ @"—", @"―", @"－", @"━" ];
+    for (NSString *mk in markers) {
+        NSRange r = [m rangeOfString:mk];
+        if (r.location != NSNotFound) {
+            [m replaceCharactersInRange:r withString:@"__"];
+            return [m copy];
+        }
+    }
+    return [s copy];
+}
+
+/// 优先接口 `answerTemplateCN`；否则用 `context_lines` 里 B 那一行（右侧只保留这一句，含填空）
+static NSString *YTAnswerTemplateForCompleteDialogueUnit(YTUnit *unit) {
+    if (unit.answerTemplateCN.length > 0) {
+        return YTNormalizeBlankMarkerInTemplate(unit.answerTemplateCN);
+    }
+    for (NSDictionary *line in unit.completeDialogueContextLines) {
+        if (![line isKindOfClass:[NSDictionary class]]) continue;
+        NSString *roleU = [[[line yt_stringForKey:@"role"] uppercaseString] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (![roleU isEqualToString:@"B"]) continue;
+        NSString *text = [[line yt_stringForKey:@"text"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (text.length == 0) continue;
+        return YTNormalizeBlankMarkerInTemplate(text);
+    }
+    return @"__";
+}
 
 @interface YTCompleteDialogueUnitView ()
 @property (nonatomic, strong) UIView *cardView;
 @property (nonatomic, strong) UILabel *titleLabel;
+
+/// `completeDialogueContextLines`：承接多行 A/B 对话（A 左、B 右）；无上下文时高度为 0
+@property (nonatomic, strong) UIView *contextLinesContainer;
 
 @property (nonatomic, strong) UIView *questionBubble;
 @property (nonatomic, strong) UILabel *questionLabel;
@@ -62,6 +99,16 @@
             make.left.right.equalTo(self.cardView).inset(16);
         }];
 
+        _contextLinesContainer = [[UIView alloc] init];
+        _contextLinesContainer.backgroundColor = [UIColor clearColor];
+        _contextLinesContainer.hidden = YES;
+        [_cardView addSubview:_contextLinesContainer];
+        [_contextLinesContainer mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+            make.left.right.equalTo(self.cardView).inset(16);
+            make.height.mas_equalTo(0);
+        }];
+
         // Question bubble (left)
         _questionBubble = [[UIView alloc] init];
         _questionBubble.backgroundColor = [UIColor colorWithRed:0xF2 / 255.0 green:0xF2 / 255.0 blue:0xF2 / 255.0 alpha:1];
@@ -74,6 +121,7 @@
             make.width.lessThanOrEqualTo(self.cardView).multipliedBy(0.78);
             // 高度由内容+内边距撑开
         }];
+        // 与 contextLinesContainer 同起点：有 context_lines 时 questionBubble 收起为 0 高，由容器展示 A/B
 
         _questionPlayButton = [UIButton buttonWithType:UIButtonTypeCustom];
         _questionPlayButton.backgroundColor = [UIColor colorWithWhite:0.90 alpha:1];
@@ -291,6 +339,170 @@
     self.answerDashLayer.path = p.CGPath;
 }
 
+/// `context_lines`：**仅 A** 建左侧灰气泡；**B 不单独建气泡**，整句（含「—」填空）只在下方 `answerBubble` 里展示一句，避免右侧叠两个气泡
+- (void)yt_relayoutDialogueStackWithContextLines:(NSArray<NSDictionary *> *)ctxLines
+                                           theme:(YTDifficultyTheme *)theme
+                                            unit:(YTUnit *)unit {
+    for (UIView *v in self.contextLinesContainer.subviews) {
+        [v removeFromSuperview];
+    }
+
+    BOOL hasCtx = (ctxLines.count > 0);
+    self.contextLinesContainer.hidden = !hasCtx;
+    self.questionBubble.hidden = hasCtx;
+
+    if (hasCtx) {
+        [self.questionBubble mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+            make.left.equalTo(self.cardView).offset(16);
+            make.width.lessThanOrEqualTo(self.cardView).multipliedBy(0.78);
+            make.height.mas_equalTo(0);
+        }];
+        self.questionPlayButton.hidden = YES;
+    } else {
+        [self.questionBubble mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+            make.left.equalTo(self.cardView).offset(16);
+            make.width.lessThanOrEqualTo(self.cardView).multipliedBy(0.78);
+        }];
+        self.questionPlayButton.hidden = (unit.audioURLString.length == 0);
+    }
+
+    UIView *anchorAboveAnswer = self.questionBubble;
+    CGFloat gapAboveAnswer = 26;
+
+    if (hasCtx) {
+        UIColor *leftBg = theme.chatPromptBubbleBackgroundColor ?: [UIColor colorWithRed:0xF2 / 255.0 green:0xF2 / 255.0 blue:0xF2 / 255.0 alpha:1];
+
+        [self.contextLinesContainer mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+            make.left.right.equalTo(self.cardView).inset(16);
+        }];
+
+        UIView *prev = nil;
+        __block BOOL stemAudioPlaced = NO;
+        BOOL hasRenderableBLine = NO;
+        for (NSDictionary *line in ctxLines) {
+            if (![line isKindOfClass:[NSDictionary class]]) continue;
+            NSString *text = [[line yt_stringForKey:@"text"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            NSString *roleU = [[[line yt_stringForKey:@"role"] uppercaseString] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if ([roleU isEqualToString:@"B"]) {
+                if (text.length > 0) hasRenderableBLine = YES;
+                continue;
+            }
+            if (text.length == 0) continue;
+
+            UIView *bubble = [[UIView alloc] init];
+            bubble.layer.cornerRadius = 18;
+            bubble.layer.masksToBounds = YES;
+            bubble.backgroundColor = leftBg;
+            [self.contextLinesContainer addSubview:bubble];
+
+            UILabel *lab = [[UILabel alloc] init];
+            lab.text = text;
+            lab.textColor = GARY_COLOR_63;
+            lab.font = [UIFont fontWithName:FONT_NAME_Semibold size:15];
+            lab.numberOfLines = 0;
+            lab.lineBreakMode = NSLineBreakByWordWrapping;
+            [bubble addSubview:lab];
+
+            if (!stemAudioPlaced && unit.audioURLString.length > 0) {
+                stemAudioPlaced = YES;
+                UIButton *playBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+                playBtn.backgroundColor = [UIColor colorWithWhite:0.90 alpha:1];
+                playBtn.layer.cornerRadius = 14;
+                playBtn.layer.masksToBounds = YES;
+                UIImage *voicePlay = [UIImage imageNamed:@"talk_voice_play"];
+                if (voicePlay) {
+                    voicePlay = [voicePlay imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+                }
+                [playBtn setImage:voicePlay forState:UIControlStateNormal];
+                playBtn.imageView.contentMode = UIViewContentModeScaleAspectFit;
+                [playBtn addTarget:self action:@selector(onPlayQuestionAudio) forControlEvents:UIControlEventTouchUpInside];
+                [bubble addSubview:playBtn];
+                [playBtn mas_makeConstraints:^(MASConstraintMaker *make) {
+                    make.right.equalTo(bubble).offset(-12);
+                    make.centerY.equalTo(bubble);
+                    make.width.height.mas_equalTo(28);
+                }];
+                [lab mas_makeConstraints:^(MASConstraintMaker *make) {
+                    make.left.equalTo(bubble).offset(16);
+                    make.top.equalTo(bubble).offset(16);
+                    make.bottom.equalTo(bubble).offset(-16);
+                    make.right.equalTo(playBtn.mas_left).offset(-12);
+                }];
+            } else {
+                [lab mas_makeConstraints:^(MASConstraintMaker *make) {
+                    make.edges.equalTo(bubble).insets(UIEdgeInsetsMake(16, 16, 16, 16));
+                }];
+            }
+
+            [bubble mas_makeConstraints:^(MASConstraintMaker *make) {
+                make.width.lessThanOrEqualTo(self.contextLinesContainer.mas_width).multipliedBy(0.78);
+                make.left.equalTo(self.contextLinesContainer);
+                if (prev) {
+                    make.top.equalTo(prev.mas_bottom).offset(12);
+                } else {
+                    make.top.equalTo(self.contextLinesContainer);
+                }
+            }];
+            prev = bubble;
+        }
+
+        if (prev) {
+            [prev mas_makeConstraints:^(MASConstraintMaker *make) {
+                make.bottom.equalTo(self.contextLinesContainer);
+            }];
+            anchorAboveAnswer = self.contextLinesContainer;
+        } else if (hasRenderableBLine) {
+            [self.contextLinesContainer mas_remakeConstraints:^(MASConstraintMaker *make) {
+                make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+                make.left.right.equalTo(self.cardView).inset(16);
+                make.height.mas_equalTo(0);
+            }];
+            self.contextLinesContainer.hidden = YES;
+            self.questionBubble.hidden = YES;
+            [self.questionBubble mas_remakeConstraints:^(MASConstraintMaker *make) {
+                make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+                make.left.equalTo(self.cardView).offset(16);
+                make.width.lessThanOrEqualTo(self.cardView).multipliedBy(0.78);
+                make.height.mas_equalTo(0);
+            }];
+            self.questionPlayButton.hidden = YES;
+            anchorAboveAnswer = self.titleLabel;
+            gapAboveAnswer = 14;
+        } else {
+            [self.contextLinesContainer mas_remakeConstraints:^(MASConstraintMaker *make) {
+                make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+                make.left.right.equalTo(self.cardView).inset(16);
+                make.height.mas_equalTo(0);
+            }];
+            self.contextLinesContainer.hidden = YES;
+            self.questionBubble.hidden = NO;
+            [self.questionBubble mas_remakeConstraints:^(MASConstraintMaker *make) {
+                make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+                make.left.equalTo(self.cardView).offset(16);
+                make.width.lessThanOrEqualTo(self.cardView).multipliedBy(0.78);
+            }];
+            self.questionPlayButton.hidden = (unit.audioURLString.length == 0);
+            anchorAboveAnswer = self.questionBubble;
+        }
+    } else {
+        [self.contextLinesContainer mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.top.equalTo(self.titleLabel.mas_bottom).offset(14);
+            make.left.right.equalTo(self.cardView).inset(16);
+            make.height.mas_equalTo(0);
+        }];
+    }
+
+    [self.answerBubble mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(anchorAboveAnswer.mas_bottom).offset(gapAboveAnswer);
+        make.right.equalTo(self.cardView).offset(-16);
+        make.width.lessThanOrEqualTo(self.cardView).multipliedBy(0.78);
+        make.left.greaterThanOrEqualTo(self.cardView).offset(16);
+    }];
+}
+
 - (void)configureWithUnit:(YTUnit *)unit theme:(YTDifficultyTheme *)theme audio:(YTAudioMuxService *)audio recording:(YTRecordingService *)recording pronounceEvaluator:(id<YTPronounceEvaluating>)pronounceEvaluator answerEvaluator:(id<YTAnswerEvaluating>)answerEvaluator {
     [super configureWithUnit:unit theme:theme audio:audio recording:recording pronounceEvaluator:pronounceEvaluator answerEvaluator:answerEvaluator];
     self.questionBubble.backgroundColor = theme.chatPromptBubbleBackgroundColor ?: [UIColor colorWithRed:0xF2 / 255.0 green:0xF2 / 255.0 blue:0xF2 / 255.0 alpha:1];
@@ -300,11 +512,22 @@
     self.answerChipStyle = 0;
     self.answerBlankRange = NSMakeRange(NSNotFound, 0);
 
-    self.titleLabel.text = NSLocalizedString(@"Complete the dialogue", @"");
-    self.questionLabel.text = unit.titleCN ?: @"";
+    {
+        NSString *instr = [unit yt_resolvedStemInstructionText];
+        self.titleLabel.text = instr.length ? instr : NSLocalizedString(@"Complete the dialogue", @"");
+    }
+    NSArray<NSDictionary *> *ctxLines = unit.completeDialogueContextLines;
+    [self yt_relayoutDialogueStackWithContextLines:ctxLines theme:theme unit:unit];
 
-    // 解析回答模板：默认用 "__" 占位（避免依赖特定中文模板）
-    NSString *tpl = unit.answerTemplateCN ?: @"__";
+    BOOL showingContextBubbles = (ctxLines.count > 0 && self.contextLinesContainer.subviews.count > 0);
+    if (!showingContextBubbles) {
+        self.questionLabel.text = unit.titleCN ?: @"";
+    } else {
+        self.questionLabel.text = @"";
+    }
+
+    // 解析回答模板：接口 answer_template，或 B 行「—，是的」→「__，是的」
+    NSString *tpl = YTAnswerTemplateForCompleteDialogueUnit(unit);
     self.answerTextView.attributedText = [self answerAttributedStringForTemplate:tpl];
 
     // 自适应布局后更新虚线（确保换行正确）
@@ -405,7 +628,7 @@
     NSDictionary *opt = self.unit.options[idx];
     self.selectedOptionId = sender.accessibilityIdentifier ?: opt[@"id"];
     NSString *txt = opt[@"text"] ?: @"";
-    NSString *tpl = self.unit.answerTemplateCN ?: @"__";
+    NSString *tpl = YTAnswerTemplateForCompleteDialogueUnit(self.unit);
     self.selectedTokenText = txt;
     self.answerChipStyle = 0;
     self.answerTextView.attributedText = [self answerAttributedStringForTemplate:tpl];
@@ -433,7 +656,7 @@
 - (void)onTapAnswerChip {
     // 退回到底部（恢复空缺虚线）
     self.selectedOptionId = nil;
-    NSString *tpl = self.unit.answerTemplateCN ?: @"__";
+    NSString *tpl = YTAnswerTemplateForCompleteDialogueUnit(self.unit);
     self.selectedTokenText = nil;
     self.answerChipStyle = 0;
     self.answerTextView.attributedText = [self answerAttributedStringForTemplate:tpl];
@@ -453,7 +676,7 @@
     (void)correctC; (void)wrongBorderC; (void)wrongFillC;
     if (self.selectedTokenText.length == 0) return;
     self.answerChipStyle = isCorrect ? 1 : 2;
-    NSString *tpl = self.unit.answerTemplateCN ?: @"__";
+    NSString *tpl = YTAnswerTemplateForCompleteDialogueUnit(self.unit);
     self.answerTextView.attributedText = [self answerAttributedStringForTemplate:tpl];
     // 选择后虚线仍需存在
     [self updateAnswerDashIfNeeded];

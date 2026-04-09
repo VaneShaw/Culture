@@ -36,7 +36,8 @@
         _titleLabel = [[UILabel alloc] init];
         _titleLabel.textColor = [UIColor colorWithWhite:0.55 alpha:1];
         _titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
-        _titleLabel.text = NSLocalizedString(@"Choose the correct response", @"");
+        _titleLabel.numberOfLines = 0;
+        _titleLabel.text = @"";
         [_cardView addSubview:_titleLabel];
         [_titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
             make.top.equalTo(self.cardView).offset(16);
@@ -76,7 +77,7 @@
         _bubbleLabel = [[UILabel alloc] init];
         _bubbleLabel.textColor = GARY_COLOR_63;
         _bubbleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:15];
-        _bubbleLabel.numberOfLines = 1;
+        _bubbleLabel.numberOfLines = 0;
         _bubbleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
         [_bubbleView addSubview:_bubbleLabel];
         [_bubbleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
@@ -102,8 +103,26 @@
     self.bubbleView.backgroundColor = theme.chatPromptBubbleBackgroundColor ?: [UIColor colorWithRed:0xF2 / 255.0 green:0xF2 / 255.0 blue:0xF2 / 255.0 alpha:1];
     self.selectedOptionId = nil;
 
-    self.titleLabel.text = NSLocalizedString(@"Choose the correct response", @"");
-    self.bubbleLabel.text = unit.titleCN.length ? unit.titleCN : (unit.titlePinyin ?: @"");
+    // 接口：`content.stem_text`→stemText（左上角说明），`content.stem_pinyin`→titlePinyin（灰气泡题干，喇叭在气泡内）
+    NSString *stemText = [unit yt_resolvedStemInstructionText] ?: @"";
+    NSString *stemPinyinField = unit.titlePinyin ?: @"";
+    stemPinyinField = [stemPinyinField stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    self.titleLabel.text = stemText.length ? stemText : NSLocalizedString(@"Choose the correct response", @"");
+    self.bubbleLabel.text = stemPinyinField;
+
+    UIFont *bubbleFont = self.bubbleLabel.font ?: [UIFont systemFontOfSize:15];
+    CGFloat maxBubbleTextW = [UIScreen mainScreen].bounds.size.width * 0.78f - 16.f - 28.f - 10.f - 16.f;
+    if (maxBubbleTextW < 60.f) {
+        maxBubbleTextW = 200.f;
+    }
+    CGSize textSize = [stemPinyinField boundingRectWithSize:CGSizeMake(maxBubbleTextW, CGFLOAT_MAX)
+                                                     options:NSStringDrawingUsesLineFragmentOrigin
+                                                  attributes:@{ NSFontAttributeName: bubbleFont }
+                                                     context:nil].size;
+    CGFloat bubbleH = MAX(44.f, ceil(textSize.height) + 20.f);
+    [self.bubbleView mas_updateConstraints:^(MASConstraintMaker *make) {
+        make.height.mas_equalTo(bubbleH);
+    }];
 
     self.primaryState.kind = YTUnitPrimaryKindSubmit;
     self.primaryState.title = @"Submit";

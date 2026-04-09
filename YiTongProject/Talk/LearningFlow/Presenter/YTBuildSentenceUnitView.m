@@ -189,6 +189,12 @@
     self.primaryState.title = @"Submit";
     self.primaryState.enabled = NO;
     [self emitPrimaryState];
+
+    {
+        NSString *instr = [unit yt_resolvedStemInstructionText];
+        self.titleLabel.text = instr.length ? instr : NSLocalizedString(@"Build the sentence", @"");
+    }
+
     [self requestBuildSentenceFlowLayout];
 }
 

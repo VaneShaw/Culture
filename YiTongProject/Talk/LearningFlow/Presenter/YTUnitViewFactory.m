@@ -19,6 +19,7 @@
 
 NSString * const YTAnswerPayloadKeySelectedOptionId = @"selectedOptionId";
 NSString * const YTAnswerPayloadKeyOrderedTokenTexts = @"orderedTokenTexts";
+NSString * const YTAnswerPayloadKeySelectedFillOptionIds = @"selectedFillOptionIds";
 
 @implementation YTUnitSubmitResult
 

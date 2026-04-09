@@ -179,19 +179,13 @@
     return cell;
 }
 
-/// 学习流 mock/本地进度使用的 scene 字符串（与 `sceneCode` 或 id 拼接）
+/// 学习流与本地进度用的 scene 字符串：`/talk/scene` 列表项里的 `id` 即该场景的 `scene_id`，用十进制字符串（与接口一致）
 - (NSString *)yt_learningSceneIdForSceneItem:(YTTalkSceneItem *)m {
-    NSString *code = [m.sceneCode stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if (code.length == 0) {
-        if (m.sceneId > 0) {
-            return [NSString stringWithFormat:@"scene_%ld", (long)m.sceneId];
-        }
-        return @"scene_school";
+    if (!m) return @"";
+    if (m.sceneId > 0) {
+        return [NSString stringWithFormat:@"%ld", (long)m.sceneId];
     }
-    if ([code.lowercaseString hasPrefix:@"scene_"]) {
-        return code;
-    }
-    return [NSString stringWithFormat:@"scene_%@", code];
+    return @"scene_school";
 }
 
 /// 进入场景首页（与 `TalkTopicHomeViewController` 内学习流登录校验一致，此处先拦列表点击）
@@ -202,6 +196,7 @@
     vc.talkLearningSceneId = [self yt_learningSceneIdForSceneItem:m];
     vc.scenePageTitle = m.title;
     vc.scenePageSubtitle = m.subtitle;
+    vc.sceneListCoverImageURLString = [self yt_fullImageURLStringFromCoverPath:m.coverImagePath];
     vc.hidesBottomBarWhenPushed = YES;
     [self.navigationController pushViewController:vc animated:YES];
 }

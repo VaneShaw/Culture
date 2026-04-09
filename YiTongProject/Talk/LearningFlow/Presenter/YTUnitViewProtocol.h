@@ -18,6 +18,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 FOUNDATION_EXPORT NSString * const YTAnswerPayloadKeySelectedOptionId;
 FOUNDATION_EXPORT NSString * const YTAnswerPayloadKeyOrderedTokenTexts;
+/// `word_fill` 多空：按 `sentence_template` 中 `__` 顺序对应的选项 `id`（与 `correct_answer.fills` 顺序一致）
+FOUNDATION_EXPORT NSString * const YTAnswerPayloadKeySelectedFillOptionIds;
 
 typedef NS_ENUM(NSInteger, YTUnitPrimaryKind) {
     YTUnitPrimaryKindSubmit = 0,

@@ -5,11 +5,13 @@
 
 #import "YTChoiceExerciseUnitView.h"
 #import "HeaderConfig.h"
+#import "YTInternalUnitViewSupport.h"
 
 #pragma mark - Exercise: Choose Image / Choose Word
 
 /**
  选择题 Presenter（听词选图 / 看图选词 / 听音回应 / 选词填空 / 完成对话的基类）
+ 听音回应：`stem_text`→左上角说明（stemText）；`stem_pinyin`→题目气泡文案（titlePinyin）；喇叭仅播放 stem_audio
  
  通用交互（MVP）：
  - 选择某个 option 后：高亮选中态，主按钮变为可点（Submit）
@@ -24,6 +26,9 @@
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UIButton *audioButton;
 @property (nonatomic, strong) UILabel *pinyinLabel;
+/// 听音回应：`stem_pinyin` 题目气泡（非喇叭旁）
+@property (nonatomic, strong) UIView *listenRespondBubbleView;
+@property (nonatomic, strong) UILabel *listenRespondBubbleLabel;
 @property (nonatomic, strong) UIView *dividerLine;
 @property (nonatomic, strong) UIView *optionsContainer;
 @property (nonatomic, copy, nullable) NSString *selectedOptionId;
@@ -87,9 +92,31 @@
             make.right.equalTo(card).offset(-16);
             make.height.mas_equalTo(25);
         }];
+
+        _listenRespondBubbleView = [[UIView alloc] init];
+        _listenRespondBubbleView.backgroundColor = [UIColor colorWithWhite:0.96 alpha:1];
+        _listenRespondBubbleView.layer.cornerRadius = 14;
+        _listenRespondBubbleView.layer.masksToBounds = YES;
+        _listenRespondBubbleView.hidden = YES;
+        [card addSubview:_listenRespondBubbleView];
+
+        _listenRespondBubbleLabel = [[UILabel alloc] init];
+        _listenRespondBubbleLabel.numberOfLines = 0;
+        _listenRespondBubbleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:18];
+        _listenRespondBubbleLabel.textColor = BLACK_COLOR_1F;
+        [_listenRespondBubbleView addSubview:_listenRespondBubbleLabel];
+        [_listenRespondBubbleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.edges.equalTo(self.listenRespondBubbleView).insets(UIEdgeInsetsMake(12, 14, 12, 14));
+        }];
+        [_listenRespondBubbleView mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.right.equalTo(card).inset(16);
+            make.top.equalTo(self.titleLabel.mas_bottom).offset(10);
+            make.height.mas_equalTo(0);
+        }];
+
         [_audioButton mas_makeConstraints:^(MASConstraintMaker *make) {
             make.left.equalTo(card).offset(16);
-            make.top.equalTo(self.titleLabel.mas_bottom).offset(10);
+            make.top.equalTo(self.listenRespondBubbleView.mas_bottom).offset(12);
             make.width.height.mas_equalTo(36);
         }];
         [_pinyinLabel mas_makeConstraints:^(MASConstraintMaker *make) {
@@ -128,8 +155,19 @@
     }
 
     if (unit.unitType == YTUnitTypeExerciseListenChooseImage) {
+        self.listenRespondBubbleView.hidden = YES;
+        self.listenRespondBubbleLabel.text = @"";
+        [self.listenRespondBubbleView mas_remakeConstraints:^(MASConstraintMaker *make) {
+            UIView *card = self.titleLabel.superview;
+            make.left.right.equalTo(card).inset(16);
+            make.top.equalTo(self.titleLabel.mas_bottom).offset(0);
+            make.height.mas_equalTo(0);
+        }];
         [self updateAudioButtonStyleForListenChooseImage:YES];
-        self.titleLabel.text = NSLocalizedString(@"Choose the matching image", @"");
+        {
+            NSString *instr = [unit yt_resolvedStemInstructionText];
+            self.titleLabel.text = instr.length ? instr : NSLocalizedString(@"Choose the matching image", @"");
+        }
         self.audioButton.hidden = NO;
         self.pinyinLabel.hidden = NO;
         self.pinyinLabel.text = unit.titlePinyin ?: @"";
@@ -147,12 +185,60 @@
         self.titleLabel.adjustsFontSizeToFitWidth = YES;
         self.titleLabel.minimumScaleFactor = 0.85;
 
-        self.titleLabel.text = (unit.unitType == YTUnitTypeExerciseListenChooseResponse)
-            ? NSLocalizedString(@"Choose the correct response", @"")
-            : NSLocalizedString(@"Choose the matching word", @"");
-        self.audioButton.hidden = (unit.unitType != YTUnitTypeExerciseListenChooseResponse);
-        self.pinyinLabel.hidden = YES;
-        self.pinyinLabel.text = @"";
+        if (unit.unitType == YTUnitTypeExerciseListenChooseResponse) {
+            // stem_text：左上角说明；stem_pinyin：题目气泡（听音题题干）
+            NSString *instruction = [unit yt_resolvedStemInstructionText] ?: @"";
+            self.titleLabel.text = instruction.length > 0 ? instruction : NSLocalizedString(@"Choose the correct response", @"");
+            self.audioButton.hidden = NO;
+            self.pinyinLabel.hidden = YES;
+            self.pinyinLabel.text = @"";
+
+            NSString *question = unit.titlePinyin ?: @"";
+            question = [question stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            self.listenRespondBubbleLabel.text = question;
+            UIView *card = self.titleLabel.superview;
+            if (question.length > 0) {
+                self.listenRespondBubbleView.hidden = NO;
+                CGFloat maxW = CGRectGetWidth(card.bounds);
+                if (maxW < 1) {
+                    maxW = [UIScreen mainScreen].bounds.size.width - 32;
+                }
+                maxW -= 32 + 28;
+                CGSize sz = [question boundingRectWithSize:CGSizeMake(maxW, CGFLOAT_MAX)
+                                                    options:NSStringDrawingUsesLineFragmentOrigin
+                                                 attributes:@{ NSFontAttributeName: self.listenRespondBubbleLabel.font ?: [UIFont systemFontOfSize:18] }
+                                                    context:nil].size;
+                CGFloat bubbleH = ceil(sz.height) + 12 + 12;
+                [self.listenRespondBubbleView mas_remakeConstraints:^(MASConstraintMaker *make) {
+                    make.left.right.equalTo(card).inset(16);
+                    make.top.equalTo(self.titleLabel.mas_bottom).offset(10);
+                    make.height.mas_equalTo(bubbleH);
+                }];
+            } else {
+                self.listenRespondBubbleView.hidden = YES;
+                [self.listenRespondBubbleView mas_remakeConstraints:^(MASConstraintMaker *make) {
+                    make.left.right.equalTo(card).inset(16);
+                    make.top.equalTo(self.titleLabel.mas_bottom).offset(0);
+                    make.height.mas_equalTo(0);
+                }];
+            }
+        } else {
+            self.listenRespondBubbleView.hidden = YES;
+            self.listenRespondBubbleLabel.text = @"";
+            [self.listenRespondBubbleView mas_remakeConstraints:^(MASConstraintMaker *make) {
+                UIView *card = self.titleLabel.superview;
+                make.left.right.equalTo(card).inset(16);
+                make.top.equalTo(self.titleLabel.mas_bottom).offset(0);
+                make.height.mas_equalTo(0);
+            }];
+            self.audioButton.hidden = YES;
+            self.pinyinLabel.hidden = YES;
+            self.pinyinLabel.text = @"";
+            {
+                NSString *instr = [unit yt_resolvedStemInstructionText];
+                self.titleLabel.text = instr.length ? instr : NSLocalizedString(@"Choose the matching word", @"");
+            }
+        }
 
         if (unit.unitType == YTUnitTypeExerciseLookChooseWord) {
             self.dividerLine.hidden = YES;
@@ -287,14 +373,20 @@
             make.height.mas_equalTo(h);
         }];
 
-        NSString *iconName = imgName.length > 0 ? imgName : @"take_img1";
-        UIImage *iconImg = [UIImage imageNamed:iconName] ?: [UIImage imageNamed:@"take_img1"];
+        NSString *iconName = imgName.length > 0 ? imgName : @"talk_default";
+        UIImage *rawDef = [UIImage imageNamed:@"talk_default"];
+        CGSize optCanvas = CGSizeMake(MAX(32, w - 14), MAX(32, h - 55));
+        UIImage *iconImg = [UIImage imageNamed:iconName] ?: rawDef;
+        if (iconImg == rawDef) {
+            iconImg = YTTalkImageAspectFitInBounds(rawDef, optCanvas, 0, 0.5) ?: rawDef;
+        }
         UIImageView *iv = [[UIImageView alloc] initWithImage:iconImg];
         iv.contentMode = UIViewContentModeScaleAspectFit;
         [btn addSubview:iv];
         if (imgURLString.length > 0) {
             NSURL *url = [NSURL URLWithString:imgURLString];
-            [iv sd_setImageWithURL:url placeholderImage:iconImg];
+            UIImage *ph = YTTalkImageAspectFitInBounds(rawDef, optCanvas, 0, 0.5) ?: rawDef;
+            [iv sd_setImageWithURL:url placeholderImage:ph];
         }
 
         UILabel *lbl = [[UILabel alloc] init];
@@ -319,32 +411,48 @@
 - (void)buildWordOptionsWithHeaderImage {
     UIImageView *header = nil;
     BOOL isLookChooseWord = (self.unit.unitType == YTUnitTypeExerciseLookChooseWord);
+    UIImage *rawDef = [UIImage imageNamed:@"talk_default"];
     if (isLookChooseWord) {
+        CGSize headerCanvas = CGSizeMake(MAX(60, SCREEN_WIDTH - 120), 200);
         UIImage *ph = nil;
         if (self.unit.imageName.length > 0) {
             ph = [UIImage imageNamed:self.unit.imageName];
         }
         if (!ph) {
-            ph = [UIImage imageNamed:@"take_img1"];
+            ph = rawDef;
+        }
+        if (ph == rawDef) {
+            ph = YTTalkImageAspectFitInBounds(rawDef, headerCanvas, 0, 0.5) ?: rawDef;
         }
         header = [[UIImageView alloc] initWithImage:ph];
         header.contentMode = UIViewContentModeScaleAspectFit;
         [self.optionsContainer addSubview:header];
         if (self.unit.imageURLString.length > 0) {
             NSURL *url = [NSURL URLWithString:self.unit.imageURLString];
-            [header sd_setImageWithURL:url placeholderImage:ph];
+            UIImage *place = YTTalkImageAspectFitInBounds(rawDef, headerCanvas, 0, 0.5) ?: rawDef;
+            [header sd_setImageWithURL:url placeholderImage:place];
         }
     } else if (self.unit.imageName.length > 0) {
+        CGSize boxCanvas = CGSizeMake(140, 140);
         UIImage *ph = [UIImage imageNamed:self.unit.imageName];
-        header = [[UIImageView alloc] initWithImage:ph];
+        UIImage *displayPh = ph;
+        if (!displayPh) {
+            displayPh = rawDef;
+        }
+        if (displayPh == rawDef) {
+            displayPh = YTTalkImageAspectFitInBounds(rawDef, boxCanvas, 0, 0.5) ?: rawDef;
+        }
+        header = [[UIImageView alloc] initWithImage:displayPh];
         header.contentMode = UIViewContentModeScaleAspectFit;
         [self.optionsContainer addSubview:header];
         if (self.unit.imageURLString.length > 0) {
             NSURL *url = [NSURL URLWithString:self.unit.imageURLString];
-            [header sd_setImageWithURL:url placeholderImage:ph ?: [UIImage imageNamed:@"take_img1"]];
+            UIImage *place = YTTalkImageAspectFitInBounds(rawDef, boxCanvas, 0, 0.5) ?: rawDef;
+            [header sd_setImageWithURL:url placeholderImage:place];
         }
     } else if (self.unit.imageURLString.length > 0) {
-        UIImage *ph = [UIImage imageNamed:@"take_img1"];
+        CGSize boxCanvas = CGSizeMake(140, 140);
+        UIImage *ph = YTTalkImageAspectFitInBounds(rawDef, boxCanvas, 0, 0.5) ?: rawDef;
         header = [[UIImageView alloc] initWithImage:ph];
         header.contentMode = UIViewContentModeScaleAspectFit;
         [self.optionsContainer addSubview:header];

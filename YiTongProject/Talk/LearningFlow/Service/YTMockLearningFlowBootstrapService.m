@@ -5,17 +5,12 @@
 
 #import "YTMockLearningFlowBootstrapService.h"
 #import "YTLearningFlowBootstrap.h"
-#import "YTLearningProgressStoring.h"
-#import "YTMockLearningFlowResponseBuilder.h"
 #import "YTUnitMapper.h"
-#import "YTTalkLearningDataService.h"
 #import "YTLastPosition.h"
 #import "NSDictionary+YTSafe.h"
 #import "HeaderConfig.h"
 
-@interface YTMockLearningFlowBootstrapService ()
-@property (nonatomic, strong) id<YTLearningProgressStoring> progressStore;
-@end
+NSString *const YTTalkLearningFlowBootstrapErrorDomain = @"YTTalkLearningFlowBootstrap";
 
 @implementation YTMockLearningFlowBootstrapService
 
@@ -24,7 +19,6 @@
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         s = [[YTMockLearningFlowBootstrapService alloc] init];
-        s.progressStore = [YTTalkLearningDataService shared];
     });
     return s;
 }
@@ -36,36 +30,33 @@
     return YTLevelIdAdvanced;
 }
 
-/// 本地 mock 启动：保留旧能力，便于接口失败或无数值 scene_id 时回退。
-- (void)yt_fetchMockBootstrapForSceneId:(NSString *)sceneId
-                                levelId:(NSInteger)levelId
-                             completion:(YTLearningFlowBootstrapCompletion)completion {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        NSDictionary *mockResponse = [YTMockLearningFlowResponseBuilder buildResponseForSceneId:sceneId levelId:(YTLevelId)levelId];
-        NSArray<NSDictionary *> *unitsArray = mockResponse[@"units"];
-        if (![unitsArray isKindOfClass:[NSArray class]]) unitsArray = @[];
-        NSArray<YTUnit *> *units = [YTUnitMapper mapUnitsFromResponse:unitsArray sceneId:sceneId levelId:(YTLevelId)levelId];
-
-        [self.progressStore fetchLearningProgressForSceneId:sceneId levelId:levelId completion:^(YTLastPosition * _Nullable lastPosition, NSArray<NSString *> *completedUnitIds, NSError * _Nullable error) {
-            void (^finishOnMain)(YTLearningFlowBootstrap * _Nullable, NSError * _Nullable) = ^(YTLearningFlowBootstrap * _Nullable outBootstrap, NSError * _Nullable outError) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    completion(outBootstrap, outError);
-                });
-            };
-            if (error) {
-                finishOnMain(nil, error);
-                return;
-            }
-            YTLearningFlowBootstrap *bootstrap = [[YTLearningFlowBootstrap alloc] init];
-            bootstrap.units = units ?: @[];
-            bootstrap.lastPosition = lastPosition;
-            bootstrap.completedUnitIds = completedUnitIds ?: @[];
-            finishOnMain(bootstrap, nil);
-        }];
+- (void)yt_finishOnMain:(YTLearningFlowBootstrapCompletion)completion
+              bootstrap:(YTLearningFlowBootstrap * _Nullable)bootstrap
+                  error:(NSError * _Nullable)error {
+    if (!completion) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        completion(bootstrap, error);
     });
 }
 
-/// 用接口 `user_position.is_current` 恢复当前续学步；若缺失则交给本地存档兜底。
+/// 服务端 `is_unit_completed` / `is_line_completed` 任一为 1 即视为该步完成，映射为学习流完成集合。
+- (NSArray<NSString *> *)yt_completedUnitIdsFromUnits:(NSArray<YTUnit *> *)units rawData:(NSArray *)data {
+    NSMutableArray<NSString *> *completed = [NSMutableArray array];
+    NSInteger count = MIN(units.count, data.count);
+    for (NSInteger i = 0; i < count; i++) {
+        NSDictionary *payload = [data[i] isKindOfClass:[NSDictionary class]] ? (NSDictionary *)data[i] : nil;
+        YTUnit *unit = units[i];
+        if (!payload || unit.unitId.length == 0) continue;
+        BOOL done = ([payload yt_integerForKey:@"is_unit_completed" defaultValue:0] == 1)
+            || ([payload yt_integerForKey:@"is_line_completed" defaultValue:0] == 1);
+        if (done) {
+            [completed addObject:unit.unitId];
+        }
+    }
+    return [completed copy];
+}
+
+/// 用接口 `user_position.is_current` 恢复当前续学步；无则 `lastPosition` 为 nil。
 - (nullable YTLastPosition *)yt_lastPositionFromTalkUnitData:(NSArray *)data
                                                      sceneId:(NSString *)sceneId
                                                 displayLevel:(YTLevelId)displayLevel {
@@ -85,7 +76,7 @@
         if ([refTable isEqualToString:@"cross"]) {
             pos.unitType = (i == data.count - 1) ? YTUnitTypeLevelCompletion : YTUnitTypePracticeTransition;
         } else if ([refTable isEqualToString:@"exercise"]) {
-            NSString *exerciseType = [[payload yt_dictionaryForKey:@"content"] yt_stringForKey:@"exercise_type"];
+            NSString *exerciseType = [[YTUnitMapper yt_resolvedContentFromTalkUnitPayload:payload] yt_stringForKey:@"exercise_type"];
             if ([exerciseType isEqualToString:@"listen_tap"]) pos.unitType = YTUnitTypeExerciseListenChooseImage;
             else if ([exerciseType isEqualToString:@"match_word"]) pos.unitType = YTUnitTypeExerciseLookChooseWord;
             else if ([exerciseType isEqualToString:@"word_fill"]) pos.unitType = YTUnitTypeExerciseChooseWordFillBlank;
@@ -102,27 +93,15 @@
     return nil;
 }
 
-/// 服务端 `is_unit_completed=1` 已是 step 维度，可直接映射为当前学习流的完成集合。
-- (NSArray<NSString *> *)yt_completedUnitIdsFromUnits:(NSArray<YTUnit *> *)units rawData:(NSArray *)data {
-    NSMutableArray<NSString *> *completed = [NSMutableArray array];
-    NSInteger count = MIN(units.count, data.count);
-    for (NSInteger i = 0; i < count; i++) {
-        NSDictionary *payload = [data[i] isKindOfClass:[NSDictionary class]] ? (NSDictionary *)data[i] : nil;
-        YTUnit *unit = units[i];
-        if (!payload || unit.unitId.length == 0) continue;
-        if ([payload yt_integerForKey:@"is_unit_completed" defaultValue:0] == 1) {
-            [completed addObject:unit.unitId];
-        }
-    }
-    return [completed copy];
-}
-
 - (void)fetchBootstrapForSceneId:(NSString *)sceneId
                          levelId:(NSInteger)levelId
                       completion:(YTLearningFlowBootstrapCompletion)completion {
     if (!completion) return;
     if (self.talkSceneNumericId <= 0) {
-        [self yt_fetchMockBootstrapForSceneId:sceneId levelId:levelId completion:completion];
+        NSError *err = [NSError errorWithDomain:YTTalkLearningFlowBootstrapErrorDomain
+                                            code:1
+                                        userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"无效场景，无法加载学习流", @"")}];
+        [self yt_finishOnMain:completion bootstrap:nil error:err];
         return;
     }
 
@@ -136,7 +115,10 @@
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
         if (!success || ![response.data isKindOfClass:[NSArray class]]) {
-            [self yt_fetchMockBootstrapForSceneId:sceneId levelId:[self yt_displayLevelIdFromRequestLevelId:levelId] completion:completion];
+            NSError *err = [NSError errorWithDomain:YTTalkLearningFlowBootstrapErrorDomain
+                                                code:2
+                                            userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"学习流数据异常", @"")}];
+            [self yt_finishOnMain:completion bootstrap:nil error:err];
             return;
         }
 
@@ -146,31 +128,15 @@
         NSArray<NSString *> *completedUnitIds = [self yt_completedUnitIdsFromUnits:units rawData:rawData];
         YTLastPosition *apiLastPosition = [self yt_lastPositionFromTalkUnitData:rawData sceneId:sceneId displayLevel:displayLevel];
 
-        [self.progressStore fetchLearningProgressForSceneId:sceneId levelId:displayLevel completion:^(YTLastPosition * _Nullable localLastPosition, NSArray<NSString *> *localCompletedUnitIds, NSError * _Nullable error) {
-            void (^finishOnMain)(YTLearningFlowBootstrap * _Nullable, NSError * _Nullable) = ^(YTLearningFlowBootstrap * _Nullable outBootstrap, NSError * _Nullable outError) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    completion(outBootstrap, outError);
-                });
-            };
-            if (error) {
-                finishOnMain(nil, error);
-                return;
-            }
-
-            NSMutableOrderedSet<NSString *> *mergedCompleted = [NSMutableOrderedSet orderedSet];
-            [mergedCompleted addObjectsFromArray:localCompletedUnitIds ?: @[]];
-            [mergedCompleted addObjectsFromArray:completedUnitIds ?: @[]];
-
-            YTLearningFlowBootstrap *bootstrap = [[YTLearningFlowBootstrap alloc] init];
-            bootstrap.units = units ?: @[];
-            bootstrap.lastPosition = apiLastPosition ?: localLastPosition;
-            bootstrap.completedUnitIds = mergedCompleted.array ?: @[];
-            finishOnMain(bootstrap, nil);
-        }];
-    } failure:^(__unused NSError * _Nonnull error) {
+        YTLearningFlowBootstrap *bootstrap = [[YTLearningFlowBootstrap alloc] init];
+        bootstrap.units = units ?: @[];
+        bootstrap.lastPosition = apiLastPosition;
+        bootstrap.completedUnitIds = completedUnitIds ?: @[];
+        [self yt_finishOnMain:completion bootstrap:bootstrap error:nil];
+    } failure:^(NSError * _Nonnull error) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
-        [self yt_fetchMockBootstrapForSceneId:sceneId levelId:[self yt_displayLevelIdFromRequestLevelId:levelId] completion:completion];
+        [self yt_finishOnMain:completion bootstrap:nil error:error];
     }];
 }
 

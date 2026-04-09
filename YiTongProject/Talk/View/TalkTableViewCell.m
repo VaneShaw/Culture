@@ -257,7 +257,7 @@
     self.cellStatus = [self yt_statusForProgressPercent:self.progressPercent];
     self.bottomStatusView.backgroundColor = [self yt_colorForStatus:self.cellStatus];
 
-    UIImage *placeholder = [UIImage imageNamed:@"take_img0"];
+    UIImage *placeholder = [UIImage imageNamed:@"talk_default"];
     if (imageUrl.length > 0) {
         [self.imgView sd_setImageWithURL:[NSURL URLWithString:imageUrl] placeholderImage:placeholder];
     } else {

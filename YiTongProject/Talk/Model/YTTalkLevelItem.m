@@ -36,6 +36,9 @@
         id pp = d[@"progress_percent"];
         one.progressPercent = [pp respondsToSelector:@selector(integerValue)] ? [pp integerValue] : 0;
 
+        id medal = d[@"is_medal"];
+        one.isMedal = [medal respondsToSelector:@selector(integerValue)] ? ([medal integerValue] != 0) : NO;
+
         id cu = d[@"completed_units"];
         one.completedUnits = [cu respondsToSelector:@selector(integerValue)] ? [cu integerValue] : 0;
 

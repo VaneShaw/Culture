@@ -82,6 +82,24 @@
     self.bannerImageItems = data.bannerImages ?: @[];
 }
 
+- (void)yt_reloadCurrentSegmentList {
+    if (!self.isPagerSetup || !self.pagerView) return;
+    if (self.sceneTabItems.count == 0) return;
+    NSInteger idx = self.currentSegmentIndex;
+    if (self.pagerView.listContainerView) {
+        UIScrollView *sv = [self.pagerView.listContainerView contentScrollView];
+        CGFloat pageW = sv.bounds.size.width;
+        if (sv && pageW > 0) {
+            NSInteger fromScroll = (NSInteger)llround(sv.contentOffset.x / pageW);
+            idx = MAX(0, MIN(fromScroll, (NSInteger)self.sceneTabItems.count - 1));
+        }
+    }
+    id<JXPagerViewListViewDelegate> list = self.pagerView.validListDict[@(idx)];
+    if ([list isKindOfClass:[TalkSegmentListViewController class]]) {
+        [(TalkSegmentListViewController *)list reloadData];
+    }
+}
+
 - (void)yt_fetchTalkHomeBanner {
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params = [LanguageHelper currentLanguageParams:params];
@@ -342,7 +360,7 @@
     [itemView addSubview:bannerButton];
 
     UIImageView *bgImageView = [[UIImageView alloc] init];
-    UIImage *placeholder = [UIImage imageNamed:@"talk_topic_bg"];
+    UIImage *placeholder = [UIImage imageNamed:@"talk_default"];
     NSString *imageUrlStr = item.imageURLString;
     if (imageUrlStr.length > 0) {
         [bgImageView sd_setImageWithURL:[NSURL URLWithString:imageUrlStr] placeholderImage:placeholder];

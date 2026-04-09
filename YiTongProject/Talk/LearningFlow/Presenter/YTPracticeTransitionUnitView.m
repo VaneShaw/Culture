@@ -200,7 +200,10 @@ static void YTApplyPracticeTransitionBadge(UIImageView *iv, YTLevelId levelId, Y
 
     self.cardView.backgroundColor = YTPracticeTransitionCardBackground(theme);
 
-    self.titleLabel.text = [unit yt_resolvedTitleDisplayText];
+    {
+        NSString *instr = [unit yt_resolvedStemInstructionText];
+        self.titleLabel.text = instr.length ? instr : [unit yt_resolvedTitleDisplayText];
+    }
 
     UIColor *captionTint = theme.primaryColor;
     CGFloat cr = 0, cg = 0, cb = 0, ca = 1;
@@ -236,7 +239,12 @@ static void YTApplyPracticeTransitionBadge(UIImageView *iv, YTLevelId levelId, Y
     YTApplyPracticeTransitionBadge(self.badgeImageView, unit.levelId, theme);
 
     self.primaryState.kind = YTUnitPrimaryKindContinue;
-    self.primaryState.title = @"Talk_Continue";
+    // 仅「困难难度 + 本关最后一个过场页」与完成页一致：探索其他场景；其余过场页为下一等级
+    if (unit.levelId == YTLevelIdAdvanced && unit.yt_isLastPracticeTransitionInLevel) {
+        self.primaryState.title = @"Talk_LevelComplete_Primary_Explore";
+    } else {
+        self.primaryState.title = @"Talk_PracticeTransition_NextLevel";
+    }
     self.primaryState.enabled = YES;
     [self emitPrimaryState];
 }

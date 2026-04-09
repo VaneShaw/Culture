@@ -4,6 +4,7 @@
 //
 
 #import "YTLocalPronounceEvaluator.h"
+#import "YTUnit.h"
 #import <AVFoundation/AVFoundation.h>
 
 @implementation YTLocalPronounceEvaluator
@@ -18,9 +19,11 @@
 }
 
 - (void)evaluateRecordingAtURL:(NSURL *)fileURL
+                          unit:(YTUnit *)unit
                   expectedText:(NSString *)expectedText
                     completion:(YTScoreCallback)completion
 {
+    (void)unit;
     if (!completion) return;
     if (!fileURL) {
         completion(nil, [NSError errorWithDomain:@"YTLocalPronounceEvaluator"

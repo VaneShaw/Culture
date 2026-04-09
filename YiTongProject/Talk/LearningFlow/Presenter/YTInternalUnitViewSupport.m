@@ -42,16 +42,28 @@ static NSArray<NSString *> *YTOrderedTokenTextsByGreedyMatch(NSString *sentence,
     return [out copy];
 }
 
-NSDictionary *YTRestoreAnswerPayloadFromUnit(YTUnit *unit) {
-    if (!unit) return nil;
-    if ([YTUnit yt_isSelectedOptionExerciseType:unit.unitType]) {
-        return YTAnswerPayloadForSelectedOptionId(unit.correctOptionId);
+static NSArray<NSString *> *YTCorrectFillOptionIdsForWordFillUnit(YTUnit *unit) {
+    if (unit.unitType != YTUnitTypeExerciseChooseWordFillBlank || unit.correctFillTexts.count == 0) return nil;
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    for (NSString *want in unit.correctFillTexts) {
+        if (![want isKindOfClass:[NSString class]]) return nil;
+        NSString *trimWant = [want stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (trimWant.length == 0) return nil;
+        NSString *foundId = nil;
+        for (NSDictionary *opt in unit.options) {
+            if (![opt isKindOfClass:[NSDictionary class]]) continue;
+            NSString *txt = opt[@"text"];
+            if (![txt isKindOfClass:[NSString class]]) continue;
+            if ([[txt stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] isEqualToString:trimWant]) {
+                id oid = opt[@"id"];
+                foundId = [oid isKindOfClass:[NSString class]] ? (NSString *)oid : [NSString stringWithFormat:@"%@", oid];
+                break;
+            }
+        }
+        if (foundId.length == 0) return nil;
+        [out addObject:foundId];
     }
-    if (unit.unitType == YTUnitTypeExerciseBuildSentence) {
-        NSArray *ordered = YTOrderedTokenTextsByGreedyMatch(unit.correctSentenceText ?: @"", unit.options ?: @[]);
-        return YTAnswerPayloadForOrderedTokenTexts(ordered);
-    }
-    return nil;
+    return [out copy];
 }
 
 NSDictionary *YTAnswerPayloadForSelectedOptionId(NSString *selectedOptionId) {
@@ -64,6 +76,70 @@ NSDictionary *YTAnswerPayloadForOrderedTokenTexts(NSArray<NSString *> *orderedTo
     return @{YTAnswerPayloadKeyOrderedTokenTexts: orderedTokenTexts};
 }
 
+NSDictionary *YTAnswerPayloadForSelectedFillOptionIds(NSArray<NSString *> *orderedOptionIds) {
+    if (orderedOptionIds.count == 0) return nil;
+    return @{YTAnswerPayloadKeySelectedFillOptionIds: orderedOptionIds};
+}
+
+UIImage *YTTalkImageAspectFitInBounds(UIImage *image, CGSize boundsSize, CGFloat cornerRadius, CGFloat contentFraction) {
+    if (!image || boundsSize.width < 1.0 || boundsSize.height < 1.0) {
+        return image;
+    }
+    CGFloat scale = [UIScreen mainScreen].scale;
+    CGSize imgSize = image.size;
+    if (imgSize.width < 1.0 || imgSize.height < 1.0) {
+        return image;
+    }
+    CGFloat bw = boundsSize.width;
+    CGFloat bh = boundsSize.height;
+    CGFloat frac = (contentFraction > 1e-6) ? MIN(1.0, contentFraction) : 1.0;
+    CGFloat boxW = bw * frac;
+    CGFloat boxH = bh * frac;
+    CGFloat boxX = (bw - boxW) / 2.0;
+    CGFloat boxY = (bh - boxH) / 2.0;
+
+    CGFloat sx = boxW / imgSize.width;
+    CGFloat sy = boxH / imgSize.height;
+    CGFloat s = MIN(sx, sy);
+    CGFloat drawW = imgSize.width * s;
+    CGFloat drawH = imgSize.height * s;
+    CGFloat ox = boxX + (boxW - drawW) / 2.0;
+    CGFloat oy = boxY + (boxH - drawH) / 2.0;
+    CGRect drawRect = CGRectMake(ox, oy, drawW, drawH);
+    CGFloat r = MIN(cornerRadius, MIN(CGRectGetWidth(drawRect), CGRectGetHeight(drawRect)) / 2.0);
+
+    UIGraphicsBeginImageContextWithOptions(boundsSize, NO, scale);
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    if (!ctx) {
+        UIGraphicsEndImageContext();
+        return image;
+    }
+    UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:drawRect cornerRadius:r];
+    [path addClip];
+    [image drawInRect:drawRect];
+    UIImage *out = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return out ?: image;
+}
+
+NSDictionary *YTRestoreAnswerPayloadFromUnit(YTUnit *unit) {
+    if (!unit) return nil;
+    if (unit.unitType == YTUnitTypeExerciseChooseWordFillBlank && unit.correctFillTexts.count > 1) {
+        NSArray<NSString *> *ids = YTCorrectFillOptionIdsForWordFillUnit(unit);
+        if (ids.count == unit.correctFillTexts.count) {
+            return YTAnswerPayloadForSelectedFillOptionIds(ids);
+        }
+    }
+    if ([YTUnit yt_isSelectedOptionExerciseType:unit.unitType]) {
+        return YTAnswerPayloadForSelectedOptionId(unit.correctOptionId);
+    }
+    if (unit.unitType == YTUnitTypeExerciseBuildSentence) {
+        NSArray *ordered = YTOrderedTokenTextsByGreedyMatch(unit.correctSentenceText ?: @"", unit.options ?: @[]);
+        return YTAnswerPayloadForOrderedTokenTexts(ordered);
+    }
+    return nil;
+}
+
 NSString *YTSelectedOptionIdFromPayload(NSDictionary *payload) {
     NSString *selectedOptionId = [payload[YTAnswerPayloadKeySelectedOptionId] isKindOfClass:[NSString class]] ? payload[YTAnswerPayloadKeySelectedOptionId] : nil;
     return selectedOptionId;
@@ -72,6 +148,20 @@ NSString *YTSelectedOptionIdFromPayload(NSDictionary *payload) {
 NSArray<NSString *> *YTOrderedTokenTextsFromPayload(NSDictionary *payload) {
     NSArray *texts = [payload[YTAnswerPayloadKeyOrderedTokenTexts] isKindOfClass:[NSArray class]] ? payload[YTAnswerPayloadKeyOrderedTokenTexts] : nil;
     return texts;
+}
+
+NSArray<NSString *> *YTSelectedFillOptionIdsFromPayload(NSDictionary *payload) {
+    NSArray *raw = [payload[YTAnswerPayloadKeySelectedFillOptionIds] isKindOfClass:[NSArray class]] ? payload[YTAnswerPayloadKeySelectedFillOptionIds] : nil;
+    if (raw.count == 0) return nil;
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    for (id o in raw) {
+        if ([o isKindOfClass:[NSString class]]) {
+            [out addObject:(NSString *)o];
+        } else if ([o isKindOfClass:[NSNumber class]]) {
+            [out addObject:[NSString stringWithFormat:@"%@", o]];
+        }
+    }
+    return out.count > 0 ? [out copy] : nil;
 }
 
 @implementation YTBaseUnitView

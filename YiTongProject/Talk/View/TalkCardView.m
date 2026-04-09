@@ -20,7 +20,7 @@
     if (self) {
         CGFloat cardW = 260;
         self.imgView = [[UIImageView alloc]initWithFrame:CGRectMake(10, 10, cardW - 20, 134)];
-        self.imgView.image = [UIImage imageNamed:@"take_img0"];
+        self.imgView.image = [UIImage imageNamed:@"talk_default"];
         [self addSubview:self.imgView];
         
         [self addSubview:self.lblTitle];
