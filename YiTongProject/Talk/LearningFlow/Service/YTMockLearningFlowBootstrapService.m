@@ -56,6 +56,22 @@ NSString *const YTTalkLearningFlowBootstrapErrorDomain = @"YTTalkLearningFlowBoo
     return [completed copy];
 }
 
+/// 与 `units` 数组下标一一对应：第 i 步完成则收录 `i`（同一 `unit_id` 出现多步时互不合并）
+- (NSArray<NSNumber *> *)yt_completedStepIndicesFromUnits:(NSArray<YTUnit *> *)units rawData:(NSArray *)data {
+    NSMutableArray<NSNumber *> *out = [NSMutableArray array];
+    NSInteger count = MIN(units.count, data.count);
+    for (NSInteger i = 0; i < count; i++) {
+        NSDictionary *payload = [data[i] isKindOfClass:[NSDictionary class]] ? (NSDictionary *)data[i] : nil;
+        if (!payload) continue;
+        BOOL done = ([payload yt_integerForKey:@"is_unit_completed" defaultValue:0] == 1)
+            || ([payload yt_integerForKey:@"is_line_completed" defaultValue:0] == 1);
+        if (done) {
+            [out addObject:@(i)];
+        }
+    }
+    return [out copy];
+}
+
 /// 用接口 `user_position.is_current` 恢复当前续学步；无则 `lastPosition` 为 nil。
 - (nullable YTLastPosition *)yt_lastPositionFromTalkUnitData:(NSArray *)data
                                                      sceneId:(NSString *)sceneId
@@ -126,11 +142,13 @@ NSString *const YTTalkLearningFlowBootstrapErrorDomain = @"YTTalkLearningFlowBoo
         YTLevelId displayLevel = [self yt_displayLevelIdFromRequestLevelId:levelId];
         NSArray<YTUnit *> *units = [YTUnitMapper mapUnitsFromResponse:(NSArray<NSDictionary *> *)rawData sceneId:sceneId levelId:displayLevel];
         NSArray<NSString *> *completedUnitIds = [self yt_completedUnitIdsFromUnits:units rawData:rawData];
+        NSArray<NSNumber *> *completedStepIndices = [self yt_completedStepIndicesFromUnits:units rawData:rawData];
         YTLastPosition *apiLastPosition = [self yt_lastPositionFromTalkUnitData:rawData sceneId:sceneId displayLevel:displayLevel];
 
         YTLearningFlowBootstrap *bootstrap = [[YTLearningFlowBootstrap alloc] init];
         bootstrap.units = units ?: @[];
         bootstrap.lastPosition = apiLastPosition;
+        bootstrap.completedStepIndices = completedStepIndices ?: @[];
         bootstrap.completedUnitIds = completedUnitIds ?: @[];
         [self yt_finishOnMain:completion bootstrap:bootstrap error:nil];
     } failure:^(NSError * _Nonnull error) {

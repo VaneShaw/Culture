@@ -6,6 +6,27 @@
 #import "YTUnitMapper.h"
 #import "NSDictionary+YTSafe.h"
 #import "YTUnitViewProtocol.h"
+#import "HeaderConfig.h"
+
+/// `explore/audios/...` 等相对路径拼 HOST，便于播放器加载
+static NSString * _Nullable YTFullMediaURLStringFromPathOrURL(NSString * _Nullable raw) {
+    if (raw.length == 0) return nil;
+    NSString *s = [raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (s.length == 0) return nil;
+    NSString *low = s.lowercaseString;
+    if ([low hasPrefix:@"http://"] || [low hasPrefix:@"https://"]) {
+        return s;
+    }
+    NSString *host = [HOST copy];
+    while ([host hasSuffix:@"/"]) {
+        host = [host substringToIndex:host.length - 1];
+    }
+    NSString *path = s;
+    if (![path hasPrefix:@"/"]) {
+        path = [NSString stringWithFormat:@"/%@", path];
+    }
+    return [NSString stringWithFormat:@"%@%@", host, path];
+}
 
 static NSString * _Nullable YTStringOrNil(id obj) {
     if ([obj isKindOfClass:[NSString class]]) {
@@ -556,8 +577,11 @@ static void YTApplyTalkUnitPayloadToUnit(YTUnit *u, NSDictionary *payload, BOOL 
         u.titlePinyin = YTStringByTrimmingToNil([content yt_stringForKey:@"stem_pinyin"]);
         u.imageURLString = YTStringByTrimmingToNil([content yt_stringForKey:@"stem_image_url"])
             ?: YTStringByTrimmingToNil([content yt_stringForKey:@"image_url"]);
-        u.audioURLString = YTStringByTrimmingToNil([content yt_stringForKey:@"stem_audio_url"])
-            ?: YTStringByTrimmingToNil([content yt_stringForKey:@"audio_url"]);
+        {
+            NSString *stemAudio = YTFullMediaURLStringFromPathOrURL(YTStringByTrimmingToNil([content yt_stringForKey:@"stem_audio_url"]));
+            NSString *fallbackAudio = YTFullMediaURLStringFromPathOrURL(YTStringByTrimmingToNil([content yt_stringForKey:@"audio_url"]));
+            u.audioURLString = (stemAudio.length > 0) ? stemAudio : fallbackAudio;
+        }
 
         NSDictionary *exerciseOptions = YTExerciseOptionsDictionary(content);
         // word_fill：题干在 `options.sentence_template`（含 __），选项在 `options.word_bank`（字符串数组）

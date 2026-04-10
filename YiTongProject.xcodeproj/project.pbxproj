@@ -90,7 +90,6 @@
 		3D9BE3A22E5C549200AF5233 /* MessageView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D9BE3A12E5C549200AF5233 /* MessageView.m */; };
 		3D9BE3A52E5C652A00AF5233 /* NetworkMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D9BE3A42E5C652A00AF5233 /* NetworkMonitor.m */; };
 		3D9C66842E5DA527007EC4D0 /* AccountDeletionView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D9C66832E5DA527007EC4D0 /* AccountDeletionView.m */; };
-		3DA50C352F72361200BDDF97 /* a2_LetterRecording.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 3DA50C342F72361200BDDF97 /* a2_LetterRecording.m4a */; };
 		3DA6F95D2E67CD8800A1EE33 /* AgreementConsentView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DA6F95C2E67CD8800A1EE33 /* AgreementConsentView.m */; };
 		3DA8B6A52EDE713F007B7E9C /* MembershipAgreementView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DA8B6A42EDE713F007B7E9C /* MembershipAgreementView.m */; };
 		3DA8B6A82EDE8880007B7E9C /* StoryLockCoverView.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DA8B6A72EDE8880007B7E9C /* StoryLockCoverView.m */; };
@@ -398,7 +397,6 @@
 		3D9BE3A42E5C652A00AF5233 /* NetworkMonitor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NetworkMonitor.m; sourceTree = "<group>"; };
 		3D9C66822E5DA527007EC4D0 /* AccountDeletionView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AccountDeletionView.h; sourceTree = "<group>"; };
 		3D9C66832E5DA527007EC4D0 /* AccountDeletionView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AccountDeletionView.m; sourceTree = "<group>"; };
-		3DA50C342F72361200BDDF97 /* a2_LetterRecording.m4a */ = {isa = PBXFileReference; lastKnownFileType = file; path = a2_LetterRecording.m4a; sourceTree = "<group>"; };
 		3DA6F95B2E67CD8800A1EE33 /* AgreementConsentView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AgreementConsentView.h; sourceTree = "<group>"; };
 		3DA6F95C2E67CD8800A1EE33 /* AgreementConsentView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AgreementConsentView.m; sourceTree = "<group>"; };
 		3DA8B6A32EDE713F007B7E9C /* MembershipAgreementView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MembershipAgreementView.h; sourceTree = "<group>"; };
@@ -863,7 +861,6 @@
 		3D6DB2BF2F501FA40003DD9C /* Talk */ = {
 			isa = PBXGroup;
 			children = (
-				3DA50C342F72361200BDDF97 /* a2_LetterRecording.m4a */,
 				3DD8F82F2F52BEA2009E70CE /* View */,
 				6A7E0D7B8A2A4C9AA1B3C101 /* LearningFlow */,
 				3D46C91D2F512FA00090B431 /* Model */,
@@ -1597,7 +1594,6 @@
 				3D84924F2E44A1A20006F1DF /* fireworks_withe.gif in Resources */,
 				3D6239A12EC464BE00332A80 /* fzktjw.ttf in Resources */,
 				3DCBA2B62E615002000167A2 /* Localizable.strings in Resources */,
-				3DA50C352F72361200BDDF97 /* a2_LetterRecording.m4a in Resources */,
 				3D8492512E44A1A60006F1DF /* chick_white.gif in Resources */,
 				3D83A83B2EA0E980002BE217 /* GoogleService-Info.plist in Resources */,
 				425518442E0BD7EA007764C7 /* Assets.xcassets in Resources */,

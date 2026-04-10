@@ -1476,6 +1476,17 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
     }];
 }
 
+- (void)yt_autoPlayStemAudioIfNeededWhenUnitIncomplete:(BOOL)isIncomplete {
+    [super yt_autoPlayStemAudioIfNeededWhenUnitIncomplete:isIncomplete];
+    if (!isIncomplete) {
+        return;
+    }
+    if (self.unit.audioURLString.length == 0) {
+        return;
+    }
+    [self onPlay];
+}
+
 - (void)handlePrimaryActionWithCompletion:(void (^)(YTUnitSubmitResult * _Nullable, NSError * _Nullable))completion {
     // 录音按钮状态机（PRD 6.2）
     // - Start recording：开始录音

@@ -85,6 +85,8 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 @property (nonatomic, strong, nullable) YTLearningFlowBootstrap *preloadedBootstrap;
 @property (nonatomic, assign) NSInteger currentIndex;
 @property (nonatomic, strong) NSMutableSet<NSString *> *completedUnitIds;
+/// 与 `units` 下标对齐：已完成步骤（同一 `unit_id` 多步互不合并）
+@property (nonatomic, strong) NSMutableSet<NSNumber *> *completedStepIndices;
 /// 续学弹窗选「继续上次学习」时为 YES，才从本地/后台恢复已答对题目的答案；选「从头开始」为 NO
 @property (nonatomic, assign) BOOL resumePrefillCorrectAnswers;
 @property (nonatomic, strong) UIView *progressBackgroundView;
@@ -157,6 +159,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         _levelId = levelId;
         _currentIndex = 0;
         _completedUnitIds = [NSMutableSet set];
+        _completedStepIndices = [NSMutableSet set];
         _units = @[];
         _bootstrapService = [YTMockLearningFlowBootstrapService shared];
         _answerEvaluator = [YTLocalAnswerEvaluator shared];
@@ -292,9 +295,17 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     [self yt_seedServerProgressPercentFromEntryIfNeeded];
     self.units = bootstrap.units ?: @[];
     [self.completedUnitIds removeAllObjects];
+    [self.completedStepIndices removeAllObjects];
+    if (bootstrap.completedStepIndices.count > 0) {
+        [self.completedStepIndices addObjectsFromArray:bootstrap.completedStepIndices];
+    }
     if (bootstrap.completedUnitIds.count > 0) {
         [self.completedUnitIds addObjectsFromArray:bootstrap.completedUnitIds];
     }
+
+#if DEBUG
+    [self yt_debugLogNextUnlockBootstrapSnapshot];
+#endif
 
     [self yt_recomputePracticeTransitionLastFlags];
 
@@ -370,8 +381,8 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     }
 
     CGFloat p = [self yt_displayProgressRatio];
-    // 顶部条无有效 `progress_percent` 时显示 0%，但续学与否仍以接口 `is_unit_completed` / `is_line_completed` 汇总的 completedUnitIds 为准
-    if (p <= 1e-5 && self.completedUnitIds.count == 0) {
+    // 顶部条无有效 `progress_percent` 时显示 0%，续学与否以接口每步 `is_unit_completed` / `is_line_completed` 汇总的 completedStepIndices 为准
+    if (p <= 1e-5 && self.completedStepIndices.count == 0) {
         self.resumePrefillCorrectAnswers = NO;
         [self showUnitAtIndex:0];
         return;
@@ -385,12 +396,8 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     if (self.units.count <= 0) return 0;
 
     NSInteger lastCompletedIndex = -1;
-    for (NSInteger i = 0; i < self.units.count; i++) {
-        YTUnit *u = self.units[i];
-        if (!u.unitId.length) continue;
-        if ([self.completedUnitIds containsObject:u.unitId]) {
-            lastCompletedIndex = i;
-        }
+    for (NSNumber *n in self.completedStepIndices) {
+        lastCompletedIndex = MAX(lastCompletedIndex, n.integerValue);
     }
 
     if (lastCompletedIndex < 0) return 0;
@@ -515,6 +522,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     [self.progressStore clearAnswerSnapshotsForSceneId:self.sceneId levelId:self.levelId];
     [self.progressStore clearLastPositionForSceneId:self.sceneId levelId:self.levelId];
     [self.completedUnitIds removeAllObjects];
+    [self.completedStepIndices removeAllObjects];
     [self resetLearnStateFlagsOnAllUnits];
     [self showUnitAtIndex:0];
 }
@@ -651,11 +659,68 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     if (self.units.count == 0) return NO;
     if (self.currentIndex < 0 || self.currentIndex >= self.units.count) return NO;
     YTUnit *u = self.units[self.currentIndex];
-    if (u.answeredCorrectFromServer) return YES;
-    if (u.unitId.length > 0 && [self.completedUnitIds containsObject:u.unitId]) return YES;
-    if (self.unitView && [self.unitView isUnitCompleteSignalSatisfied]) return YES;
+    if (u.answeredCorrectFromServer) {
+#if DEBUG
+        [self yt_debugLogNextUnlockReason:@"answeredCorrectFromServer==YES" unit:u];
+#endif
+        return YES;
+    }
+    if ([self.completedStepIndices containsObject:@(self.currentIndex)]) {
+#if DEBUG
+        [self yt_debugLogNextUnlockReason:@"stepIndex in completedStepIndices" unit:u];
+#endif
+        return YES;
+    }
+    BOOL signal = (self.unitView && [self.unitView isUnitCompleteSignalSatisfied]);
+    if (signal) {
+#if DEBUG
+        [self yt_debugLogNextUnlockReason:@"isUnitCompleteSignalSatisfied==YES" unit:u];
+#endif
+        return YES;
+    }
     return NO;
 }
+
+#if DEBUG
+/// 调试用：右侧「下一题」为何可点 / 不可点（过滤日志：`TalkFlow][NextUnlock`）
+- (void)yt_debugLogNextUnlockBootstrapSnapshot {
+    NSMutableDictionary<NSString *, NSNumber *> *idCounts = [NSMutableDictionary dictionary];
+    for (YTUnit *x in self.units) {
+        if (x.unitId.length == 0) continue;
+        NSNumber *n = idCounts[x.unitId];
+        idCounts[x.unitId] = @(n.integerValue + 1);
+    }
+    NSMutableArray<NSString *> *dupes = [NSMutableArray array];
+    for (NSString *k in idCounts) {
+        if ([idCounts[k] integerValue] > 1) {
+            [dupes addObject:[NSString stringWithFormat:@"%@ x%@", k, idCounts[k]]];
+        }
+    }
+    NSLog(@"[TalkFlow][NextUnlock] applyBootstrap level=%ld scene=%@ units=%lu completedSteps=%lu steps=%@ unitIds(legacy)=%@",
+          (long)self.levelId,
+          self.sceneId ?: @"-",
+          (unsigned long)self.units.count,
+          (unsigned long)self.completedStepIndices.count,
+          self.completedStepIndices.allObjects,
+          self.completedUnitIds.allObjects);
+    if (dupes.count > 0) {
+        NSLog(@"[TalkFlow][NextUnlock] WARNING duplicate unit_id in flow: %@", [dupes componentsJoinedByString:@", "]);
+    }
+}
+
+- (void)yt_debugLogNextUnlockReason:(NSString *)reason unit:(YTUnit *)u {
+    BOOL sig = self.unitView ? [self.unitView isUnitCompleteSignalSatisfied] : NO;
+    NSLog(@"[TalkFlow][NextUnlock] idx=%ld/%lu type=%ld unitId=%@ answeredCorrectFromServer=%d inCompletedSet=%d signal=%d reason=%@",
+          (long)self.currentIndex,
+          (unsigned long)self.units.count,
+          (long)u.unitType,
+          u.unitId ?: @"(empty)",
+          u.answeredCorrectFromServer ? 1 : 0,
+          [self.completedStepIndices containsObject:@(self.currentIndex)] ? 1 : 0,
+          sig ? 1 : 0,
+          reason);
+}
+#endif
 
 /// 第一道「过渡页」或「练习题」的下标：从该步起不可再回到前面的词汇/句子（发音）；均无则为 NSNotFound
 - (NSInteger)indexOfFirstUnitBlockingReturnToPronounce {
@@ -796,7 +861,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 
     // 答案回填：仅用 `/talk/unit` 映射到 `serverAnswerPayload`（含 `progress.answerPayload` 或由题干 correct_answer 推导），不读本地快照推导
     NSDictionary *restorePayload = nil;
-    BOOL completed = (u.unitId.length > 0 && [self.completedUnitIds containsObject:u.unitId]);
+    BOOL completed = [self.completedStepIndices containsObject:@(self.currentIndex)];
     if (u.serverAnswerPayload.count > 0 && (u.answeredCorrectFromServer || (self.resumePrefillCorrectAnswers && completed))) {
         restorePayload = u.serverAnswerPayload;
     }
@@ -816,6 +881,24 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     [rv mas_makeConstraints:^(MASConstraintMaker *make) {
         make.edges.equalTo(self.contentContainer);
     }];
+
+    /// 未完成且有题干主音频时自动播一次（已完成则跳过）
+    BOOL unitCompleted = [self.completedStepIndices containsObject:@(self.currentIndex)];
+    NSString *mountedUnitId = u.unitId ?: @"";
+    dispatch_async(dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || !self.unitView) {
+            return;
+        }
+        if (self.currentIndex < 0 || self.currentIndex >= self.units.count) {
+            return;
+        }
+        YTUnit *cur = self.units[self.currentIndex];
+        if (mountedUnitId.length > 0 && cur.unitId.length > 0 && ![cur.unitId isEqualToString:mountedUnitId]) {
+            return;
+        }
+        [self.unitView yt_autoPlayStemAudioIfNeededWhenUnitIncomplete:!unitCompleted];
+    });
 }
 
 - (void)onPrimaryButton {
@@ -1270,18 +1353,26 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 
 - (void)saveLastPositionIfPossible {
     // 统一续学定位规则：
-    // 不记录“从哪道题退出去”（不落库 lastPosition），继续学习直接依据 completedUnitIds 跳转。
+    // 不记录“从哪道题退出去”（不落库 lastPosition），继续学习直接依据 completedStepIndices 跳转。
     return;
 }
 
 - (void)markUnitCompletedIfNeeded:(YTUnit *)u {
-    // 进度：仅对 countsTowardProgress == YES 的 unit 生效；unitId 去重
-    if (!u.unitId.length) return;
+    // 进度：仅对 countsTowardProgress == YES 的 unit 生效；按「当前步下标」记录，避免同 unit_id 多步被合并
     if (![u countsTowardProgress]) return;
-    NSString *uid = [u.unitId copy];
-    if ([self.completedUnitIds containsObject:uid]) return;
+    NSNumber *stepIdx = @(self.currentIndex);
+    if ([self.completedStepIndices containsObject:stepIdx]) return;
 
-    [self.completedUnitIds addObject:uid];
+    [self.completedStepIndices addObject:stepIdx];
+    if (u.unitId.length > 0) {
+        [self.completedUnitIds addObject:u.unitId];
+    }
+#if DEBUG
+    NSLog(@"[TalkFlow][NextUnlock] markUnitCompletedIfNeeded ADD unitId=%@ type=%ld idx=%@",
+          u.unitId ?: @"-",
+          (long)u.unitType,
+          stepIdx);
+#endif
     [self updateNavButtons];
 }
 

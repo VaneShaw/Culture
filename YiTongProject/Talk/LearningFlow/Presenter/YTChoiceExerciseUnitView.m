@@ -178,7 +178,6 @@
             make.bottom.equalTo(self.rootView).offset(-16);
         }];
         [self buildImageGridOptions];
-        [self autoPlayIfNeeded];
     } else {
         [self updateAudioButtonStyleForListenChooseImage:NO];
         self.titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -257,10 +256,15 @@
         }
 
         [self buildWordOptionsWithHeaderImage];
-        if (unit.unitType == YTUnitTypeExerciseListenChooseResponse) {
-            [self autoPlayIfNeeded];
-        }
     }
+}
+
+- (void)yt_autoPlayStemAudioIfNeededWhenUnitIncomplete:(BOOL)isIncomplete {
+    [super yt_autoPlayStemAudioIfNeededWhenUnitIncomplete:isIncomplete];
+    if (!isIncomplete) {
+        return;
+    }
+    [self autoPlayIfNeeded];
 }
 
 - (void)autoPlayIfNeeded {
@@ -290,13 +294,7 @@
 }
 
 - (NSString *)audioURLStringForPlayButton {
-    // 临时联调：听音选图固定播放本地录音文件 a2_LetterRecording.m4a
-    if (self.unit.unitType == YTUnitTypeExerciseListenChooseImage) {
-        NSString *path = [[NSBundle mainBundle] pathForResource:@"a2_LetterRecording" ofType:@"m4a"];
-        if (path.length > 0) {
-            return [NSURL fileURLWithPath:path].absoluteString ?: @"";
-        }
-    }
+    // 题干音频：接口 `stem_audio_url` → `unit.audioURLString`
     return self.unit.audioURLString ?: @"";
 }
 

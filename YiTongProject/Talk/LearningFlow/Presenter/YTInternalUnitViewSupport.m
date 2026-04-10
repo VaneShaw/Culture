@@ -213,6 +213,10 @@ NSArray<NSString *> *YTSelectedFillOptionIdsFromPayload(NSDictionary *payload) {
     (void)snapshot;
 }
 
+- (void)yt_autoPlayStemAudioIfNeededWhenUnitIncomplete:(BOOL)isIncomplete {
+    (void)isIncomplete;
+}
+
 - (void)evaluateAnswerPayload:(NSDictionary *)answerPayload
                    completion:(void (^)(YTUnitSubmitResult * _Nullable result, NSError * _Nullable error))completion
 {

@@ -76,6 +76,9 @@ typedef void (^YTUnitPrimaryStateChanged)(YTUnitPrimaryState *state);
 /// 当前 unit 是否已“达成完成条件”（仅对计入进度的 unit 有意义）
 - (BOOL)isUnitCompleteSignalSatisfied;
 
+/// 进入该题后由容器调用：`isIncomplete == YES` 且本题存在可播主音频时自动播放；已完成则不播
+- (void)yt_autoPlayStemAudioIfNeededWhenUnitIncomplete:(BOOL)isIncomplete;
+
 @optional
 /// 可选：当用户在“答错弹窗”点击按钮（Got it）后，题面是否需要重置以便重做
 /// - 仅对部分题型有意义（如句子组装需要把已选词块退回）

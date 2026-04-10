@@ -622,6 +622,17 @@ static NSString *YTAnswerTemplateForCompleteDialogueUnit(YTUnit *unit) {
     [self.audio playURLString:self.unit.audioURLString completion:nil];
 }
 
+- (void)yt_autoPlayStemAudioIfNeededWhenUnitIncomplete:(BOOL)isIncomplete {
+    [super yt_autoPlayStemAudioIfNeededWhenUnitIncomplete:isIncomplete];
+    if (!isIncomplete) {
+        return;
+    }
+    if (self.unit.audioURLString.length == 0) {
+        return;
+    }
+    [self onPlayQuestionAudio];
+}
+
 - (void)onSelectCompleteDialogueOption:(UIButton *)sender {
     NSInteger idx = sender.tag;
     if (idx < 0 || idx >= self.unit.options.count) return;
