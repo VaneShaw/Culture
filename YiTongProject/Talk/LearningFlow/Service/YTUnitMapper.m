@@ -563,7 +563,7 @@ static void YTApplyTalkUnitPayloadToUnit(YTUnit *u, NSDictionary *payload, BOOL 
         };
         YTMapPlainTitleAndSubtitle(u, display, !isLastStep);
         u.stemText = YTStringByTrimmingToNil([content yt_stringForKey:@"stem_text"]);
-        u.imageURLString = YTStringByTrimmingToNil([content yt_stringForKey:@"image_url"]);
+        u.imageURLString = YTFullMediaURLStringFromPathOrURL(YTStringByTrimmingToNil([content yt_stringForKey:@"image_url"]));
         YTMergeTalkProgressDictionaryIntoUnit(u, payload);
         return;
     }

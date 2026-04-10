@@ -14,6 +14,26 @@ static const CGFloat kYTBadgeAreaSize = 214.0;
 static const CGFloat kYTBadgeForegroundW = 120.0;
 static const CGFloat kYTBadgeForegroundH = 135.0;
 
+/// 与 `YTUnitMapper` 中 `YTFullMediaURLStringFromPathOrURL` 一致：相对路径拼 HOST
+static NSString * _Nullable YTLevelCompletionFullImageURLString(NSString * _Nullable raw) {
+    if (raw.length == 0) return nil;
+    NSString *s = [raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (s.length == 0) return nil;
+    NSString *low = s.lowercaseString;
+    if ([low hasPrefix:@"http://"] || [low hasPrefix:@"https://"]) {
+        return s;
+    }
+    NSString *host = [HOST copy];
+    while ([host hasSuffix:@"/"]) {
+        host = [host substringToIndex:host.length - 1];
+    }
+    NSString *path = s;
+    if (![path hasPrefix:@"/"]) {
+        path = [NSString stringWithFormat:@"/%@", path];
+    }
+    return [NSString stringWithFormat:@"%@%@", host, path];
+}
+
 static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
     UIColor *pc = theme.primaryColor;
     CGFloat r, g, b, a;
@@ -203,23 +223,42 @@ static UIColor *YTLevelCompleteCardFill(YTDifficultyTheme *theme) {
     }
     self.subtitleLabel.text = unit.completionSubtitle ?: @"";
 
-    UIImage *img = [UIImage imageNamed:[self yt_badgeImageNameForLevel:unit.levelId]];
-    if (!img) {
-        img = [UIImage imageNamed:@"talk_level_complete_badge"];
-    }
-    if (!img && @available(iOS 13.0, *)) {
-        if (unit.levelId == YTLevelIdBeginner) {
-            img = [UIImage systemImageNamed:@"leaf.fill"];
-        } else if (unit.levelId == YTLevelIdIntermediate) {
-            img = [UIImage systemImageNamed:@"location.north.circle.fill"];
-        } else {
-            img = [UIImage systemImageNamed:@"mountain.2.fill"];
-        }
-        self.badgeImageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-        self.badgeImageView.tintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.95];
+    NSString *remoteStr = YTLevelCompletionFullImageURLString(unit.imageURLString);
+    NSURL *remoteURL = remoteStr.length ? [NSURL URLWithString:remoteStr] : nil;
+    if (remoteURL) {
+        [self.badgeImageView sd_cancelCurrentImageLoad];
+        UIImage *placeholder = [UIImage imageNamed:@"talk_level_complete_badge"];
+        __weak typeof(self) weakSelf = self;
+        [self.badgeImageView sd_setImageWithURL:remoteURL
+                               placeholderImage:placeholder
+                                        options:SDWebImageRetryFailed
+                                      completed:^(UIImage * _Nullable image, NSError * _Nullable error, SDImageCacheType cacheType, NSURL * _Nullable imageURL) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) {
+                return;
+            }
+            self.badgeImageView.tintColor = image ? nil : [[UIColor whiteColor] colorWithAlphaComponent:0.95];
+        }];
     } else {
-        self.badgeImageView.image = img;
-        self.badgeImageView.tintColor = img ? nil : [UIColor whiteColor];
+        [self.badgeImageView sd_cancelCurrentImageLoad];
+        UIImage *img = [UIImage imageNamed:[self yt_badgeImageNameForLevel:unit.levelId]];
+        if (!img) {
+            img = [UIImage imageNamed:@"talk_level_complete_badge"];
+        }
+        if (!img && @available(iOS 13.0, *)) {
+            if (unit.levelId == YTLevelIdBeginner) {
+                img = [UIImage systemImageNamed:@"leaf.fill"];
+            } else if (unit.levelId == YTLevelIdIntermediate) {
+                img = [UIImage systemImageNamed:@"location.north.circle.fill"];
+            } else {
+                img = [UIImage systemImageNamed:@"mountain.2.fill"];
+            }
+            self.badgeImageView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            self.badgeImageView.tintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.95];
+        } else {
+            self.badgeImageView.image = img;
+            self.badgeImageView.tintColor = img ? nil : [UIColor whiteColor];
+        }
     }
 
     self.primaryState.kind = YTUnitPrimaryKindContinue;
