@@ -411,11 +411,12 @@ static CGFloat const kYTPronounceMediaToTitleGap = 40.0;
 static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
 
 - (UIViewController *)yt_hostViewController {
-    UIResponder *responder = self;
-    while (responder) {
-        responder = responder.nextResponder;
-        if ([responder isKindOfClass:[UIViewController class]]) {
-            return (UIViewController *)responder;
+    // Presenter 继承 NSObject，不能对 self 走 nextResponder；从已挂载的 rootView 沿响应链查找
+    UIView *v = self.rootView;
+    if (!v) return nil;
+    for (UIResponder *r = v; r; r = r.nextResponder) {
+        if ([r isKindOfClass:[UIViewController class]]) {
+            return (UIViewController *)r;
         }
     }
     return nil;
@@ -1011,6 +1012,7 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
             pv.player.muted = YES;
         }
         __weak typeof(self) weakSelf = self;
+        NSInteger restoreMediaIndex = index;
         pv.enterFullScreenBlock = ^(AVPlayer *player) {
             __strong typeof(weakSelf) selfStrong = weakSelf;
             if (!selfStrong || !player) return;
@@ -1020,6 +1022,12 @@ static CGFloat const kYTPronouncePinyinHorizontalInset = 40.0;
             VideoFullScreenViewController *vc = [[VideoFullScreenViewController alloc] init];
             vc.player = player;
             vc.modalPresentationStyle = UIModalPresentationFullScreen;
+            vc.onWillDismiss = ^{
+                __strong typeof(weakSelf) ss = weakSelf;
+                if (!ss) return;
+                [ss scrollToMediaIndex:restoreMediaIndex animated:YES];
+                [ss playVideoIfNeededAtIndex:restoreMediaIndex];
+            };
             [host presentViewController:vc animated:YES completion:nil];
         };
         [videoHost addSubview:pv];
