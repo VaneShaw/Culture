@@ -7,6 +7,19 @@
 
 #import "UIViewController+BackButton.h"
 
+/// 深色圆底时使用浅色返回箭头，避免与 `return_black` 对比度不足。
+static BOOL YTVBackButtonBackgroundIsDark(UIColor *color) {
+    if (!color) {
+        return NO;
+    }
+    CGFloat r, g, b, a;
+    if (![color getRed:&r green:&g blue:&b alpha:&a]) {
+        return NO;
+    }
+    CGFloat lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    return lum < 0.45;
+}
+
 @implementation UIViewController (BackButton)
 //@{@"title":@"Membership",@"color":@"#FFFFFF"}
 - (void)addGlobalBackButtonColor:(UIColor *)color headerTitleDic:(NSDictionary *)dic {
@@ -15,12 +28,17 @@
     UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(Distance＿M, statusBarH, 55, 45)];
     buttonContainer.backgroundColor = [UIColor clearColor];
 
+    NSString *title = dic[@"title"];
     // 创建返回按钮
     UIButton *backButton = [UIButton buttonWithType:UIButtonTypeCustom];
     [backButton addTarget:self action:@selector(globalBackAction) forControlEvents:UIControlEventTouchUpInside];
     backButton.backgroundColor = color;
     
-    [backButton setImage:[UIImage imageNamed:@"return_black"] forState:UIControlStateNormal];
+    if (YTVBackButtonBackgroundIsDark(color) || [title isEqualToString:@"Membership"]) {
+        [backButton setImage:[UIImage imageNamed:@"return_white"] forState:UIControlStateNormal];
+    } else {
+        [backButton setImage:[UIImage imageNamed:@"return_black"] forState:UIControlStateNormal];
+    }
     //backButton.frame = CGRectMake(Distance＿M, 5 + statusBarH, width,width);
     backButton.frame = CGRectMake(0, 5, 40,40);
     backButton.layer.cornerRadius = 20;//圆角
@@ -38,7 +56,6 @@
     [self.view addSubview:buttonContainer];
     [self.view bringSubviewToFront:buttonContainer];
     
-    NSString *title = dic[@"title"];
     // --------- 添加标题 UILabel ---------
     if(title.length > 0 && title){
         UILabel *lblTitle = [[UILabel alloc] init];
@@ -54,9 +71,6 @@
         lblTitle.center = CGPointMake(viewWidth / 2.0, backButton.center.y + statusBarH + 1); // 上下与 backButton 居中
         [self.view addSubview:lblTitle];
         [self.view bringSubviewToFront:lblTitle];
-        if([title isEqualToString:@"Membership"]){
-            [backButton setImage:[UIImage imageNamed:@"return_white"] forState:UIControlStateNormal];
-        }
     }
 }
 - (void)addGlobalBackButton {

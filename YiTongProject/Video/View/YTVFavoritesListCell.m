@@ -19,53 +19,38 @@
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
     if (self) {
         self.selectionStyle = UITableViewCellSelectionStyleNone;
-        self.backgroundColor = [UIColor whiteColor];
-        self.contentView.backgroundColor = [UIColor whiteColor];
+        self.backgroundColor = [UIColor blackColor];
+        self.contentView.backgroundColor = [UIColor blackColor];
         [self.contentView addSubview:self.coverView];
         [self.contentView addSubview:self.titleLabel];
         [self.contentView addSubview:self.metaLabel];
         [self.coverView mas_makeConstraints:^(MASConstraintMaker *make) {
             make.left.equalTo(self.contentView).offset(16);
-            make.centerY.equalTo(self.contentView);
-            make.width.height.mas_equalTo(88);
+            make.right.equalTo(self.contentView).offset(-16);
+            make.top.equalTo(self.contentView);
+            make.height.equalTo(self.coverView.mas_width).multipliedBy(9.0 / 16.0);
         }];
         [self.titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.equalTo(self.coverView.mas_right).offset(12);
-            make.right.equalTo(self.contentView).offset(-16);
-            make.top.equalTo(self.coverView.mas_top).offset(4);
+            make.left.equalTo(self.coverView);
+            make.right.equalTo(self.coverView);
+            make.top.equalTo(self.coverView.mas_bottom).offset(8);
         }];
         [self.metaLabel mas_makeConstraints:^(MASConstraintMaker *make) {
             make.left.equalTo(self.titleLabel);
             make.right.equalTo(self.titleLabel);
-            make.bottom.equalTo(self.coverView.mas_bottom).offset(-4);
+            make.top.equalTo(self.titleLabel.mas_bottom).offset(4);
+            make.bottom.equalTo(self.contentView).offset(-20);
         }];
     }
     return self;
 }
 
+/// 绑定封面、标题与摘要（摘要单行尾部省略）。
 - (void)ytv_configureWithItem:(YTVVideoFeedItem *)item {
     self.titleLabel.text = item.title.length ? item.title : @"—";
-    NSMutableString *meta = [NSMutableString string];
-    if (item.category.length) {
-        [meta appendString:item.category];
-    }
-    if (item.favoritedAtMs > 0) {
-        NSDate *d = [NSDate dateWithTimeIntervalSince1970:item.favoritedAtMs / 1000.0];
-        static NSDateFormatter *fmt;
-        static dispatch_once_t once;
-        dispatch_once(&once, ^{
-            fmt = [[NSDateFormatter alloc] init];
-            fmt.dateStyle = NSDateFormatterShortStyle;
-            fmt.timeStyle = NSDateFormatterShortStyle;
-        });
-        if (meta.length) {
-            [meta appendString:@" · "];
-        }
-        [meta appendString:[fmt stringFromDate:d]];
-    }
-    self.metaLabel.text = meta.length ? meta : NSLocalizedString(@"YTV_favorites_list_meta_placeholder", @"");
+    self.metaLabel.text = item.summary.length ? item.summary : NSLocalizedString(@"YTV_favorites_list_meta_placeholder", @"");
     [self.coverView sd_setImageWithURL:[NSURL URLWithString:item.coverURL ?: @""]
-                        placeholderImage:[UIImage imageNamed:@"file_blue"]];
+                      placeholderImage:[UIImage imageNamed:@"file_blue"]];
 }
 
 - (UIImageView *)coverView {
@@ -75,7 +60,7 @@
         _coverView.clipsToBounds = YES;
         _coverView.layer.cornerRadius = 8;
         _coverView.layer.masksToBounds = YES;
-        _coverView.backgroundColor = [self.contentView colorWithHexString:@"#E8EEF5" alpha:1];
+        _coverView.backgroundColor = [self.contentView colorWithHexString:@"#1C1C1E" alpha:1];
     }
     return _coverView;
 }
@@ -83,9 +68,10 @@
 - (UILabel *)titleLabel {
     if (!_titleLabel) {
         _titleLabel = [[UILabel alloc] init];
-        _titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
-        _titleLabel.textColor = [self.contentView colorWithHexString:@"#1F1F39" alpha:1];
-        _titleLabel.numberOfLines = 2;
+        _titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:17];
+        _titleLabel.textColor = [UIColor whiteColor];
+        _titleLabel.numberOfLines = 1;
+        _titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     }
     return _titleLabel;
 }
@@ -93,9 +79,10 @@
 - (UILabel *)metaLabel {
     if (!_metaLabel) {
         _metaLabel = [[UILabel alloc] init];
-        _metaLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:13];
-        _metaLabel.textColor = [self.contentView colorWithHexString:@"#8F8F8F" alpha:1];
-        _metaLabel.numberOfLines = 2;
+        _metaLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:14];
+        _metaLabel.textColor = [self.contentView colorWithHexString:@"#AEAEB2" alpha:1];
+        _metaLabel.numberOfLines = 1;
+        _metaLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     }
     return _metaLabel;
 }

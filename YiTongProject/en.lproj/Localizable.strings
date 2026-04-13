@@ -60,6 +60,8 @@ Tap to start recording and say this sound out loud
 "YTV_favorites_list_empty" = "No saved videos yet.";
 "YTV_favorites_list_need_login" = "Sign in to view and manage your video favorites.";
 "YTV_favorites_list_meta_placeholder" = "Video";
+"YTV_debug_sample_summary" = "The nearly ninety-year-old Yugong had two great mountains in front of his house—Taihang and Wangwu—blocking the way for generations. He led his children and grandchildren to dig, while the wise man laughed at him, and Yugong answered that their descendants would never run out…";
+"YTV_favorites_grid_layout" = "Grid layout";
 "YTV_favorites_feed_empty" = "No favorites to play.";
 "YTV_share_sheet_wechat_friend" = "WeChat";
 "YTV_share_sheet_wechat_timeline" = "Moments";

@@ -8,6 +8,7 @@
 #import "YTVFeedPageResult.h"
 #import "YTVVideoFeedItem.h"
 #import "YTVFeedSnapshotCache.h"
+#import "YTVVideoDebugSampleFeed.h"
 
 static NSString * const kYTVFavoritesListCacheKey = @"__favorites_list__";
 static const NSInteger kYTVFavoritesListPageSize = 20;
@@ -18,6 +19,9 @@ static const NSInteger kYTVFavoritesListPageSize = 20;
 @property (nonatomic, assign) BOOL hasMore;
 @property (nonatomic, assign, readwrite) BOOL isLoading;
 @property (nonatomic, strong) YTVVideoFavoritesRepository *repository;
+
+/// DEBUG 样例流开启时，与视频 Feed 共用 `YTVVideoDebugSampleFeed` 本地条目。
+- (void)ytv_loadSampleItems;
 @end
 
 @implementation YTVFavoritesListViewModel
@@ -38,9 +42,16 @@ static const NSInteger kYTVFavoritesListPageSize = 20;
 
 - (void)clearItemsForLogout {
     [self.mutableItems removeAllObjects];
+    if ([YTVVideoDebugSampleFeed isSampleFeedEnabled]) {
+        [self ytv_loadSampleItems];
+    }
 }
 
 - (void)loadDiskCacheOnly {
+    if ([YTVVideoDebugSampleFeed isSampleFeedEnabled]) {
+        [self ytv_loadSampleItems];
+        return;
+    }
     NSDictionary *snap = [YTVFeedSnapshotCache loadSnapshotDictionaryForCategoryKey:kYTVFavoritesListCacheKey];
     [self ytv_applySnapshotDictionary:snap];
 }
@@ -70,6 +81,16 @@ static const NSInteger kYTVFavoritesListPageSize = 20;
 }
 
 - (void)reloadFromCacheThenNetworkWithCompletion:(void (^)(NSError * _Nullable))completion {
+    if ([YTVVideoDebugSampleFeed isSampleFeedEnabled]) {
+        [self ytv_loadSampleItems];
+        self.isLoading = NO;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completion) {
+                completion(nil);
+            }
+        });
+        return;
+    }
     NSDictionary *snap = [YTVFeedSnapshotCache loadSnapshotDictionaryForCategoryKey:kYTVFavoritesListCacheKey];
     [self ytv_applySnapshotDictionary:snap];
     self.isLoading = YES;
@@ -111,6 +132,26 @@ static const NSInteger kYTVFavoritesListPageSize = 20;
             }
         });
     }];
+}
+
+- (void)ytv_loadSampleItems {
+    [self.mutableItems removeAllObjects];
+    NSArray<YTVVideoFeedItem *> *samples = [YTVVideoDebugSampleFeed allSampleItems];
+    NSString *fallbackSummary = NSLocalizedString(@"YTV_debug_sample_summary", @"");
+    for (YTVVideoFeedItem *it in samples) {
+        it.isFavorite = YES;
+        if (it.title.length == 0) {
+            NSString *path = it.playURL.lastPathComponent ?: @"";
+            NSString *base = [path stringByDeletingPathExtension];
+            it.title = base.length ? base : it.videoId;
+        }
+        if (it.summary.length == 0) {
+            it.summary = fallbackSummary;
+        }
+        [self.mutableItems addObject:it];
+    }
+    self.nextCursor = @"";
+    self.hasMore = NO;
 }
 
 @end

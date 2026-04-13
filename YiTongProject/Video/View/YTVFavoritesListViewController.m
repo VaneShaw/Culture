@@ -8,6 +8,7 @@
 #import "YTVFavoritesListCell.h"
 #import "YTVShortVideoFeedViewController.h"
 #import "YTVVideoFeedItem.h"
+#import "YTVVideoDebugSampleFeed.h"
 #import "HeaderConfig.h"
 
 static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
@@ -17,25 +18,30 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) UIView *emptyContainer;
 @property (nonatomic, strong) UILabel *emptyLabel;
+@property (nonatomic, strong) UIButton *gridLayoutButton;
 @end
 
 @implementation YTVFavoritesListViewController
 
+- (UIStatusBarStyle)preferredStatusBarStyle {
+    return UIStatusBarStyleLightContent;
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor whiteColor];
+    self.view.backgroundColor = [UIColor blackColor];
     self.hidesBottomBarWhenPushed = YES;
     UIBarButtonItem *backBtn = [[UIBarButtonItem alloc] init];
     backBtn.title = @"";
     self.navigationItem.backBarButtonItem = backBtn;
     self.navigationItem.hidesBackButton = YES;
-    [self addGlobalBackButton];
-    [self addGlobalBackButtonColor:[self.view colorWithHexString:@"F1F1F1" alpha:1]
-                    headerTitleDic:@{ @"title": @"YTV_favorites_list_title", @"color": @"#1F1F39" }];
+    [self addGlobalBackButtonColor:[UIColor blackColor]
+                    headerTitleDic:@{ @"title": @"YTV_favorites_list_title", @"color": @"#FFFFFF" }];
     self.listViewModel = [[YTVFavoritesListViewModel alloc] init];
     [self.view addSubview:self.tableView];
     [self.view addSubview:self.emptyContainer];
     [self.emptyContainer addSubview:self.emptyLabel];
+    [self.view addSubview:self.gridLayoutButton];
     CGFloat topInset = [PublicTool getStatusBarHeight] + 52;
     [self.tableView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.view).offset(topInset);
@@ -50,11 +56,20 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
         make.left.greaterThanOrEqualTo(self.emptyContainer).offset(32);
         make.right.lessThanOrEqualTo(self.emptyContainer).offset(-32);
     }];
+    CGFloat statusBarH = [PublicTool getStatusBarHeight];
+    [self.gridLayoutButton mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.width.height.mas_equalTo(44);
+        make.right.equalTo(self.view).offset(-12);
+        make.top.equalTo(self.view).offset(statusBarH + 2);
+    }];
+    [self.view sendSubviewToBack:self.tableView];
+    [self.view bringSubviewToFront:self.gridLayoutButton];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self.navigationController setNavigationBarHidden:YES animated:animated];
+    [self setNeedsStatusBarAppearanceUpdate];
     [self ytv_reloadList];
 }
 
@@ -63,8 +78,9 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
     [self.navigationController setNavigationBarHidden:YES animated:animated];
 }
 
+/// 拉取列表：DEBUG 样例流与视频页一致走本地条目；否则需登录并请求收藏接口。
 - (void)ytv_reloadList {
-    if (![[UserModel sharedInstance] isLogin]) {
+    if (![[UserModel sharedInstance] isLogin] && ![YTVVideoDebugSampleFeed isSampleFeedEnabled]) {
         [self.listViewModel clearItemsForLogout];
         [self.tableView reloadData];
         [self ytv_applyEmptyState:YES message:NSLocalizedString(@"YTV_favorites_list_need_login", @"")];
@@ -97,14 +113,14 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
     self.emptyLabel.text = message;
 }
 
+/// 预留：宫格/列表布局切换（当前无第二套布局）。
+- (void)ytv_didTapGridLayout {
+}
+
 #pragma mark - UITableView
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     return (NSInteger)self.listViewModel.items.count;
-}
-
-- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return 104;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -131,7 +147,9 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
         _tableView.delegate = self;
         _tableView.dataSource = self;
         _tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
-        _tableView.backgroundColor = [UIColor whiteColor];
+        _tableView.backgroundColor = [UIColor blackColor];
+        _tableView.rowHeight = UITableViewAutomaticDimension;
+        _tableView.estimatedRowHeight = 300;
         [_tableView registerClass:[YTVFavoritesListCell class] forCellReuseIdentifier:kYTVFavListCellId];
     }
     return _tableView;
@@ -140,7 +158,7 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
 - (UIView *)emptyContainer {
     if (!_emptyContainer) {
         _emptyContainer = [[UIView alloc] init];
-        _emptyContainer.backgroundColor = [UIColor whiteColor];
+        _emptyContainer.backgroundColor = [UIColor blackColor];
         _emptyContainer.hidden = YES;
     }
     return _emptyContainer;
@@ -150,11 +168,29 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
     if (!_emptyLabel) {
         _emptyLabel = [[UILabel alloc] init];
         _emptyLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:15];
-        _emptyLabel.textColor = [self.view colorWithHexString:@"#8F8F8F" alpha:1];
+        _emptyLabel.textColor = [self.view colorWithHexString:@"#8E8E93" alpha:1];
         _emptyLabel.textAlignment = NSTextAlignmentCenter;
         _emptyLabel.numberOfLines = 0;
     }
     return _emptyLabel;
+}
+
+- (UIButton *)gridLayoutButton {
+    if (!_gridLayoutButton) {
+        _gridLayoutButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        UIImage *img = nil;
+        if (@available(iOS 13.0, *)) {
+            img = [UIImage systemImageNamed:@"square.grid.2x2"];
+        }
+        if (img) {
+            img = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            [_gridLayoutButton setImage:img forState:UIControlStateNormal];
+            _gridLayoutButton.tintColor = [UIColor whiteColor];
+        }
+        [_gridLayoutButton addTarget:self action:@selector(ytv_didTapGridLayout) forControlEvents:UIControlEventTouchUpInside];
+        _gridLayoutButton.accessibilityLabel = NSLocalizedString(@"YTV_favorites_grid_layout", @"");
+    }
+    return _gridLayoutButton;
 }
 
 @end

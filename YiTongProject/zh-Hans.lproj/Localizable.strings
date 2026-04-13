@@ -372,6 +372,8 @@
 "YTV_favorites_list_empty" = "暂无视频收藏";
 "YTV_favorites_list_need_login" = "登录后可查看与管理视频收藏";
 "YTV_favorites_list_meta_placeholder" = "视频";
+"YTV_debug_sample_summary" = "年近九十的愚公家门前有两座大山——太行与王屋，世代挡路。他率子孙叩石垦壤，智叟笑其痴，而愚公以子子孙孙无穷匮也回应……";
+"YTV_favorites_grid_layout" = "宫格视图";
 "YTV_favorites_feed_empty" = "暂无收藏视频";
 "YTV_share_sheet_wechat_friend" = "微信好友";
 "YTV_share_sheet_wechat_timeline" = "朋友圈";
