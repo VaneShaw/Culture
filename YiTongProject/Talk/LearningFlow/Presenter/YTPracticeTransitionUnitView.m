@@ -239,12 +239,9 @@ static void YTApplyPracticeTransitionBadge(UIImageView *iv, YTLevelId levelId, Y
     YTApplyPracticeTransitionBadge(self.badgeImageView, unit.levelId, theme);
 
     self.primaryState.kind = YTUnitPrimaryKindContinue;
-    // 仅「困难难度 + 本关最后一个过场页」与完成页一致：探索其他场景；其余过场页为下一等级
-    if (unit.levelId == YTLevelIdAdvanced && unit.yt_isLastPracticeTransitionInLevel) {
-        self.primaryState.title = @"Talk_LevelComplete_Primary_Explore";
-    } else {
-        self.primaryState.title = @"Talk_PracticeTransition_NextLevel";
-    }
+    // 主按钮文案以容器注入的 theme.levelId（入口难度）为准。列表最后一格 `cross` 映射为 LevelCompletion（探索/下一等级），
+    // 中间过场均为 PracticeTransition，统一「下一步」进下一 unit（见 TalkLearningFlowViewController）。
+    self.primaryState.title = @"Talk_PracticeTransition_NextStep";
     self.primaryState.enabled = YES;
     [self emitPrimaryState];
 }

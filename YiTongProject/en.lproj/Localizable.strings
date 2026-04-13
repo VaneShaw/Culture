@@ -37,6 +37,7 @@ Tap to start recording and say this sound out loud
 "Talk_Continue" = "Continue";
 "Talk_Record_Again" = "Try again";
 "Talk_PracticeTransition_NextLevel" = "Next level";
+"Talk_PracticeTransition_NextStep" = "Next step";
 "Talk_SceneList_Action_Learning" = "Learning";
 "Talk_SceneList_Action_ViewDetails" = "View details";
 "Talk_LevelEntry_Locked" = "This level is not available yet.";

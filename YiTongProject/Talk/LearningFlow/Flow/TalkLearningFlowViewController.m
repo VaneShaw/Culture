@@ -102,7 +102,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
 @property (nonatomic, readonly) UIButton *primaryButton;
 @property (nonatomic, strong) UIButton *prevButton;
 @property (nonatomic, strong) UIButton *nextButton;
-
 @property (nonatomic, strong) CAGradientLayer *progressGradientLayer;
 
 @property (nonatomic, strong) UIView *bottomToast;
@@ -307,36 +306,22 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     [self yt_debugLogNextUnlockBootstrapSnapshot];
 #endif
 
-    [self yt_recomputePracticeTransitionLastFlags];
-
     // 拉取到已完成列表后刷新顶部条（百分比仍以服务端为准；无有效服务端值时显示 0%）
     [self updateProgressUI];
 }
 
-/// 本关最后一个 `PracticeTransition` 用于过场页主按钮：困难最后一页过场为「探索其他场景」并回根栈，其余为「下一等级」
-- (void)yt_recomputePracticeTransitionLastFlags {
-    for (YTUnit *u in self.units) {
-        u.yt_isLastPracticeTransitionInLevel = NO;
-    }
-    for (NSInteger i = (NSInteger)self.units.count - 1; i >= 0; i--) {
-        YTUnit *u = self.units[i];
-        if (u.unitType == YTUnitTypePracticeTransition) {
-            u.yt_isLastPracticeTransitionInLevel = YES;
-            break;
-        }
-    }
-}
-
-/// 过场页 / 完成页主按钮：以入口 `self.levelId` 为准；仅困难最后一页过场或困难完成页为「探索其他场景」，其余为「下一等级」
+/// 过场页 / 完成页主按钮：`/talk/unit` 列表**最后一格**若为 `ref_table=cross`，Mapper 会映射为 `YTUnitTypeLevelCompletion`（收尾），
+/// 困难在该步主按钮为「探索」并由 `finishLevelFlow` 回根；**中间**的 `cross` 均为 `PracticeTransition`，主按钮统一「下一步」并 `goNext`。
+/// 勿再用「第一个 LevelCompletion 前的最后一个 PracticeTransition」推断收尾——该启发式会把「中间过场」误判成收尾（最后一格 cross 已是完成页类型）。
 - (void)yt_applyTalkFlowPrimaryTitleForTransitionOrCompletionWithUnit:(nullable YTUnit *)cu
                                                                state:(YTUnitPrimaryState *)state
                                                     isRecordingState:(BOOL)isRecordingState {
     if (isRecordingState || !cu || !state) return;
     if (state.kind != YTUnitPrimaryKindContinue && state.kind != YTUnitPrimaryKindGotIt) return;
     if (cu.unitType == YTUnitTypePracticeTransition) {
-        BOOL explore = (self.levelId == YTLevelIdAdvanced && cu.yt_isLastPracticeTransitionInLevel);
-        NSString *key = explore ? @"Talk_LevelComplete_Primary_Explore" : @"Talk_PracticeTransition_NextLevel";
-        [self.primaryButton setTitle:NSLocalizedString(key, @"") forState:UIControlStateNormal];
+        NSString *title = NSLocalizedString(@"Talk_PracticeTransition_NextStep", @"");
+        [self.primaryButton setTitle:title forState:UIControlStateNormal];
+        [self.primaryButton setTitle:title forState:UIControlStateDisabled];
         return;
     }
     if (cu.unitType == YTUnitTypeLevelCompletion) {
@@ -764,6 +749,11 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     if (self.currentIndex >= 0 && self.currentIndex < self.units.count) {
         YTUnitType t = self.units[self.currentIndex].unitType;
         if (t == YTUnitTypePracticeTransition) {
+            YTUnit *cu = self.units[self.currentIndex];
+            YTUnitPrimaryState *st = [[YTUnitPrimaryState alloc] init];
+            st.kind = YTUnitPrimaryKindContinue;
+            st.enabled = self.primaryButton.isEnabled;
+            [self yt_applyTalkFlowPrimaryTitleForTransitionOrCompletionWithUnit:cu state:st isRecordingState:NO];
             return;
         }
         if (t == YTUnitTypeLevelCompletion) {
@@ -1010,11 +1000,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
             // Continue/GotIt：仅当题型自身“达成完成条件”时才计入完成
             if ([u countsTowardProgress] && [self.unitView isUnitCompleteSignalSatisfied]) {
                 [self markUnitCompletedIfNeeded:u];
-            }
-            // 困难难度、本关最后一个过场页：与完成页「探索其他场景」一致，回场景对话根栈
-            if (u.unitType == YTUnitTypePracticeTransition && self.levelId == YTLevelIdAdvanced && u.yt_isLastPracticeTransitionInLevel) {
-                [self yt_popToTalkSceneRootAfterAdvancedFinish];
-                return;
             }
             [self goNext];
             return;

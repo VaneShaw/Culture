@@ -129,9 +129,6 @@ typedef NS_ENUM(NSInteger, YTLevelId) {
 /// 后台下发的可恢复答案（如 @{@"selectedOptionId":@"a"} 或句子组装的 orderedTokenTexts）
 @property (nonatomic, copy, nullable) NSDictionary *serverAnswerPayload;
 
-/// 容器在拉取本关 `units` 后标记：是否为该难度中最后一个「过场页」步骤（`YTUnitTypePracticeTransition`）
-@property (nonatomic, assign) BOOL yt_isLastPracticeTransitionInLevel;
-
 /// `practice_transition`（7）：`display.subtitle`（string）与 `display.sections`
 @property (nonatomic, copy, nullable) NSString *transitionSubtitle;
 /// 每项建议 `@{ @"caption": @"", @"body": @"" }`（困难模式两段说明）

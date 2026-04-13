@@ -14,7 +14,6 @@
         _levelId = YTLevelIdBeginner;
         _unitType = YTUnitTypePronounce;
         _answeredCorrectFromServer = NO;
-        _yt_isLastPracticeTransitionInLevel = NO;
     }
     return self;
 }
