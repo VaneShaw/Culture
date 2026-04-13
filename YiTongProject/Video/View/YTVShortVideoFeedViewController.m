@@ -112,6 +112,17 @@ static BOOL YTVInlineFullscreenEdgeInsetsAlmostEqual(UIEdgeInsets a, UIEdgeInset
     return fabs(a.top - b.top) < 0.5 && fabs(a.left - b.left) < 0.5 && fabs(a.bottom - b.bottom) < 0.5 && fabs(a.right - b.right) < 0.5;
 }
 
+/// 内联全屏时间展示：00:00（分:秒）
+static NSString *YTVInlineFullscreenFormatMinuteSecond(Float64 seconds) {
+    if (!isfinite(seconds) || seconds < 0) {
+        seconds = 0;
+    }
+    long long total = (long long)llround(seconds);
+    long long m = total / 60;
+    long long s = total % 60;
+    return [NSString stringWithFormat:@"%02lld:%02lld", m, s];
+}
+
 typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     YTVFeedPlaybackStateIdle = 0,
     YTVFeedPlaybackStateSwitching,
@@ -192,6 +203,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 @property (nonatomic, strong, nullable) UIButton *ytv_inlineFullscreenBackButton;
 @property (nonatomic, strong, nullable) UIButton *ytv_inlineFullscreenCenterPlayButton;
 @property (nonatomic, strong, nullable) UISlider *ytv_inlineFullscreenProgressSlider;
+@property (nonatomic, strong, nullable) UILabel *ytv_inlineFullscreenCurrentTimeLabel;
+@property (nonatomic, strong, nullable) UILabel *ytv_inlineFullscreenDurationLabel;
 @property (nonatomic, strong, nullable) id ytv_inlineFullscreenTimeObserver;
 @property (nonatomic, assign) BOOL ytv_inlineFullscreenScrubbing;
 @property (nonatomic, assign) UIEdgeInsets ytv_inlineFullscreenLastAppliedChromeInsets;
@@ -209,6 +222,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 - (void)ytv_onInlineFullscreenSliderRelease;
 - (Float64)ytv_inlineFullscreenDurationSeconds;
 - (void)ytv_inlineFullscreenSeekToNormalized:(float)n;
+- (void)ytv_inlineFullscreenUpdateTimeLabels;
 - (void)ytv_prepareStandbyPlaybackForTargetIndex:(NSInteger)targetIdx;
 - (CGFloat)ytv_chromeLeftTextMaxWidth;
 - (void)ytv_applyChromeLeftDemoCopyIfNeeded;
@@ -2013,6 +2027,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     self.ytv_inlineFullscreenBackButton = nil;
     self.ytv_inlineFullscreenCenterPlayButton = nil;
     self.ytv_inlineFullscreenProgressSlider = nil;
+    self.ytv_inlineFullscreenCurrentTimeLabel = nil;
+    self.ytv_inlineFullscreenDurationLabel = nil;
     self.ytv_inlineFullscreenScrubbing = NO;
     if (host) {
         [host removeFromSuperview];
@@ -2038,7 +2054,9 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     UIView *host = self.ytv_inlineFullscreenHostView;
     UIButton *back = self.ytv_inlineFullscreenBackButton;
     UISlider *slider = self.ytv_inlineFullscreenProgressSlider;
-    if (!overlay || !host || !back || !slider) {
+    UILabel *curL = self.ytv_inlineFullscreenCurrentTimeLabel;
+    UILabel *durL = self.ytv_inlineFullscreenDurationLabel;
+    if (!overlay || !host || !back || !slider || !curL || !durL) {
         return;
     }
     UIWindow *win = host.window ?: self.view.window;
@@ -2059,6 +2077,14 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             make.left.equalTo(overlay).offset(next.left);
             make.right.equalTo(overlay).offset(-next.right);
             make.bottom.equalTo(overlay).offset(-next.bottom);
+        }];
+        [curL mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.left.equalTo(overlay).offset(next.left);
+            make.bottom.equalTo(slider.mas_top).offset(-6);
+        }];
+        [durL mas_remakeConstraints:^(MASConstraintMaker *make) {
+            make.right.equalTo(overlay).offset(-next.right);
+            make.bottom.equalTo(curL);
         }];
         [host setNeedsLayout];
         [host layoutIfNeeded];
@@ -2144,16 +2170,55 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     slider.maximumTrackTintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.28];
     [slider addTarget:self action:@selector(ytv_onInlineFullscreenSliderTouchDown) forControlEvents:UIControlEventTouchDown];
     [slider addTarget:self action:@selector(ytv_onInlineFullscreenSliderRelease) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
+    [slider addTarget:self action:@selector(ytv_inlineFullscreenUpdateTimeLabels) forControlEvents:UIControlEventValueChanged];
     self.ytv_inlineFullscreenProgressSlider = slider;
     [overlay addSubview:slider];
+    UILabel *curTL = [[UILabel alloc] init];
+    curTL.textColor = [UIColor whiteColor];
+    if (@available(iOS 13.0, *)) {
+        curTL.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightMedium];
+    } else {
+        curTL.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightRegular];
+    }
+    curTL.text = @"00:00";
+    curTL.layer.shadowColor = [UIColor blackColor].CGColor;
+    curTL.layer.shadowOffset = CGSizeMake(0, 1);
+    curTL.layer.shadowRadius = 2;
+    curTL.layer.shadowOpacity = 0.85;
+    self.ytv_inlineFullscreenCurrentTimeLabel = curTL;
+    [overlay addSubview:curTL];
+    UILabel *durTL = [[UILabel alloc] init];
+    durTL.textColor = [UIColor whiteColor];
+    if (@available(iOS 13.0, *)) {
+        durTL.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightMedium];
+    } else {
+        durTL.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightRegular];
+    }
+    durTL.textAlignment = NSTextAlignmentRight;
+    durTL.text = @"00:00";
+    durTL.layer.shadowColor = [UIColor blackColor].CGColor;
+    durTL.layer.shadowOffset = CGSizeMake(0, 1);
+    durTL.layer.shadowRadius = 2;
+    durTL.layer.shadowOpacity = 0.85;
+    self.ytv_inlineFullscreenDurationLabel = durTL;
+    [overlay addSubview:durTL];
     [back mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.left.equalTo(overlay);
     }];
     [slider mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.right.bottom.equalTo(overlay);
     }];
+    [curTL mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(overlay);
+        make.bottom.equalTo(slider.mas_top).offset(-6);
+    }];
+    [durTL mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.right.equalTo(overlay);
+        make.bottom.equalTo(curTL);
+    }];
     [self ytv_inlineFullscreenUpdateCenterPlayButtonAppearance];
     [self ytv_inlineFullscreenSyncProgressUIFromPlayer];
+    [self ytv_inlineFullscreenUpdateTimeLabels];
     [host setNeedsLayout];
     [host layoutIfNeeded];
     self.collectionView.scrollEnabled = NO;
@@ -2187,6 +2252,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         }
         [self ytv_inlineFullscreenInstallTimeObserver];
         [self ytv_inlineFullscreenSyncProgressUIFromPlayer];
+        [self ytv_inlineFullscreenUpdateTimeLabels];
         [self ytv_inlineFullscreenUpdateCenterPlayButtonAppearance];
         self.ytv_inlineFullscreenLastAppliedChromeInsets = (UIEdgeInsets){ -999, -999, -999, -999 };
         [self ytv_updateInlineFullscreenChromeInsetsFromWindowSafeArea];
@@ -2267,6 +2333,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             return;
         }
         [self ytv_inlineFullscreenSyncProgressUIFromPlayer];
+        [self ytv_inlineFullscreenUpdateTimeLabels];
         [self ytv_inlineFullscreenUpdateCenterPlayButtonAppearance];
     }];
 }
@@ -2284,6 +2351,43 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         }
     }
     return dur;
+}
+
+- (void)ytv_inlineFullscreenUpdateTimeLabels {
+    if (!self.ytv_inlineFullscreenActive) {
+        return;
+    }
+    UILabel *c = self.ytv_inlineFullscreenCurrentTimeLabel;
+    UILabel *d = self.ytv_inlineFullscreenDurationLabel;
+    if (!c || !d) {
+        return;
+    }
+    Float64 dur = [self ytv_inlineFullscreenDurationSeconds];
+    if (!isfinite(dur) || dur < 0) {
+        dur = 0;
+    }
+    Float64 cur = 0;
+    if (self.ytv_inlineFullscreenScrubbing) {
+        UISlider *sl = self.ytv_inlineFullscreenProgressSlider;
+        if (sl && isfinite(dur) && dur > 0) {
+            cur = (Float64)sl.value * dur;
+        } else {
+            AVPlayer *pl = self.playerSession.player;
+            if (pl) {
+                cur = CMTimeGetSeconds(pl.currentTime);
+            }
+        }
+    } else {
+        AVPlayer *pl = self.playerSession.player;
+        if (pl) {
+            cur = CMTimeGetSeconds(pl.currentTime);
+        }
+    }
+    if (!isfinite(cur) || cur < 0) {
+        cur = 0;
+    }
+    c.text = YTVInlineFullscreenFormatMinuteSecond(cur);
+    d.text = YTVInlineFullscreenFormatMinuteSecond(dur);
 }
 
 - (void)ytv_inlineFullscreenSyncProgressUIFromPlayer {
@@ -2319,6 +2423,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             return;
         }
         [self ytv_inlineFullscreenSyncProgressUIFromPlayer];
+        [self ytv_inlineFullscreenUpdateTimeLabels];
     }];
 }
 
