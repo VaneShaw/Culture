@@ -19,10 +19,137 @@
 #import "UserModel.h"
 #import "VideoFullScreenViewController.h"
 #import "SplashViewController.h"
+#import "YTTabBarController.h"
 #import <AppTrackingTransparency/AppTrackingTransparency.h>
 #import <AdSupport/AdSupport.h>
 
 @import Firebase;
+
+/// 系统 Tab 标题常用 `attributedText` 着色，只改 `textColor` 往往不生效，需同步改属性字颜色。
+static void YTBTabBarLabelSetForegroundColor(UILabel *lab, UIColor *color) {
+    if (!lab || !color) {
+        return;
+    }
+    if (lab.attributedText.length > 0) {
+        NSMutableAttributedString *m = [[NSMutableAttributedString alloc] initWithAttributedString:lab.attributedText];
+        [m addAttribute:NSForegroundColorAttributeName value:color range:NSMakeRange(0, m.length)];
+        lab.attributedText = m;
+    }
+    lab.textColor = color;
+}
+
+/// 遍历 TabBar 内标题 UILabel，按文案匹配 `tabBarItem.title` 后着色。`unselTitle`：白底未选标题色（黑色）。
+static void YTBReconcileTabBarTitleLabels(UITabBarController *tbc, BOOL isVideo, UIColor *unselTitle, UIColor *selMain) {
+    if (!tbc) {
+        return;
+    }
+    UITabBar *tabBar = tbc.tabBar;
+    NSArray<UITabBarItem *> *items = tabBar.items;
+    NSInteger selected = tbc.selectedIndex;
+    __block void (^visit)(UIView *);
+    visit = ^(UIView *view) {
+        if ([view isKindOfClass:[UILabel class]]) {
+            UILabel *lab = (UILabel *)view;
+            NSString *text = lab.text;
+            if (text.length == 0 && lab.attributedText.length > 0) {
+                text = lab.attributedText.string;
+            }
+            if (text.length == 0) {
+                return;
+            }
+            text = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            for (NSInteger i = 0; i < (NSInteger)items.count; i++) {
+                NSString *itemTitle = items[i].title;
+                NSString *trimTitle = itemTitle.length ? [itemTitle stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
+                if (trimTitle.length > 0 && [text isEqualToString:trimTitle]) {
+                    UIColor *c = nil;
+                    if (isVideo) {
+                        c = [UIColor whiteColor];
+                    } else {
+                        c = (i == selected) ? selMain : unselTitle;
+                    }
+                    YTBTabBarLabelSetForegroundColor(lab, c);
+                    return;
+                }
+            }
+        }
+        for (UIView *c in view.subviews) {
+            visit(c);
+        }
+    };
+    visit(tabBar);
+}
+
+/// 选中视频 Tab 时用黑底专用切图；否则恢复默认 Tab 图（与 `setTabBarController` 一致）。
+static void YTBApplyTabBarItemImagesForVideoContext(UITabBarController *tbc, BOOL videoTabSelected) {
+    if (!tbc || tbc.tabBar.items.count < 4) {
+        return;
+    }
+    NSArray<UITabBarItem *> *items = tbc.tabBar.items;
+    UIImage *(^orig)(NSString *) = ^UIImage *(NSString *name) {
+        UIImage *img = [UIImage imageNamed:name];
+        if (!img) {
+            return nil;
+        }
+        return [img imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    };
+    if (videoTabSelected) {
+        UIImage *h = orig(@"Home_dark_unSel");
+        if (h) {
+            items[0].image = h;
+            items[0].selectedImage = h;
+        }
+        UIImage *t = orig(@"Talk_dark_unSel");
+        if (t) {
+            items[1].image = t;
+            items[1].selectedImage = t;
+        }
+        UIImage *v = orig(@"Video_dark_sel");
+        if (v) {
+            items[2].image = v;
+            items[2].selectedImage = v;
+        }
+        UIImage *m = orig(@"Me_dark_unSel");
+        if (m) {
+            items[3].image = m;
+            items[3].selectedImage = m;
+        }
+    } else {
+        UIImage *h0 = orig(@"Home_Not");
+        UIImage *h1 = orig(@"Home_selected");
+        if (h0) {
+            items[0].image = h0;
+        }
+        if (h1) {
+            items[0].selectedImage = h1;
+        }
+        UIImage *t0 = orig(@"talk_Not");
+        UIImage *t1 = orig(@"talk_Selected");
+        if (t0) {
+            items[1].image = t0;
+        }
+        if (t1) {
+            items[1].selectedImage = t1;
+        }
+        UIImage *v0 = orig(@"quiz_Not");
+        UIImage *v1 = orig(@"quiz_Selected");
+        if (v0) {
+            items[2].image = v0;
+        }
+        if (v1) {
+            items[2].selectedImage = v1;
+        }
+        UIImage *m0 = orig(@"Me_Not");
+        UIImage *m1 = orig(@"Me_Selected");
+        if (m0) {
+            items[3].image = m0;
+        }
+        if (m1) {
+            items[3].selectedImage = m1;
+        }
+    }
+}
+
 @interface AppDelegate ()<AppsFlyerLibDelegate>
 @property (strong, nonatomic) UIApplication *gApplication;
 @property (strong, nonatomic) NSDictionary *gLaunchOptions;
@@ -381,7 +508,7 @@ void uncaughtExceptionHandler(NSException *exception) {
     [self setNavieationBarColor:videoNC];
     [self setNavieationBarColor:profileNC];
   
-    UITabBarController *tabBar = [UITabBarController new];
+    YTTabBarController *tabBar = [YTTabBarController new];
     [UITabBar appearance].translucent = NO;
     theAppDelegate.tabBarController_startApp = tabBar;
     [[UITabBarItem appearance] setTitleTextAttributes:@{NSFontAttributeName: [UIFont fontWithName:FONT_NAME_Semibold size:11.0f]} forState:UIControlStateNormal];
@@ -399,7 +526,7 @@ void uncaughtExceptionHandler(NSException *exception) {
    
     //tabbar 底部背景颜色
     //tabbartitle颜色选中跟未选中
-    tabBar.tabBar.unselectedItemTintColor = [self.window colorWithHexString:@"#ADCEF3" alpha:1];
+    tabBar.tabBar.unselectedItemTintColor = [self.window colorWithHexString:@"#000000" alpha:1];
     [[UITabBarItem appearance] setTitleTextAttributes:@{NSForegroundColorAttributeName:Main_COLOR} forState:UIControlStateSelected];
     //[[UITabBar appearance]setTintColor:[self.window colorWithHexString:@"#4C9BEF" alpha:1]];
     //状态栏字体颜色
@@ -410,6 +537,98 @@ void uncaughtExceptionHandler(NSException *exception) {
     //x[[UITabBar appearance]setTintColor:MAIN_COLOR];
     //tabBar.tabBar.unselectedItemTintColor = [UIColor orangeColor];
     self.window.rootViewController = theAppDelegate.tabBarController_startApp;
+    [self ytb_applyTabBarAppearanceForTabBarController:tabBar];
+}
+
+/// 选中视频 Tab：黑底、全部标题白色；其它 Tab：白底、未选标题黑色、选中标题主色蓝。
+- (void)ytb_applyTabBarAppearanceForTabBarController:(UITabBarController *)tbc {
+    if (!tbc) {
+        return;
+    }
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self ytb_applyTabBarAppearanceForTabBarController:tbc];
+        });
+        return;
+    }
+    UITabBar *tabBar = tbc.tabBar;
+    BOOL isVideo = (tbc.selectedIndex == kYTVVideoTabBarIndex);
+    UIColor *bg = isVideo ? [UIColor blackColor] : [UIColor whiteColor];
+    UIWindow *colorWindow = self.window ?: UIApplication.sharedApplication.keyWindow;
+    if (!colorWindow && UIApplication.sharedApplication.windows.count > 0) {
+        colorWindow = UIApplication.sharedApplication.windows.firstObject;
+    }
+    /// 白底时未选 Tab 标题为黑色；图标在 iOS 15+ 仍可用浅蓝着色（与 PNG 资源搭配）。
+    UIColor *unselBlue = colorWindow ? [colorWindow colorWithHexString:@"#ADCEF3" alpha:1] : [UIColor colorWithRed:0.678f green:0.808f blue:0.953f alpha:1.0f];
+    UIColor *titleUnselLightBg = colorWindow ? [colorWindow colorWithHexString:@"#000000" alpha:1] : [UIColor blackColor];
+    UIColor *selMain = colorWindow ? [colorWindow colorWithHexString:@"#4C9BEF" alpha:1] : [UIColor colorWithRed:0.298f green:0.608f blue:0.937f alpha:1.0f];
+    UIColor *titleNormal = isVideo ? [UIColor whiteColor] : titleUnselLightBg;
+    UIColor *titleSelected = isVideo ? [UIColor whiteColor] : selMain;
+    UIFont *fontNormal = [UIFont systemFontOfSize:12];
+    UIFont *fontSelected = [UIFont fontWithName:FONT_NAME_Semibold size:11.0f];
+    if (!fontSelected) {
+        fontSelected = [UIFont boldSystemFontOfSize:11];
+    }
+    NSDictionary *normAttr = @{ NSForegroundColorAttributeName: titleNormal, NSFontAttributeName: fontNormal };
+    NSDictionary *selAttr = @{ NSForegroundColorAttributeName: titleSelected, NSFontAttributeName: fontSelected };
+
+    tabBar.translucent = NO;
+    tabBar.backgroundColor = bg;
+    tabBar.barTintColor = bg;
+
+    YTBApplyTabBarItemImagesForVideoContext(tbc, isVideo);
+
+    for (UITabBarItem *item in tabBar.items) {
+        [item setTitleTextAttributes:normAttr forState:UIControlStateNormal];
+        [item setTitleTextAttributes:selAttr forState:UIControlStateSelected];
+        [item setTitleTextAttributes:normAttr forState:UIControlStateHighlighted];
+        [item setTitleTextAttributes:selAttr forState:UIControlStateSelected | UIControlStateHighlighted];
+    }
+
+    if (@available(iOS 13.0, *)) {
+        UITabBarAppearance *appearance = [[UITabBarAppearance alloc] init];
+        [appearance configureWithOpaqueBackground];
+        appearance.backgroundColor = bg;
+        appearance.shadowImage = [UIImage new];
+        appearance.shadowColor = [UIColor clearColor];
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = normAttr;
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = selAttr;
+        appearance.inlineLayoutAppearance.normal.titleTextAttributes = normAttr;
+        appearance.inlineLayoutAppearance.selected.titleTextAttributes = selAttr;
+        appearance.compactInlineLayoutAppearance.normal.titleTextAttributes = normAttr;
+        appearance.compactInlineLayoutAppearance.selected.titleTextAttributes = selAttr;
+        appearance.stackedLayoutAppearance.disabled.titleTextAttributes = normAttr;
+        appearance.stackedLayoutAppearance.focused.titleTextAttributes = normAttr;
+        if (@available(iOS 15.0, *)) {
+            appearance.stackedLayoutAppearance.normal.iconColor = isVideo ? [UIColor whiteColor] : unselBlue;
+            appearance.stackedLayoutAppearance.selected.iconColor = isVideo ? [UIColor whiteColor] : selMain;
+            appearance.inlineLayoutAppearance.normal.iconColor = isVideo ? [UIColor whiteColor] : unselBlue;
+            appearance.inlineLayoutAppearance.selected.iconColor = isVideo ? [UIColor whiteColor] : selMain;
+            appearance.compactInlineLayoutAppearance.normal.iconColor = isVideo ? [UIColor whiteColor] : unselBlue;
+            appearance.compactInlineLayoutAppearance.selected.iconColor = isVideo ? [UIColor whiteColor] : selMain;
+        }
+        tabBar.standardAppearance = appearance;
+        if (@available(iOS 15.0, *)) {
+            tabBar.scrollEdgeAppearance = appearance;
+        }
+    }
+    tabBar.tintColor = titleSelected;
+    tabBar.unselectedItemTintColor = titleNormal;
+
+    [tabBar setNeedsLayout];
+    [tabBar layoutIfNeeded];
+    YTBReconcileTabBarTitleLabels(tbc, isVideo, titleUnselLightBg, selMain);
+    if (isVideo) {
+        NSTimeInterval delays[] = { 0.05, 0.15, 0.35 };
+        for (unsigned k = 0; k < sizeof(delays) / sizeof(delays[0]); k++) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delays[k] * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                if (tbc.selectedIndex != kYTVVideoTabBarIndex) {
+                    return;
+                }
+                YTBReconcileTabBarTitleLabels(tbc, YES, titleUnselLightBg, selMain);
+            });
+        }
+    }
 }
 
 - (void)setNavieationBarColor:(UINavigationController *)nav {

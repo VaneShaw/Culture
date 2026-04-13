@@ -133,6 +133,7 @@
 		4248E6082E14C30700525590 /* CountDownButton.m in Sources */ = {isa = PBXBuildFile; fileRef = 4248E6072E14C30700525590 /* CountDownButton.m */; };
 		4248E60B2E14CA5B00525590 /* EmailValidator.m in Sources */ = {isa = PBXBuildFile; fileRef = 4248E60A2E14CA5B00525590 /* EmailValidator.m */; };
 		425518362E0BD7E7007764C7 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 425518352E0BD7E7007764C7 /* AppDelegate.m */; };
+		7F88AAB02EA0050100ABC101 /* YTTabBarController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7F88AAB22EA0050100ABC103 /* YTTabBarController.m */; };
 		425518392E0BD7E7007764C7 /* SceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 425518382E0BD7E7007764C7 /* SceneDelegate.m */; };
 		4255183C2E0BD7E7007764C7 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4255183B2E0BD7E7007764C7 /* ViewController.m */; };
 		4255183F2E0BD7E7007764C7 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4255183D2E0BD7E7007764C7 /* Main.storyboard */; };
@@ -473,6 +474,8 @@
 		425518312E0BD7E7007764C7 /* YiTongProject.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YiTongProject.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		425518342E0BD7E7007764C7 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		425518352E0BD7E7007764C7 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		7F88AAB12EA0050100ABC102 /* YTTabBarController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTabBarController.h; sourceTree = "<group>"; };
+		7F88AAB22EA0050100ABC103 /* YTTabBarController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTabBarController.m; sourceTree = "<group>"; };
 		425518372E0BD7E7007764C7 /* SceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SceneDelegate.h; sourceTree = "<group>"; };
 		425518382E0BD7E7007764C7 /* SceneDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SceneDelegate.m; sourceTree = "<group>"; };
 		4255183A2E0BD7E7007764C7 /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
@@ -1155,6 +1158,8 @@
 				425518722E0BDACA007764C7 /* Main */,
 				425518342E0BD7E7007764C7 /* AppDelegate.h */,
 				425518352E0BD7E7007764C7 /* AppDelegate.m */,
+				7F88AAB12EA0050100ABC102 /* YTTabBarController.h */,
+				7F88AAB22EA0050100ABC103 /* YTTabBarController.m */,
 				425518372E0BD7E7007764C7 /* SceneDelegate.h */,
 				425518382E0BD7E7007764C7 /* SceneDelegate.m */,
 				4255183A2E0BD7E7007764C7 /* ViewController.h */,
@@ -1712,6 +1717,7 @@
 				7A7013192E8D040100ABCD19 /* YTVFeedCoordinator.m in Sources */,
 				7A7013242E8E040100ABCD20 /* YTVFeedFullscreenViewController.m in Sources */,
 				425518362E0BD7E7007764C7 /* AppDelegate.m in Sources */,
+				7F88AAB02EA0050100ABC101 /* YTTabBarController.m in Sources */,
 				3DE982432EE01B790014CE77 /* UnlockedView.m in Sources */,
 				3D9BE3A22E5C549200AF5233 /* MessageView.m in Sources */,
 				42B1FD332E3A0BA800C9EE7D /* QuizViewController.m in Sources */,

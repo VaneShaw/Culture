@@ -15,6 +15,8 @@
 @property (strong, nonatomic) UIWindow * window;
 - (void)setNavieationBarColor:(UINavigationController *)nav;
 - (void)setTabBarController;
+/// 根据当前选中 Tab 应用底部栏样式（视频 Tab 黑底白字，其它恢复默认）。
+- (void)ytb_applyTabBarAppearanceForTabBarController:(UITabBarController *)tbc;
 - (void)saveContext;
 - (void)setAppViewController;
 - (void)setAppLanguageEngin:(BOOL)isEngin;
