@@ -8,6 +8,16 @@
 #import "NetWorkTool.h"
 #import "BaseDataModel.h"
 
+/// 与后端 JSON 对象键顺序一致（iOS 15+）；更早系统键序未定义
+/// NSJSONReadingOrderedCollections 在较旧 Xcode 头文件中可能未声明，故使用等价位 `(1UL << 3)`（与系统定义一致）
+static NSJSONReadingOptions YTNetJSONReadingOptions(void) {
+    NSJSONReadingOptions opts = 0;
+    if (@available(iOS 15.0, *)) {
+        opts |= (NSJSONReadingOptions)(1UL << 3);
+    }
+    return opts;
+}
+
 @implementation NetWorkTool
 /*不带token
 + (instancetype)sharedLoginTool {
@@ -17,7 +27,7 @@
           instance = [NetWorkTool manager];
           //instance = [[super alloc]initWithBaseURL:[NSURL URLWithString:HOST]];
           instance.requestSerializer = [AFJSONRequestSerializer serializer];
-          instance.responseSerializer = [AFJSONResponseSerializer serializer];
+          instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
           //instance.responseSerializer = [AFHTTPResponseSerializer serializer];//新加
           NSMutableSet *acceptableContentTypes = [NSMutableSet setWithSet:instance.responseSerializer.acceptableContentTypes];
           [acceptableContentTypes addObjectsFromArray:@[@"application/json",@"text/json", @"text/javascript",@"text/html",@"plant/html",@"text/plain",@"text/xml",@"application/javascript"]];
@@ -33,13 +43,13 @@
     //dispatch_once(&onceToken, ^{
       //instance = [[super alloc]initWithBaseURL:[NSURL URLWithString:HOST]];//=HOST=
       instance = [NetWorkTool manager];
-      instance.responseSerializer = [AFJSONResponseSerializer serializer];
+      instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
       AFHTTPRequestSerializer *requestSerializer = [AFHTTPRequestSerializer serializer];
       requestSerializer.timeoutInterval = 60;
       instance.requestSerializer = requestSerializer;
       NSMutableSet *acceptableContentTypes = [NSMutableSet setWithSet:instance.responseSerializer.acceptableContentTypes];
       [acceptableContentTypes addObjectsFromArray:@[@"application/json", @"text/json", @"text/javascript",@"text/html",@"plant/html",@"text/plain",@"text/xml",@"application/javascript"]];
-      instance.responseSerializer = [AFJSONResponseSerializer serializer];
+      instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
       instance.responseSerializer.acceptableContentTypes = acceptableContentTypes;
     
       //[instance.requestSerializer setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
@@ -57,7 +67,7 @@
 
     instance = [NetWorkTool manager];
     instance.requestSerializer = [AFJSONRequestSerializer serializer];
-    instance.responseSerializer = [AFJSONResponseSerializer serializer];
+    instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
     //instance.requestSerializer.timeoutInterval = 30.0;
     //401
     NSString *authHeader = [KUSER_DEFAULT objectForKey:@"Authorization_key"];
@@ -67,7 +77,7 @@
 
     NSMutableSet *acceptableContentTypes = [NSMutableSet setWithSet:instance.responseSerializer.acceptableContentTypes];
     [acceptableContentTypes addObjectsFromArray:@[@"application/json", @"text/json", @"text/javascript",@"text/html",@"plant/html",@"text/plain",@"text/xml",@"application/javascript"]];
-    instance.responseSerializer = [AFJSONResponseSerializer serializer];
+    instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
     
     // 获取版本号（1.0.6）
     NSString *appVersion = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
@@ -94,11 +104,11 @@
     static NetWorkTool *instance;
     instance = [NetWorkTool manager];
     instance.requestSerializer = [AFJSONRequestSerializer serializer];
-    instance.responseSerializer = [AFJSONResponseSerializer serializer];
+    instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
 
     NSMutableSet *acceptableContentTypes = [NSMutableSet setWithSet:instance.responseSerializer.acceptableContentTypes];
        [acceptableContentTypes addObjectsFromArray:@[@"application/json", @"text/json", @"text/javascript",@"text/html",@"plant/html",@"text/plain",@"text/xml",@"application/javascript"]];
-    instance.responseSerializer = [AFJSONResponseSerializer serializer];
+    instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
     instance.responseSerializer.acceptableContentTypes = acceptableContentTypes;
     return instance;
 }

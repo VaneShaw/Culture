@@ -39,6 +39,36 @@
     return [out copy];
 }
 
+/// scene_tab_list：key → tab_type，value → 展示文案；顺序与接口 JSON 中键顺序一致（依赖 NSJSONReadingOrderedCollections，见 NetWorkTool）
++ (NSArray<YTTalkHomeSceneTabItem *> *)yt_sceneTabItemsFromSceneTabListDictionary:(NSDictionary *)dict {
+    if (![dict isKindOfClass:[NSDictionary class]]) {
+        return @[];
+    }
+    NSMutableArray<YTTalkHomeSceneTabItem *> *tabs = [NSMutableArray array];
+    for (id k in dict) {
+        if (![k isKindOfClass:[NSString class]]) {
+            continue;
+        }
+        NSString *key = [(NSString *)k stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (key.length == 0) {
+            continue;
+        }
+        id rawVal = dict[k];
+        NSString *display = nil;
+        if ([rawVal isKindOfClass:[NSString class]]) {
+            display = [(NSString *)rawVal stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        } else if ([rawVal isKindOfClass:[NSNumber class]]) {
+            display = [(NSNumber *)rawVal stringValue];
+        }
+        YTTalkHomeSceneTabItem *item = [YTTalkHomeSceneTabItem itemWithTypeIdentifier:key];
+        if (display.length > 0) {
+            item.overrideDisplayTitle = display;
+        }
+        [tabs addObject:item];
+    }
+    return [tabs copy];
+}
+
 + (instancetype)dataByParsingAPIDictionary:(id)payload {
     YTTalkHomeBannerData *model = [[YTTalkHomeBannerData alloc] init];
     if (![payload isKindOfClass:[NSDictionary class]]) {
@@ -65,16 +95,11 @@
     }
     model.bannerImages = [images copy];
 
-    NSArray<NSString *> *tabTypes = [self yt_sortedStringValuesFromKeyedObject:[tabRaw isKindOfClass:[NSDictionary class]] ? tabRaw : nil
-                                                                     keyPrefix:@"tab_"];
-    if (tabTypes.count == 0) {
+    NSArray<YTTalkHomeSceneTabItem *> *tabItems = [self yt_sceneTabItemsFromSceneTabListDictionary:[tabRaw isKindOfClass:[NSDictionary class]] ? (NSDictionary *)tabRaw : nil];
+    if (tabItems.count == 0) {
         model.sceneTabs = @[ [YTTalkHomeSceneTabItem defaultAllTabItem] ];
     } else {
-        NSMutableArray<YTTalkHomeSceneTabItem *> *tabs = [NSMutableArray array];
-        for (NSString *tp in tabTypes) {
-            [tabs addObject:[YTTalkHomeSceneTabItem itemWithTypeIdentifier:tp]];
-        }
-        model.sceneTabs = [tabs copy];
+        model.sceneTabs = tabItems;
     }
 
     return model;

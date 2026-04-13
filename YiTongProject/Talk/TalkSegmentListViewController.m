@@ -91,14 +91,10 @@
     return [NSString stringWithFormat:@"%@%@", host, path];
 }
 
-/// 将 banner tab 的 type 映射为接口 `tab_type`（仅 all/hot/new 为文档约定，其余走 all 避免无效请求）
+/// 与首页 `scene_tab_list` 的 key 一致，作为 `/talk/scene` 的 `tab_type`
 - (NSString *)yt_tabTypeBodyValueForSegmentType:(NSString *)type {
-    NSString *t = [type stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]].lowercaseString;
-    if (t.length == 0) return @"all";
-    if ([t isEqualToString:@"hot"] || [t isEqualToString:@"new"] || [t isEqualToString:@"all"]) {
-        return t;
-    }
-    return @"all";
+    NSString *t = [type stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    return t.length > 0 ? t : @"all";
 }
 
 /// 请求当前 tab 下的场景列表（POST `/talk/scene`，Body：`lang`、`tab_type`）
