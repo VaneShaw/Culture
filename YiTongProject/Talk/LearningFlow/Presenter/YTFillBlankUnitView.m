@@ -7,6 +7,20 @@
 #import "YTInternalUnitViewSupport.h"
 #import "YTUnitViewProtocol.h"
 
+/// 接口 `options[].id` 可能为 NSNumber 或 NSString，统一成字符串再比较/存储，避免取消后无法再选同一项
+static NSString *YTFillBlankNormalizeOptionId(id raw, NSInteger fallbackIndex) {
+    if (raw == nil || raw == [NSNull null]) {
+        return [NSString stringWithFormat:@"idx_%ld", (long)fallbackIndex];
+    }
+    if ([raw isKindOfClass:[NSString class]]) {
+        return [(NSString *)raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    }
+    if ([raw isKindOfClass:[NSNumber class]]) {
+        return [(NSNumber *)raw stringValue];
+    }
+    return [[NSString stringWithFormat:@"%@", raw] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+}
+
 @interface YTFillBlankUnitViewLegacyInternal ()
 @property (nonatomic, strong) UIView *cardView;
 @property (nonatomic, strong) UILabel *titleLabel;
@@ -26,6 +40,8 @@
 @property (nonatomic, assign) NSInteger currentFillSlotIndex;
 @property (nonatomic, strong) NSMutableArray<UILabel *> *multiBlankWordLabels;
 @property (nonatomic, strong) NSMutableArray<UIView *> *multiBlankWraps;
+/// 单空：点击下划线上的占位区可清空已选，便于重选
+@property (nonatomic, strong) UITapGestureRecognizer *singleBlankClearTap;
 @end
 
 @implementation YTFillBlankUnitViewLegacyInternal
@@ -132,6 +148,12 @@
         [self.prefixLabel mas_makeConstraints:^(MASConstraintMaker *make) {
             make.left.top.equalTo(self.sentenceRow);
         }];
+        self.blankWrap.userInteractionEnabled = YES;
+        if (!self.singleBlankClearTap) {
+            self.singleBlankClearTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onTapSingleBlankWrap:)];
+        }
+        [self.blankWrap addGestureRecognizer:self.singleBlankClearTap];
+
         [self.blankWrap mas_makeConstraints:^(MASConstraintMaker *make) {
             make.left.equalTo(self.prefixLabel.mas_right).offset(6);
             make.top.equalTo(self.sentenceRow);
@@ -177,6 +199,7 @@
         return;
     }
 
+    NSInteger blankSlotIndex = 0;
     UIView *prev = nil;
     for (NSInteger i = 0; i < parts.count; i++) {
         NSString *seg = parts[i];
@@ -201,6 +224,11 @@
             UIView *wrap = [[UIView alloc] init];
             wrap.backgroundColor = [UIColor clearColor];
             wrap.layer.cornerRadius = 4;
+            wrap.tag = blankSlotIndex;
+            wrap.userInteractionEnabled = YES;
+            UITapGestureRecognizer *tapBlank = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onTapMultiBlankSlot:)];
+            [wrap addGestureRecognizer:tapBlank];
+            blankSlotIndex += 1;
             [self.sentenceRow addSubview:wrap];
             [self.multiBlankWraps addObject:wrap];
 
@@ -293,7 +321,10 @@
     UIButton *prev = nil;
     for (NSInteger i = 0; i < opts.count; i++) {
         NSDictionary *opt = opts[i];
-        NSString *optId = opt[@"id"] ?: [NSString stringWithFormat:@"%ld", (long)i];
+        NSString *optId = YTFillBlankNormalizeOptionId(opt[@"id"], i);
+        if (optId.length == 0) {
+            optId = [NSString stringWithFormat:@"idx_%ld", (long)i];
+        }
         NSString *text = opt[@"text"] ?: @"";
 
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -327,6 +358,13 @@
             make.right.equalTo(self.optionsRow);
         }];
     }
+    for (UIButton *btn in self.optionButtons) {
+        btn.enabled = YES;
+    }
+    if (self.fillBlankSlotCount > 1) {
+        [self yt_syncCurrentFillSlotIndexToFirstEmpty];
+        [self yt_restyleMultiBlankOptionButtons];
+    }
 }
 
 - (BOOL)yt_allFillSlotsSatisfied {
@@ -342,19 +380,111 @@
     return YES;
 }
 
+/// 多空：第一个未填的槽位（用于内部状态）
+- (void)yt_syncCurrentFillSlotIndexToFirstEmpty {
+    for (NSInteger i = 0; i < self.fillBlankSlotCount; i++) {
+        if (i < (NSInteger)self.selectedFillOptionIdsOrdered.count && self.selectedFillOptionIdsOrdered[i].length == 0) {
+            self.currentFillSlotIndex = i;
+            return;
+        }
+    }
+    self.currentFillSlotIndex = self.fillBlankSlotCount;
+}
+
+/// 多空：下方选项是否与上方某一空绑定（提交前样式）
+- (void)yt_restyleMultiBlankOptionButtons {
+    UIColor *selBorder = [theAppDelegate.window colorWithHexString:@"#D4D4E4" alpha:1];
+    UIColor *defBorder = [UIColor colorWithWhite:0.85 alpha:1];
+    for (UIButton *btn in self.optionButtons) {
+        btn.enabled = YES;
+        btn.userInteractionEnabled = YES;
+        NSString *bid = YTFillBlankNormalizeOptionId(btn.accessibilityIdentifier, btn.tag);
+        BOOL used = NO;
+        for (NSInteger s = 0; s < self.fillBlankSlotCount; s++) {
+            if (s < (NSInteger)self.selectedFillOptionIdsOrdered.count) {
+                NSString *sid = YTFillBlankNormalizeOptionId(self.selectedFillOptionIdsOrdered[s], s);
+                if (sid.length > 0 && [sid isEqualToString:bid]) {
+                    used = YES;
+                    break;
+                }
+            }
+        }
+        btn.layer.borderColor = used ? selBorder.CGColor : defBorder.CGColor;
+        btn.layer.borderWidth = used ? 3 : 1;
+        btn.backgroundColor = [UIColor whiteColor];
+    }
+}
+
+/// 单空：点击空白占位清空选择，便于换选项
+- (void)onTapSingleBlankWrap:(UITapGestureRecognizer *)gr {
+    if (self.fillBlankSlotCount > 1) return;
+    self.selectedOptionId = nil;
+    self.blankWordLabel.text = @"";
+    UIColor *defBorder = [UIColor colorWithWhite:0.85 alpha:1];
+    for (UIButton *btn in self.optionButtons) {
+        btn.enabled = YES;
+        btn.userInteractionEnabled = YES;
+        btn.layer.borderColor = defBorder.CGColor;
+        btn.layer.borderWidth = 1;
+        btn.backgroundColor = [UIColor whiteColor];
+    }
+    self.primaryState.enabled = NO;
+    [self emitPrimaryState];
+}
+
+/// 多空：只清空被点的这一空，并与下方选项选中态联动
+- (void)onTapMultiBlankSlot:(UITapGestureRecognizer *)gr {
+    if (self.fillBlankSlotCount <= 1) return;
+    NSInteger slot = gr.view.tag;
+    if (slot < 0 || slot >= self.fillBlankSlotCount) return;
+    if (slot < (NSInteger)self.selectedFillOptionIdsOrdered.count) {
+        self.selectedFillOptionIdsOrdered[slot] = @"";
+    }
+    if ((NSUInteger)slot < self.multiBlankWordLabels.count) {
+        self.multiBlankWordLabels[slot].text = @"";
+    }
+    [self yt_syncCurrentFillSlotIndexToFirstEmpty];
+    [self yt_restyleMultiBlankOptionButtons];
+    self.primaryState.enabled = [self yt_allFillSlotsSatisfied];
+    [self emitPrimaryState];
+}
+
 - (void)onSelectFillBlankOption:(UIButton *)sender {
     NSInteger idx = sender.tag;
     if (idx < 0 || idx >= self.unit.options.count) return;
     NSDictionary *opt = self.unit.options[idx];
-    NSString *oid = sender.accessibilityIdentifier ?: opt[@"id"];
     NSString *text = opt[@"text"] ?: @"";
+    NSString *oidTrim = YTFillBlankNormalizeOptionId(sender.accessibilityIdentifier ?: opt[@"id"], idx);
+    if (oidTrim.length == 0) {
+        oidTrim = [NSString stringWithFormat:@"idx_%ld", (long)idx];
+    }
 
     if (self.fillBlankSlotCount <= 1) {
-        self.selectedOptionId = oid;
+        NSString *curSel = (self.selectedOptionId.length > 0) ? YTFillBlankNormalizeOptionId(self.selectedOptionId, idx) : @"";
+        // 再点已选项：取消选择，与上方空联动清空
+        if (oidTrim.length > 0 && [curSel isEqualToString:oidTrim]) {
+            self.selectedOptionId = nil;
+            self.blankWordLabel.text = @"";
+            UIColor *defBorder = [UIColor colorWithWhite:0.85 alpha:1];
+            for (UIButton *btn in self.optionButtons) {
+                btn.enabled = YES;
+                btn.userInteractionEnabled = YES;
+                btn.layer.borderColor = defBorder.CGColor;
+                btn.layer.borderWidth = 1;
+                btn.backgroundColor = [UIColor whiteColor];
+            }
+            self.primaryState.enabled = NO;
+            [self emitPrimaryState];
+            return;
+        }
+        self.selectedOptionId = oidTrim;
         self.blankWordLabel.text = text;
         UIColor *selBorder = [theAppDelegate.window colorWithHexString:@"#D4D4E4" alpha:1];
         for (UIButton *btn in self.optionButtons) {
-            BOOL sel = [btn.accessibilityIdentifier isEqualToString:self.selectedOptionId ?: @""];
+            btn.enabled = YES;
+            btn.userInteractionEnabled = YES;
+            NSString *bid = YTFillBlankNormalizeOptionId(btn.accessibilityIdentifier, btn.tag);
+            BOOL sel = [bid isEqualToString:oidTrim];
             btn.layer.borderColor = sel ? selBorder.CGColor : [UIColor colorWithWhite:0.85 alpha:1].CGColor;
             btn.layer.borderWidth = sel ? 3 : 1;
             btn.backgroundColor = [UIColor whiteColor];
@@ -364,19 +494,41 @@
         return;
     }
 
-    if (self.currentFillSlotIndex >= self.fillBlankSlotCount) {
+    // 多空：再点已填入的选项 → 只取消该词所在的那一空，并联动上面文案与下面高亮
+    for (NSInteger k = 0; k < self.fillBlankSlotCount; k++) {
+        if (k >= (NSInteger)self.selectedFillOptionIdsOrdered.count) break;
+        NSString *slotId = YTFillBlankNormalizeOptionId(self.selectedFillOptionIdsOrdered[k], k);
+        if (oidTrim.length > 0 && [slotId isEqualToString:oidTrim]) {
+            self.selectedFillOptionIdsOrdered[k] = @"";
+            if ((NSUInteger)k < self.multiBlankWordLabels.count) {
+                self.multiBlankWordLabels[k].text = @"";
+            }
+            [self yt_syncCurrentFillSlotIndexToFirstEmpty];
+            [self yt_restyleMultiBlankOptionButtons];
+            self.primaryState.enabled = [self yt_allFillSlotsSatisfied];
+            [self emitPrimaryState];
+            return;
+        }
+    }
+
+    // 填入第一个空槽
+    NSInteger targetSlot = NSNotFound;
+    for (NSInteger i = 0; i < self.fillBlankSlotCount; i++) {
+        if (i < (NSInteger)self.selectedFillOptionIdsOrdered.count && self.selectedFillOptionIdsOrdered[i].length == 0) {
+            targetSlot = i;
+            break;
+        }
+    }
+    if (targetSlot == NSNotFound) {
         return;
     }
-    if (!sender.enabled) return;
 
-    self.selectedFillOptionIdsOrdered[self.currentFillSlotIndex] = oid ?: @"";
-    if ((NSUInteger)self.currentFillSlotIndex < self.multiBlankWordLabels.count) {
-        self.multiBlankWordLabels[self.currentFillSlotIndex].text = text;
+    self.selectedFillOptionIdsOrdered[targetSlot] = oidTrim;
+    if ((NSUInteger)targetSlot < self.multiBlankWordLabels.count) {
+        self.multiBlankWordLabels[targetSlot].text = text;
     }
-    sender.enabled = NO;
-
-    self.currentFillSlotIndex += 1;
-
+    [self yt_syncCurrentFillSlotIndexToFirstEmpty];
+    [self yt_restyleMultiBlankOptionButtons];
     self.primaryState.enabled = [self yt_allFillSlotsSatisfied];
     [self emitPrimaryState];
 }
@@ -387,8 +539,10 @@
     UIColor *wrongFillC = [theAppDelegate.window colorWithHexString:@"#FFF0F1" alpha:1];
 
     if (self.fillBlankSlotCount <= 1) {
+        NSString *selNorm = (self.selectedOptionId.length > 0) ? YTFillBlankNormalizeOptionId(self.selectedOptionId, 0) : @"";
         for (UIButton *btn in self.optionButtons) {
-            BOOL isSel = [btn.accessibilityIdentifier isEqualToString:self.selectedOptionId ?: @""];
+            NSString *bid = YTFillBlankNormalizeOptionId(btn.accessibilityIdentifier, btn.tag);
+            BOOL isSel = (selNorm.length > 0 && [bid isEqualToString:selNorm]);
             if (!isSel) {
                 btn.layer.borderColor = [UIColor colorWithWhite:0.85 alpha:1].CGColor;
                 btn.layer.borderWidth = 1;
@@ -411,10 +565,10 @@
     NSArray<NSString *> *wants = self.unit.correctFillTexts ?: @[];
     for (NSInteger slot = 0; slot < self.fillBlankSlotCount; slot++) {
         if ((NSUInteger)slot >= self.selectedFillOptionIdsOrdered.count) break;
-        NSString *oid = self.selectedFillOptionIdsOrdered[(NSUInteger)slot];
+        NSString *oid = YTFillBlankNormalizeOptionId(self.selectedFillOptionIdsOrdered[(NSUInteger)slot], slot);
         UIButton *btn = nil;
         for (UIButton *b in self.optionButtons) {
-            if ([(b.accessibilityIdentifier ?: @"") isEqualToString:oid]) {
+            if ([YTFillBlankNormalizeOptionId(b.accessibilityIdentifier, b.tag) isEqualToString:oid]) {
                 btn = b;
                 break;
             }
@@ -496,12 +650,11 @@
             if ((NSUInteger)s < self.multiBlankWordLabels.count) {
                 self.multiBlankWordLabels[(NSUInteger)s].text = txt;
             }
-            for (UIButton *btn in self.optionButtons) {
-                if ([(btn.accessibilityIdentifier ?: @"") isEqualToString:oid]) {
-                    btn.enabled = NO;
-                    break;
-                }
-            }
+        }
+        // 续学回填后仍需可点选项做反选，不可 enabled = NO
+        for (UIButton *btn in self.optionButtons) {
+            btn.enabled = YES;
+            btn.userInteractionEnabled = YES;
         }
         [self applySubmitFeedbackCorrect:YES];
         self.completeSignalSatisfied = YES;
@@ -513,8 +666,9 @@
     }
     NSString *sid = YTSelectedOptionIdFromPayload(snapshot);
     if (sid.length == 0) return;
+    NSString *sidN = YTFillBlankNormalizeOptionId(sid, 0);
     for (UIButton *btn in self.optionButtons) {
-        if ([(btn.accessibilityIdentifier ?: @"") isEqualToString:sid]) {
+        if ([YTFillBlankNormalizeOptionId(btn.accessibilityIdentifier, btn.tag) isEqualToString:sidN]) {
             [self onSelectFillBlankOption:btn];
             break;
         }
