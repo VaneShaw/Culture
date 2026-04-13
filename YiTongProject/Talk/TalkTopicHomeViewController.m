@@ -29,8 +29,9 @@
  - 承接 Talk 首页/列表的点击进入
  - 展示三档难度卡片（Beginner/Intermediate/Advanced）
  - 点击卡片进入学习流前校验登录；未登录则弹出登录页，成功后再进入 `TalkLearningFlowViewController`
- - 进阶/困难：`/talk/level` 列表里 level=1、level=2 的 `unlock_threshold` 表示「上一难度进度达到该百分数」可解锁下一难度；本地占位用统一 `unlockThresholdPercent`
- - 卡片右侧：`YTTopicLevelProgressIndicator`（未开始箭头 / 进行中圆环 / 完成圆+勾），与 `progress_percent` 一致
+ - 进阶/困难：上一难度 `is_medal` 为真可直接进入下一难度；否则需上一难度进度达到 `unlock_threshold`（level=1/2 行）；本地占位用统一 `unlockThresholdPercent`
+ - 卡片右侧：`YTTopicLevelProgressIndicator`（未开始箭头 / 进行中圆环 / 完成圆+勾）；`is_medal` 为真时直接按完成（勾）；为假时仍仅按 `progress_percent` 判断
+ - 卡片「完成」底色/阴影：`is_medal` 为真直接完成态；为假时仍按原逻辑（进度达到 100% 为完成态）
  
  约束：
  - 列表进入且 `talkSceneNumericId > 0` 时请求 `POST /talk/level`（`scene_id`、`lang`），文案与进度以服务端为准；失败或空数据不兜底，隐藏难度列表
@@ -143,7 +144,7 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
 @property (nonatomic, assign) BOOL intermediateBadgeUnlocked;
 @property (nonatomic, assign) BOOL advancedBadgeUnlocked;
 
-/// 是否已用 `/talk/level` 成功刷新（解锁门槛用各行的 `unlock_threshold` + 上一难度进度）
+/// 是否已用 `/talk/level` 成功刷新（解锁：上一难度 `is_medal` 或进度达 `unlock_threshold`）
 @property (nonatomic, assign) BOOL didApplyTalkLevelAPI;
 @property (nonatomic, assign) BOOL beginnerEntryUnlocked;
 @property (nonatomic, assign) BOOL intermediateEntryUnlocked;
@@ -656,15 +657,17 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     [self refreshTopicLevelProgressIndicators];
 }
 
-/// 根据上一难度进度与 `unlock_threshold` 更新进阶/困难是否可进入
+/// 根据上一难度 `is_medal` 与 `unlock_threshold` 更新进阶/困难是否可进入（有勋章则不再要求门槛进度）
 - (void)yt_recomputeIntermediateAdvancedEntryUnlockedUsingThresholds {
     NSInteger thBI = self.unlockThresholdBeginnerToIntermediatePercent > 0 ? self.unlockThresholdBeginnerToIntermediatePercent : 60;
     NSInteger thIA = self.unlockThresholdIntermediateToAdvancedPercent > 0 ? self.unlockThresholdIntermediateToAdvancedPercent : 60;
-    self.intermediateEntryUnlocked = (self.beginnerProgressRatio * 100.0 >= (CGFloat)thBI - 1e-5);
-    self.advancedEntryUnlocked = (self.intermediateProgressRatio * 100.0 >= (CGFloat)thIA - 1e-5);
+    BOOL beginnerMeetsThreshold = (self.beginnerProgressRatio * 100.0 >= (CGFloat)thBI - 1e-5);
+    BOOL intermediateMeetsThreshold = (self.intermediateProgressRatio * 100.0 >= (CGFloat)thIA - 1e-5);
+    self.intermediateEntryUnlocked = self.beginnerBadgeUnlocked || beginnerMeetsThreshold;
+    self.advancedEntryUnlocked = self.intermediateBadgeUnlocked || intermediateMeetsThreshold;
 }
 
-/// 应用 `POST /talk/level` 的 `data` 数组（`level` 1/2/3 对应初/中/高；进阶/困难解锁用 level 1/2 的 `unlock_threshold`；顶部三徽章用 `is_medal`）
+/// 应用 `POST /talk/level` 的 `data` 数组（`level` 1/2/3；进阶/困难解锁：上一档 `is_medal` 或达 `unlock_threshold`；顶部三徽章用 `is_medal`）
 - (void)yt_applyTalkLevelItems:(NSArray<YTTalkLevelItem *> *)items {
     if (items.count == 0) {
         [self yt_hideTopicLevelCardsForMissingServerData];
@@ -772,23 +775,28 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     CGFloat intermediateRatio = [self yt_talkProgressRatioForLevel:YTLevelIdIntermediate];
     CGFloat advancedRatio = [self yt_talkProgressRatioForLevel:YTLevelIdAdvanced];
 
-    [self.beginnerProgressIndicator configureWithProgressRatio:beginnerRatio
-                                                         theme:[YTDifficultyTheme themeForLevel:YTLevelIdBeginner]];
-    [self.intermediateProgressIndicator configureWithProgressRatio:intermediateRatio
-                                                             theme:[YTDifficultyTheme themeForLevel:YTLevelIdIntermediate]];
-    [self.advancedProgressIndicator configureWithProgressRatio:advancedRatio
-                                                         theme:[YTDifficultyTheme themeForLevel:YTLevelIdAdvanced]];
-
     [self yt_updateLockBadgesWithBeginnerUnlocked:self.beginnerBadgeUnlocked
                                      intermediateUnlocked:self.intermediateBadgeUnlocked
                                             advancedUnlocked:self.advancedBadgeUnlocked];
 
-    BOOL bDone = (beginnerRatio >= 1.0 - 1e-5);
-    BOOL iDone = (intermediateRatio >= 1.0 - 1e-5);
-    BOOL aDone = (advancedRatio >= 1.0 - 1e-5);
-    [self yt_applyDifficultyCardStyle:self.beginnerCard levelId:YTLevelIdBeginner completed:bDone];
-    [self yt_applyDifficultyCardStyle:self.intermediateCard levelId:YTLevelIdIntermediate completed:iDone];
-    [self yt_applyDifficultyCardStyle:self.advancedCard levelId:YTLevelIdAdvanced completed:aDone];
+    // 卡片完成样式：`is_medal` 为真直接完成；为假仍按原逻辑（进度 100%）
+    BOOL bCardDone = self.beginnerBadgeUnlocked || (beginnerRatio >= 1.0 - 1e-5);
+    BOOL iCardDone = self.intermediateBadgeUnlocked || (intermediateRatio >= 1.0 - 1e-5);
+    BOOL aCardDone = self.advancedBadgeUnlocked || (advancedRatio >= 1.0 - 1e-5);
+    [self yt_applyDifficultyCardStyle:self.beginnerCard levelId:YTLevelIdBeginner completed:bCardDone];
+    [self yt_applyDifficultyCardStyle:self.intermediateCard levelId:YTLevelIdIntermediate completed:iCardDone];
+    [self yt_applyDifficultyCardStyle:self.advancedCard levelId:YTLevelIdAdvanced completed:aCardDone];
+
+    // 右侧圆环/勾：`is_medal` 为真直接完成勾；为假仍只按 `progress_percent` 比例
+    CGFloat beginnerIndicatorRatio = self.beginnerBadgeUnlocked ? 1.0 : beginnerRatio;
+    CGFloat intermediateIndicatorRatio = self.intermediateBadgeUnlocked ? 1.0 : intermediateRatio;
+    CGFloat advancedIndicatorRatio = self.advancedBadgeUnlocked ? 1.0 : advancedRatio;
+    [self.beginnerProgressIndicator configureWithProgressRatio:beginnerIndicatorRatio
+                                                         theme:[YTDifficultyTheme themeForLevel:YTLevelIdBeginner]];
+    [self.intermediateProgressIndicator configureWithProgressRatio:intermediateIndicatorRatio
+                                                             theme:[YTDifficultyTheme themeForLevel:YTLevelIdIntermediate]];
+    [self.advancedProgressIndicator configureWithProgressRatio:advancedIndicatorRatio
+                                                         theme:[YTDifficultyTheme themeForLevel:YTLevelIdAdvanced]];
 }
 
 /// 未完成：白底 + 轻阴影；已完成：难度色底 + 对应色阴影（offset 0,2 radius 10）
@@ -1100,7 +1108,7 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
 
     NSString *flowSceneId = [self yt_effectiveLearningSceneId];
 
-    // 解锁：`/talk/level` 中 level=1/2 的 `unlock_threshold` 已写入属性；本地占位走 `yt_applyTopicHomeData` 的同一套 `*EntryUnlocked`
+    // 解锁：`intermediateEntryUnlocked` / `advancedEntryUnlocked`（含上一档 `is_medal` 或达 `unlock_threshold`）；本地占位同 `yt_applyTopicHomeData`
     if (self.didLoadTopicHome) {
         if (levelId == YTLevelIdBeginner && !self.beginnerEntryUnlocked) {
             [YTTipAlertView showInView:self.view

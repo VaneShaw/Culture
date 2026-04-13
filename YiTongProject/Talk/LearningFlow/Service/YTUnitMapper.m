@@ -664,7 +664,9 @@ static void YTApplyTalkUnitPayloadToUnit(YTUnit *u, NSDictionary *payload, BOOL 
         NSString *correctSentence = YTStringByTrimmingToNil([correctAnswer yt_stringForKey:@"sentence_text"])
             ?: YTStringByTrimmingToNil([correctAnswer yt_stringForKey:@"text"])
             ?: YTStringByTrimmingToNil([content yt_stringForKey:@"score_text"]);
-        if (u.unitType == YTUnitTypeExerciseBuildSentence && correctSentence.length == 0) {
+        /// `sentence_builder`：续学回填依赖 `orderedTokenTexts`，须从 `correct_answer.order` 解析（与 `word_bank` 文案一致）
+        NSArray<NSString *> *buildSentenceOrderedTokens = nil;
+        if (u.unitType == YTUnitTypeExerciseBuildSentence) {
             NSArray *orderArr = [correctAnswer yt_arrayForKey:@"order"];
             if (orderArr.count > 0) {
                 NSMutableArray<NSString *> *parts = [NSMutableArray array];
@@ -678,7 +680,10 @@ static void YTApplyTalkUnitPayloadToUnit(YTUnit *u, NSDictionary *payload, BOOL 
                     }
                 }
                 if (parts.count > 0) {
-                    correctSentence = [parts componentsJoinedByString:@""];
+                    buildSentenceOrderedTokens = [parts copy];
+                    if (correctSentence.length == 0) {
+                        correctSentence = [parts componentsJoinedByString:@""];
+                    }
                 }
             }
         }
@@ -693,6 +698,8 @@ static void YTApplyTalkUnitPayloadToUnit(YTUnit *u, NSDictionary *payload, BOOL 
                 if (fillIds.count == u.correctFillTexts.count) {
                     u.serverAnswerPayload = @{ YTAnswerPayloadKeySelectedFillOptionIds: fillIds };
                 }
+            } else if (u.unitType == YTUnitTypeExerciseBuildSentence && buildSentenceOrderedTokens.count > 0) {
+                u.serverAnswerPayload = @{ YTAnswerPayloadKeyOrderedTokenTexts: buildSentenceOrderedTokens };
             } else if ([YTUnit yt_isSelectedOptionExerciseType:u.unitType] && u.correctOptionId.length > 0) {
                 u.serverAnswerPayload = @{ @"selectedOptionId": u.correctOptionId };
             }
