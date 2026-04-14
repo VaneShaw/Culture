@@ -21,6 +21,7 @@
 #import <CoreImage/CoreImage.h>
 #import <SDWebImage/SDWebImage.h>
 #import "YTInternalUnitViewSupport.h"
+#import "LanguageHelper.h"
 
 /**
  话题主页（静态 UI + 难度入口）
@@ -220,6 +221,20 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     if (self.scenePageSubtitle.length > 0) {
         self.subtitleLabel.text = self.scenePageSubtitle;
     }
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(yt_onAppLanguageDidChange:)
+                                                 name:LanguageDidChangeNotification
+                                               object:nil];
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:LanguageDidChangeNotification object:nil];
+}
+
+- (void)yt_onAppLanguageDidChange:(NSNotification *)note {
+    (void)note;
+    [self refreshTopicLevelProgressIndicators];
 }
 
 #pragma mark - UI
@@ -855,9 +870,13 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     }
 }
 
-- (BOOL)yt_useChineseLockBadge {
-    NSString *lang = [NSLocale preferredLanguages].firstObject ?: @"";
-    return [lang hasPrefix:@"zh"];
+/// 与 App 界面语言（`LanguageHelper`）一致；资产仅 `zh` / `en` 两套，其它语言回退 `en`
+- (NSString *)yt_lockBadgeAssetLanguageSuffix {
+    NSString *lang = [LanguageHelper currentLanguage] ?: @"en";
+    if ([lang hasPrefix:@"zh"]) {
+        return @"zh";
+    }
+    return @"en";
 }
 
 - (NSString *)yt_unlockBadgeImageNameForLevel:(YTLevelId)levelId {
@@ -867,7 +886,7 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
     } else if (levelId == YTLevelIdIntermediate) {
         difficulty = @"intermediate";
     }
-    NSString *langToken = [self yt_useChineseLockBadge] ? @"zh" : @"en";
+    NSString *langToken = [self yt_lockBadgeAssetLanguageSuffix];
     return [NSString stringWithFormat:@"talk_level_badge_unlock_%@_%@", difficulty, langToken];
 }
 
@@ -877,7 +896,7 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
         NSString *name = [self yt_unlockBadgeImageNameForLevel:levelId];
         img = [UIImage imageNamed:name];
         // 兼容历史错误资源名：beginner_zh imageset 目录尾部误带了换行符
-        if (!img && levelId == YTLevelIdBeginner && [self yt_useChineseLockBadge]) {
+        if (!img && levelId == YTLevelIdBeginner && [[self yt_lockBadgeAssetLanguageSuffix] isEqualToString:@"zh"]) {
             img = [UIImage imageNamed:@"talk_level_badge_unlock_beginner_zh\n"];
         }
     }
