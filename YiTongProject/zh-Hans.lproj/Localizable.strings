@@ -287,6 +287,35 @@
 "Talk_RestartLearning_Restart" = "重新开始";
 "Talk_Alert_Confirm" = "确定";
 "Talk_Alert_DefaultTopTitle" = "提示";
+"Talk_ResumeLearning_Continue" = "继续学习";
+"Talk_ResumeLearning_ProgressCaption" = "当前学习进度";
+
+"Talk_LearningFlow_LoadFailed" = "加载学习流失败，请稍后重试";
+"Talk_LearningFlow_InvalidScene_Restart" = "无效场景，无法重新学习";
+"Talk_LearningFlow_RestartFailed" = "重新学习失败，请稍后重试";
+"Talk_LearningFlow_NetworkError" = "网络异常，请稍后重试";
+"Talk_LearningFlow_InvalidScene_NextLevel" = "无效场景，无法进入下一难度";
+"Talk_LearningFlow_LoadNextLevelFailed" = "加载下一难度失败，请稍后重试";
+"Talk_LearningFlow_InvalidScene_Bootstrap" = "无效场景，无法加载学习流";
+"Talk_LearningFlow_BootstrapDataInvalid" = "学习流数据异常";
+
+"Talk_TopicHome_LoadingProgressWait" = "正在加载学习进度，请稍后再试";
+"Talk_TopicHome_UnlockIntermediateNeedPercent" = "您需要入门级学习进度完成度为%ld%%才能进入进阶难度";
+"Talk_TopicHome_UnlockAdvancedNeedPercent" = "您需要进阶难度学习进度完成度为%ld%%才能进入困难难度";
+
+"Talk_Recording_Error_IdentifierEmpty" = "标识为空";
+"Talk_Recording_Error_MicDenied" = "麦克风权限被拒绝";
+"Talk_Recording_Error_RecorderInitFailed" = "录音器初始化失败";
+"Talk_Recording_Error_StartFailed" = "开始录音失败";
+"Talk_Recording_Error_NotRecording" = "当前未在录音";
+"Talk_Recording_Error_RecordFailed" = "录音失败";
+
+"Talk_Pronounce_Error_FileURLEmpty" = "录音文件缺失";
+"Talk_Pronounce_Error_UnitEmpty" = "题目数据缺失";
+"Talk_Pronounce_Error_ExpectedTextEmpty" = "参考文本缺失";
+
+"Talk_Audio_Error_InvalidURL" = "无效音频 URL";
+"Talk_Audio_Error_InvalidURLList" = "无效音频 URL 列表";
 
 "Renew Now" = "立即续费";
 "Unlocked!" = "解锁成功!";

@@ -28,13 +28,13 @@
     if (!fileURL) {
         completion(nil, [NSError errorWithDomain:@"YTLocalPronounceEvaluator"
                                             code:3001
-                                        userInfo:@{NSLocalizedDescriptionKey: @"fileURL 为空"}]);
+                                        userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Pronounce_Error_FileURLEmpty", @"")}]);
         return;
     }
     if (expectedText.length == 0) {
         completion(nil, [NSError errorWithDomain:@"YTLocalPronounceEvaluator"
                                             code:3002
-                                        userInfo:@{NSLocalizedDescriptionKey: @"expectedText 为空"}]);
+                                        userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Pronounce_Error_ExpectedTextEmpty", @"")}]);
         return;
     }
 

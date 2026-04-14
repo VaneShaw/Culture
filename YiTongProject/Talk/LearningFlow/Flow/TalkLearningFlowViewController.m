@@ -268,7 +268,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         [[GlobalHUDManager shared] hide];
         if (!self) return;
         if (!bootstrap || error) {
-            NSString *msg = error.localizedDescription.length > 0 ? error.localizedDescription : NSLocalizedString(@"加载学习流失败，请稍后重试", @"");
+            NSString *msg = error.localizedDescription.length > 0 ? error.localizedDescription : NSLocalizedString(@"Talk_LearningFlow_LoadFailed", @"");
             [YTTipAlertView showInView:self.view
                               topTitle:nil
                            contentText:msg
@@ -518,7 +518,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     if (sceneNumeric <= 0) {
         [YTTipAlertView showInView:self.view
                           topTitle:nil
-                       contentText:NSLocalizedString(@"无效场景，无法重新学习", @"")
+                       contentText:NSLocalizedString(@"Talk_LearningFlow_InvalidScene_Restart", @"")
                 primaryButtonTitle:NSLocalizedString(@"OK", @"")
                secondaryButtonTitle:nil
                             onClose:nil
@@ -541,7 +541,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
             return;
         }
         if (!success || response.code != 0) {
-            NSString *msg = (response.msg.length > 0) ? response.msg : NSLocalizedString(@"重新学习失败，请稍后重试", @"");
+            NSString *msg = (response.msg.length > 0) ? response.msg : NSLocalizedString(@"Talk_LearningFlow_RestartFailed", @"");
             [YTTipAlertView showInView:self.view
                               topTitle:nil
                            contentText:msg
@@ -572,7 +572,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         if (!self) {
             return;
         }
-        NSString *msg = error.localizedDescription.length > 0 ? error.localizedDescription : NSLocalizedString(@"网络异常，请稍后重试", @"");
+        NSString *msg = error.localizedDescription.length > 0 ? error.localizedDescription : NSLocalizedString(@"Talk_LearningFlow_NetworkError", @"");
         [YTTipAlertView showInView:self.view
                           topTitle:nil
                        contentText:msg
@@ -1203,7 +1203,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
     if (sceneNumeric <= 0) {
         [YTTipAlertView showInView:self.view
                           topTitle:nil
-                       contentText:NSLocalizedString(@"无效场景，无法进入下一难度", @"")
+                       contentText:NSLocalizedString(@"Talk_LearningFlow_InvalidScene_NextLevel", @"")
                 primaryButtonTitle:NSLocalizedString(@"OK", @"")
                secondaryButtonTitle:nil
                             onClose:nil
@@ -1225,7 +1225,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         if (!bootstrap || error) {
             [YTTipAlertView showInView:self.view
                               topTitle:nil
-                           contentText:NSLocalizedString(@"加载下一难度失败，请稍后重试", @"")
+                           contentText:NSLocalizedString(@"Talk_LearningFlow_LoadNextLevelFailed", @"")
                     primaryButtonTitle:NSLocalizedString(@"OK", @"")
                    secondaryButtonTitle:nil
                                 onClose:nil

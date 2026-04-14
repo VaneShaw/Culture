@@ -178,10 +178,10 @@ static CGFloat const kYTResumeSolidButtonHeight = 44.0;
     if (isnan(p) || isinf(p)) p = 0;
     p = MAX(0.0, MIN(1.0, p));
 
-    alert.titleLabel.text = title.length ? title : NSLocalizedString(@"提示", @"");
-    [alert.continueButton setTitle:NSLocalizedString(@"继续学习", @"") forState:UIControlStateNormal];
-    [alert.restartButton setTitle:NSLocalizedString(@"重新开始", @"") forState:UIControlStateNormal];
-    alert.progressCaptionLabel.text = NSLocalizedString(@"当前学习进度", @"");
+    alert.titleLabel.text = title.length ? title : NSLocalizedString(@"Talk_Alert_DefaultTopTitle", @"");
+    [alert.continueButton setTitle:NSLocalizedString(@"Talk_ResumeLearning_Continue", @"") forState:UIControlStateNormal];
+    [alert.restartButton setTitle:NSLocalizedString(@"Talk_RestartLearning_Restart", @"") forState:UIControlStateNormal];
+    alert.progressCaptionLabel.text = NSLocalizedString(@"Talk_ResumeLearning_ProgressCaption", @"");
     alert.ringView.progress = p;
 
     [parentView addSubview:alert];

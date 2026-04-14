@@ -81,7 +81,7 @@
 
 - (void)startRecordingWithIdentifier:(NSString *)identifier completion:(YTRecordStartCallback)completion {
     if (identifier.length == 0) {
-        if (completion) completion(NO, [NSError errorWithDomain:@"YTRecordingService" code:2001 userInfo:@{NSLocalizedDescriptionKey: @"identifier 为空"}]);
+        if (completion) completion(NO, [NSError errorWithDomain:@"YTRecordingService" code:2001 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Recording_Error_IdentifierEmpty", @"")}]);
         return;
     }
     if ([self isRecording]) {
@@ -92,7 +92,7 @@
 
     YTMicPermissionState state = [self currentPermissionState];
     if (state == YTMicPermissionStateDenied) {
-        if (completion) completion(NO, [NSError errorWithDomain:@"YTRecordingService" code:2002 userInfo:@{NSLocalizedDescriptionKey: @"麦克风权限被拒绝"}]);
+        if (completion) completion(NO, [NSError errorWithDomain:@"YTRecordingService" code:2002 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Recording_Error_MicDenied", @"")}]);
         return;
     }
     if (state == YTMicPermissionStateUnknown) {
@@ -101,7 +101,7 @@
         [self requestMicPermission:^(YTMicPermissionState newState) {
             __strong typeof(weakSelf) self = weakSelf;
             if (newState != YTMicPermissionStateGranted) {
-                if (completion) completion(NO, [NSError errorWithDomain:@"YTRecordingService" code:2002 userInfo:@{NSLocalizedDescriptionKey: @"麦克风权限被拒绝"}]);
+                if (completion) completion(NO, [NSError errorWithDomain:@"YTRecordingService" code:2002 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Recording_Error_MicDenied", @"")}]);
                 return;
             }
             [self startRecordingWithIdentifier:identifier completion:completion];
@@ -142,7 +142,7 @@
 
     self.recorder = [[AVAudioRecorder alloc] initWithURL:url settings:settings error:&err];
     if (err || !self.recorder) {
-        if (completion) completion(NO, err ?: [NSError errorWithDomain:@"YTRecordingService" code:2003 userInfo:@{NSLocalizedDescriptionKey: @"录音器初始化失败"}]);
+        if (completion) completion(NO, err ?: [NSError errorWithDomain:@"YTRecordingService" code:2003 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Recording_Error_RecorderInitFailed", @"")}]);
         return;
     }
     self.recorder.delegate = self;
@@ -150,12 +150,12 @@
     [self.recorder prepareToRecord];
 
     BOOL ok = [self.recorder record];
-    if (completion) completion(ok, ok ? nil : [NSError errorWithDomain:@"YTRecordingService" code:2004 userInfo:@{NSLocalizedDescriptionKey: @"开始录音失败"}]);
+    if (completion) completion(ok, ok ? nil : [NSError errorWithDomain:@"YTRecordingService" code:2004 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Recording_Error_StartFailed", @"")}]);
 }
 
 - (void)stopRecordingWithCompletion:(YTRecordStopCallback)completion {
     if (![self isRecording] || !self.recorder) {
-        if (completion) completion(nil, [NSError errorWithDomain:@"YTRecordingService" code:2005 userInfo:@{NSLocalizedDescriptionKey: @"当前未在录音"}]);
+        if (completion) completion(nil, [NSError errorWithDomain:@"YTRecordingService" code:2005 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Recording_Error_NotRecording", @"")}]);
         return;
     }
     self.pendingStop = completion;
@@ -175,7 +175,7 @@
         YTRecordStopCallback cb = self.pendingStop;
         self.pendingStop = nil;
         if (!flag) {
-            cb(nil, [NSError errorWithDomain:@"YTRecordingService" code:2006 userInfo:@{NSLocalizedDescriptionKey: @"录音失败"}]);
+            cb(nil, [NSError errorWithDomain:@"YTRecordingService" code:2006 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Recording_Error_RecordFailed", @"")}]);
             return;
         }
         cb(url, nil);

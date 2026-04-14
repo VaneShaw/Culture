@@ -36,7 +36,7 @@
 - (void)playURLString:(NSString *)urlString completion:(YTAudioCompletion)completion {
     if (urlString.length == 0) {
         if (completion) {
-            completion(NO, [NSError errorWithDomain:@"YTAudioMuxService" code:1001 userInfo:@{NSLocalizedDescriptionKey: @"无效音频URL"}]);
+            completion(NO, [NSError errorWithDomain:@"YTAudioMuxService" code:1001 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Audio_Error_InvalidURL", @"")}]);
         }
         return;
     }
@@ -49,7 +49,7 @@
 - (void)playURLStringsInQueue:(NSArray<NSString *> *)urlStrings completion:(YTAudioCompletion)completion {
     if (urlStrings.count == 0) {
         if (completion) {
-            completion(NO, [NSError errorWithDomain:@"YTAudioMuxService" code:1002 userInfo:@{NSLocalizedDescriptionKey: @"无效音频URL列表"}]);
+            completion(NO, [NSError errorWithDomain:@"YTAudioMuxService" code:1002 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Audio_Error_InvalidURLList", @"")}]);
         }
         return;
     }

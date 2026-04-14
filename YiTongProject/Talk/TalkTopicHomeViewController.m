@@ -1083,7 +1083,7 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
         if (self.isRequestingTopicHome) {
             [YTTipAlertView showInView:self.view
                               topTitle:nil
-                           contentText:NSLocalizedString(@"正在加载学习进度，请稍后再试", @"")
+                           contentText:NSLocalizedString(@"Talk_TopicHome_LoadingProgressWait", @"")
                     primaryButtonTitle:NSLocalizedString(@"OK", @"")
                    secondaryButtonTitle:nil
                                 onClose:nil
@@ -1097,7 +1097,7 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
         [self yt_fetchTopicHomeDataIfNeeded];
         [YTTipAlertView showInView:self.view
                           topTitle:nil
-                       contentText:NSLocalizedString(@"正在加载学习进度，请稍后再试", @"")
+                       contentText:NSLocalizedString(@"Talk_TopicHome_LoadingProgressWait", @"")
                 primaryButtonTitle:NSLocalizedString(@"OK", @"")
                secondaryButtonTitle:nil
                             onClose:nil
@@ -1123,7 +1123,7 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
         }
         if (levelId == YTLevelIdIntermediate && !self.intermediateEntryUnlocked) {
             NSInteger thresholdPercent = self.unlockThresholdBeginnerToIntermediatePercent > 0 ? self.unlockThresholdBeginnerToIntermediatePercent : 60;
-            NSString *msg = [NSString stringWithFormat:NSLocalizedString(@"您需要入门级学习进度完成度为%ld%%才能进入进阶难度", @""), (long)thresholdPercent];
+            NSString *msg = [NSString stringWithFormat:NSLocalizedString(@"Talk_TopicHome_UnlockIntermediateNeedPercent", @""), (long)thresholdPercent];
             [YTTipAlertView showInView:self.view
                               topTitle:nil
                            contentText:msg
@@ -1136,7 +1136,7 @@ static UIImage *YTTopicHomeImageByApplyingGaussianBlur(UIImage *image, CGFloat r
         }
         if (levelId == YTLevelIdAdvanced && !self.advancedEntryUnlocked) {
             NSInteger thresholdPercent = self.unlockThresholdIntermediateToAdvancedPercent > 0 ? self.unlockThresholdIntermediateToAdvancedPercent : 60;
-            NSString *msg = [NSString stringWithFormat:NSLocalizedString(@"您需要进阶难度学习进度完成度为%ld%%才能进入困难难度", @""), (long)thresholdPercent];
+            NSString *msg = [NSString stringWithFormat:NSLocalizedString(@"Talk_TopicHome_UnlockAdvancedNeedPercent", @""), (long)thresholdPercent];
             [YTTipAlertView showInView:self.view
                               topTitle:nil
                            contentText:msg

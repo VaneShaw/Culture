@@ -50,7 +50,7 @@ static CGFloat const kYTTipAlertMaxHeight = 500.0;
     if (!parentView || !contentText.length) return nil;
 
     NSString *resolvedTopTitle =
-        (topTitle.length > 0) ? topTitle : NSLocalizedString(@"Talk_Alert_DefaultTopTitle", @"提示");
+        (topTitle.length > 0) ? topTitle : NSLocalizedString(@"Talk_Alert_DefaultTopTitle", @"");
 
     BOOL dual = (secondaryButtonTitle.length > 0);
     YTTipAlertView *alert = [[YTTipAlertView alloc] initWithFrame:CGRectZero];

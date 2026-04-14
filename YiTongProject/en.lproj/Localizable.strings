@@ -82,6 +82,35 @@ Tap to start recording and say this sound out loud
 "Talk_RestartLearning_Restart" = "Restart";
 "Talk_Alert_Confirm" = "OK";
 "Talk_Alert_DefaultTopTitle" = "Tip";
+"Talk_ResumeLearning_Continue" = "Continue learning";
+"Talk_ResumeLearning_ProgressCaption" = "Current learning progress";
+
+"Talk_LearningFlow_LoadFailed" = "Couldn't load this lesson. Please try again.";
+"Talk_LearningFlow_InvalidScene_Restart" = "This scene isn't available. You can't restart.";
+"Talk_LearningFlow_RestartFailed" = "Couldn't restart. Please try again.";
+"Talk_LearningFlow_NetworkError" = "Network error. Please try again.";
+"Talk_LearningFlow_InvalidScene_NextLevel" = "This scene isn't available. You can't go to the next level.";
+"Talk_LearningFlow_LoadNextLevelFailed" = "Couldn't load the next level. Please try again.";
+"Talk_LearningFlow_InvalidScene_Bootstrap" = "Invalid scene. Can't load this lesson.";
+"Talk_LearningFlow_BootstrapDataInvalid" = "Lesson data is invalid.";
+
+"Talk_TopicHome_LoadingProgressWait" = "Loading your progress. Please try again in a moment.";
+"Talk_TopicHome_UnlockIntermediateNeedPercent" = "Reach %ld%% progress in Beginner to unlock Intermediate.";
+"Talk_TopicHome_UnlockAdvancedNeedPercent" = "Reach %ld%% progress in Intermediate to unlock Advanced.";
+
+"Talk_Recording_Error_IdentifierEmpty" = "Recording ID is missing.";
+"Talk_Recording_Error_MicDenied" = "Microphone access denied.";
+"Talk_Recording_Error_RecorderInitFailed" = "Couldn't initialize the recorder.";
+"Talk_Recording_Error_StartFailed" = "Couldn't start recording.";
+"Talk_Recording_Error_NotRecording" = "Not recording.";
+"Talk_Recording_Error_RecordFailed" = "Recording failed.";
+
+"Talk_Pronounce_Error_FileURLEmpty" = "Recording file is missing.";
+"Talk_Pronounce_Error_UnitEmpty" = "Lesson data is missing.";
+"Talk_Pronounce_Error_ExpectedTextEmpty" = "Expected text is missing.";
+
+"Talk_Audio_Error_InvalidURL" = "Invalid audio URL.";
+"Talk_Audio_Error_InvalidURLList" = "Invalid audio URL list.";
 
 "Detected last learning at %@, continue?" = "Detected last learning at %@, continue?";
 "Continue last learning" = "Continue last learning";

@@ -29,13 +29,13 @@
     if (!fileURL) {
         completion(nil, [NSError errorWithDomain:@"YTServerPronounceEvaluator"
                                             code:3001
-                                        userInfo:@{NSLocalizedDescriptionKey: @"fileURL 为空"}]);
+                                        userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Pronounce_Error_FileURLEmpty", @"")}]);
         return;
     }
     if (!unit) {
         completion(nil, [NSError errorWithDomain:@"YTServerPronounceEvaluator"
                                             code:3003
-                                        userInfo:@{NSLocalizedDescriptionKey: @"unit 为空"}]);
+                                        userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_Pronounce_Error_UnitEmpty", @"")}]);
         return;
     }
     if (unit.refTable.length == 0 || unit.unitId.length == 0) {

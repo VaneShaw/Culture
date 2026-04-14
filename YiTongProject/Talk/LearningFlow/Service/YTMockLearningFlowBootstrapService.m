@@ -116,7 +116,7 @@ NSString *const YTTalkLearningFlowBootstrapErrorDomain = @"YTTalkLearningFlowBoo
     if (self.talkSceneNumericId <= 0) {
         NSError *err = [NSError errorWithDomain:YTTalkLearningFlowBootstrapErrorDomain
                                             code:1
-                                        userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"无效场景，无法加载学习流", @"")}];
+                                        userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_LearningFlow_InvalidScene_Bootstrap", @"")}];
         [self yt_finishOnMain:completion bootstrap:nil error:err];
         return;
     }
@@ -133,7 +133,7 @@ NSString *const YTTalkLearningFlowBootstrapErrorDomain = @"YTTalkLearningFlowBoo
         if (!success || ![response.data isKindOfClass:[NSArray class]]) {
             NSError *err = [NSError errorWithDomain:YTTalkLearningFlowBootstrapErrorDomain
                                                 code:2
-                                            userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"学习流数据异常", @"")}];
+                                            userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Talk_LearningFlow_BootstrapDataInvalid", @"")}];
             [self yt_finishOnMain:completion bootstrap:nil error:err];
             return;
         }
