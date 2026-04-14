@@ -60,6 +60,21 @@ static UIColor *YTBlendColorTowardWhite(UIColor *color, CGFloat amount) {
                            alpha:a];
 }
 
+/// 学习流底部主按钮（过渡页与其它题型共用）：标题过长时缩小字号，左右内边距 6pt
+static void YTLearningFlowApplyAdaptivePrimaryButton(UIButton *button, CGFloat maxPointSize) {
+    if (!button) return;
+    UIFont *font = [UIFont fontWithName:FONT_NAME_Semibold size:maxPointSize] ?: [UIFont boldSystemFontOfSize:maxPointSize];
+    UILabel *tl = button.titleLabel;
+    tl.font = font;
+    tl.adjustsFontSizeToFitWidth = YES;
+    tl.minimumScaleFactor = 0.58f;
+    tl.numberOfLines = 1;
+    tl.lineBreakMode = NSLineBreakByTruncatingTail;
+    tl.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
+    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
+    button.contentEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 6);
+}
+
 /**
  场景对话 - 学习流容器（核心页）
  
@@ -1483,7 +1498,7 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         UIColor *initialFace = self.theme.primaryColor ?: [UIColor clearColor];
         _primaryDepthButton.faceColor = initialFace;
         UIButton *b = _primaryDepthButton.actionButton;
-        b.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
+        YTLearningFlowApplyAdaptivePrimaryButton(b, 16);
         [b addTarget:self action:@selector(onPrimaryButton) forControlEvents:UIControlEventTouchUpInside];
         [b setTitle:NSLocalizedString(@"Talk_Continue", @"") forState:UIControlStateNormal];
     }
