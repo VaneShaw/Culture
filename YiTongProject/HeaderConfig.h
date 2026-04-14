@@ -205,7 +205,7 @@ isPhoneX = [[UIApplication sharedApplication] delegate].window.safeAreaInsets.bo
 
 
 #define IS_Member 1 //0 把锁去掉      1 根据接口返回   //暂时无用 用于苹果支付功能，  如果后端开启支付功能 0的话 相当于开放所有功能
-#define is_Engin 0  //1英文版          0中文版      //海外版 1（全英文）     国内版0（中文为主）
+#define is_Engin 1 //1英文版          0中文版      //海外版 1（全英文）     国内版0（中文为主）
 
 // Host配置 - 根据构建配置和版本自动选择
 // 测试环境
