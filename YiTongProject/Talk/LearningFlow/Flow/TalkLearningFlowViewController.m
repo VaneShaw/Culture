@@ -88,7 +88,6 @@ static void YTLearningFlowApplyAdaptivePrimaryButton(UIButton *button, CGFloat m
  - 部分 unit 不计进度（见 `-[YTUnit countsTowardProgress]`）
  - 续学位置与已完成集合以 `/talk/unit` 等接口为准，顶部进度仅认服务端 `progress_percent`
  */
-static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown";
 
 @interface TalkLearningFlowViewController ()
 
@@ -1323,30 +1322,6 @@ static NSString *const kYTUnlockToastShownKeyPrefix = @"talk_unlock_toast_shown"
         self.progressGradientLayer = grad;
     }
 
-    [self maybeShowUnlockToastIfNeededWithProgress:p];
-}
-
-- (void)maybeShowUnlockToastIfNeededWithProgress:(CGFloat)p {
-    // 解锁提示（MVP）：
-    // - 入门/进阶：进度 ≥60% 时提示一次（每个 scene+level 仅一次）；困难无下一难度，不提示
-    // - 目前用 Alert 轻量实现；后续可替换为自定义 toast
-    if (self.levelId == YTLevelIdAdvanced) return;
-    if (p < 0.6) return;
-
-    NSString *key = [NSString stringWithFormat:@"%@_%@_%ld", kYTUnlockToastShownKeyPrefix, self.sceneId, (long)self.levelId];
-    if ([KUSER_DEFAULT boolForKey:key]) return;
-    [KUSER_DEFAULT setBool:YES forKey:key];
-
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:NSLocalizedString(@"Congratulations, you've unlocked the next level!", @"") preferredStyle:UIAlertControllerStyleAlert];
-    __weak UIAlertController *weakAlert = alert;
-    [self presentViewController:alert animated:YES completion:^{
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            UIAlertController *a = weakAlert;
-            if (a.presentingViewController) {
-                [a dismissViewControllerAnimated:YES completion:nil];
-            }
-        });
-    }];
 }
 
 #pragma mark - LastPosition
