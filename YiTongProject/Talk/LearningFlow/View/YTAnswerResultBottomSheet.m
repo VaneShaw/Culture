@@ -10,6 +10,20 @@
 
 static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
 
+static void YTAnswerSheetApplyAdaptivePrimaryButtonTitle(UIButton *button, CGFloat maxPointSize) {
+    if (!button) return;
+    UIFont *font = [UIFont fontWithName:FONT_NAME_Semibold size:maxPointSize] ?: [UIFont boldSystemFontOfSize:maxPointSize];
+    UILabel *tl = button.titleLabel;
+    tl.font = font;
+    tl.adjustsFontSizeToFitWidth = YES;
+    tl.minimumScaleFactor = 0.58f;
+    tl.numberOfLines = 1;
+    tl.lineBreakMode = NSLineBreakByTruncatingTail;
+    tl.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
+    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
+    button.contentEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 6);
+}
+
 @interface YTAnswerResultBottomSheet ()
 
 @property (nonatomic, copy) dispatch_block_t onPrimary;
@@ -174,7 +188,7 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
         self.highlightLabel.textColor = accent;
         self.highlightLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
 
-        self.primaryDepthButton.actionButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
+        YTAnswerSheetApplyAdaptivePrimaryButtonTitle(self.primaryDepthButton.actionButton, 22);
     } else {
         // 正确态 UI 规格（按截图）
         // - 左上绿 icon：28*28
@@ -195,7 +209,7 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
         self.highlightLabel.textColor = accent;
         self.highlightLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16] ?: [UIFont boldSystemFontOfSize:16];
 
-        self.primaryDepthButton.actionButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:22] ?: [UIFont boldSystemFontOfSize:22];
+        YTAnswerSheetApplyAdaptivePrimaryButtonTitle(self.primaryDepthButton.actionButton, 22);
     }
 }
 
@@ -394,7 +408,6 @@ static NSTimeInterval const kYTAnswerResultBottomSheetAnimationDuration = 0.22;
     if (!_primaryDepthButton) {
         _primaryDepthButton = [YTDepthPrimaryButton answerResultSheetPrimaryButton];
         [_primaryDepthButton.actionButton addTarget:self action:@selector(onPrimaryTap) forControlEvents:UIControlEventTouchUpInside];
-        _primaryDepthButton.actionButton.titleLabel.font = [UIFont fontWithName:FONT_NAME_Semibold size:16];
     }
     return _primaryDepthButton;
 }

@@ -15,6 +15,20 @@ static CGFloat const kYTResumeRingLineWidth = 4.0;
 static CGFloat const kYTResumeRingSize = 66.0;
 static CGFloat const kYTResumeSolidButtonHeight = 44.0;
 
+static void YTResumeAlertApplyAdaptiveButtonTitle(UIButton *button, CGFloat maxPointSize) {
+    if (!button) return;
+    UIFont *font = [UIFont fontWithName:FONT_NAME_Semibold size:maxPointSize] ?: [UIFont boldSystemFontOfSize:maxPointSize];
+    UILabel *tl = button.titleLabel;
+    tl.font = font;
+    tl.adjustsFontSizeToFitWidth = YES;
+    tl.minimumScaleFactor = 0.58f;
+    tl.numberOfLines = 1;
+    tl.lineBreakMode = NSLineBreakByTruncatingTail;
+    tl.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
+    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
+    button.contentEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 6);
+}
+
 #pragma mark - Ring
 
 @interface YTResumeLearningRingView : UIView <CAAnimationDelegate>
@@ -299,12 +313,11 @@ static CGFloat const kYTResumeSolidButtonHeight = 44.0;
     self.progressCaptionLabel.textAlignment = NSTextAlignmentCenter;
 
     UIColor *btnBlue = [theAppDelegate.window colorWithHexString:@"#4C9BEF" alpha:1];
-    UIFont *btnFont = [UIFont fontWithName:FONT_NAME_Semibold size:16] ?: [UIFont boldSystemFontOfSize:16];
     CGFloat corner = kYTResumeSolidButtonHeight / 2.0;
     for (UIButton *btn in @[ self.continueButton, self.restartButton ]) {
         btn.backgroundColor = btnBlue;
         [btn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        btn.titleLabel.font = btnFont;
+        YTResumeAlertApplyAdaptiveButtonTitle(btn, 16);
         btn.layer.cornerRadius = corner;
         btn.layer.masksToBounds = YES;
     }

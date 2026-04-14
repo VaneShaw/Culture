@@ -15,6 +15,21 @@ static CGFloat const kYTTipDualButtonHeight = 44.0;
 static CGFloat const kYTTipAlertMinHeight = 220.0;
 static CGFloat const kYTTipAlertMaxHeight = 500.0;
 
+/// 弹窗主按钮：标题过长时按宽度缩小字号（多语言/iPad 分屏）
+static void YTTipAlertApplyAdaptiveButtonTitle(UIButton *button, CGFloat maxPointSize) {
+    if (!button) return;
+    UIFont *font = [UIFont fontWithName:FONT_NAME_Semibold size:maxPointSize] ?: [UIFont boldSystemFontOfSize:maxPointSize];
+    UILabel *tl = button.titleLabel;
+    tl.font = font;
+    tl.adjustsFontSizeToFitWidth = YES;
+    tl.minimumScaleFactor = 0.58f;
+    tl.numberOfLines = 1;
+    tl.lineBreakMode = NSLineBreakByTruncatingTail;
+    tl.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
+    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
+    button.contentEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 6);
+}
+
 @interface YTTipAlertView ()
 
 @property (nonatomic, copy, nullable) dispatch_block_t onCloseBlock;
@@ -346,16 +361,14 @@ static CGFloat const kYTTipAlertMaxHeight = 500.0;
     UIColor *blue = [theAppDelegate.window colorWithHexString:@"#4A90E2" alpha:1];
     self.primaryDepthButton.depthColor = nil;
     self.primaryDepthButton.faceColor = blue;
-    self.primaryDepthButton.actionButton.titleLabel.font =
-        [UIFont fontWithName:FONT_NAME_Semibold size:17] ?: [UIFont boldSystemFontOfSize:17];
+    YTTipAlertApplyAdaptiveButtonTitle(self.primaryDepthButton.actionButton, 17);
 
     UIColor *btnBlue = [theAppDelegate.window colorWithHexString:@"#4C9BEF" alpha:1];
-    UIFont *btnFont = [UIFont fontWithName:FONT_NAME_Semibold size:16] ?: [UIFont boldSystemFontOfSize:16];
     CGFloat corner = kYTTipDualButtonHeight / 2.0;
 
     self.confirmFlatButton.backgroundColor = btnBlue;
     [self.confirmFlatButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    self.confirmFlatButton.titleLabel.font = btnFont;
+    YTTipAlertApplyAdaptiveButtonTitle(self.confirmFlatButton, 16);
     self.confirmFlatButton.layer.cornerRadius = corner;
     self.confirmFlatButton.layer.masksToBounds = YES;
 
@@ -363,7 +376,7 @@ static CGFloat const kYTTipAlertMaxHeight = 500.0;
     self.cancelFlatButton.layer.borderWidth = 1.0;
     self.cancelFlatButton.layer.borderColor = btnBlue.CGColor;
     [self.cancelFlatButton setTitleColor:btnBlue forState:UIControlStateNormal];
-    self.cancelFlatButton.titleLabel.font = btnFont;
+    YTTipAlertApplyAdaptiveButtonTitle(self.cancelFlatButton, 16);
     self.cancelFlatButton.layer.cornerRadius = corner;
     self.cancelFlatButton.layer.masksToBounds = YES;
 }
