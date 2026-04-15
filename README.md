@@ -1,4 +1,4 @@
-# YiTong iOS
+# Culture iOS
 
 易通 iOS 客户端：**Objective-C + UIKit**，依赖 **CocoaPods**（AFNetworking、Masonry、SDWebImage 等）。维护期模块可沿用 MVC；新功能推荐 **MVVM-C**（ViewModel + Coordinator + 薄 ViewController）。
 
