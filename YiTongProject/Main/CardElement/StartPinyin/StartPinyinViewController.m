@@ -348,7 +348,10 @@
 - (void)getPinyinCategory{
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params = [LanguageHelper currentLanguageParams:params];
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequest:@"/pinyin/getPinyinCategory" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         //NSLog(@"--------[%@]-----[%d],,,,[%@]",response.data,response.code,response.msg);
         if (success) {
 

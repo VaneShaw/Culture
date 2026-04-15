@@ -13,6 +13,26 @@
 @end
 
 @implementation VideoFullScreenViewController
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    if (self.player) {
+        [self.player play];   // 进入全屏后立即播放
+    }
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    if (self.isBeingDismissed) {
+        [KUSER_DEFAULT setBool:NO forKey:@"isFullScreen"];
+        void (^cb)(void) = self.onWillDismiss;
+        if (cb) {
+            // 下一帧再滚外层 ScrollView，避免与转场动画抢同一帧布局
+            dispatch_async(dispatch_get_main_queue(), ^{
+                cb();
+            });
+        }
+    }
+}
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -34,18 +54,6 @@
 - (void)viewWillLayoutSubviews {
     [super viewWillLayoutSubviews];
     self.playerVC.view.frame = self.view.bounds;
-}
-
-- (void)viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-    if (self.player) {
-        [self.player play];   // 进入全屏后立即播放
-    }
-}
-
-- (void)viewWillDisappear:(BOOL)animated {
-    [super viewWillDisappear:animated];
-    [KUSER_DEFAULT setBool:NO forKey:@"isFullScreen"];
 }
 
 - (void)exitFullScreen {

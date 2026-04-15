@@ -11,6 +11,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface TalkViewController : BaseViewController
 
+/// 重新请求并刷新当前 segment 下的场景列表（`/talk/scene`）
+- (void)yt_reloadCurrentSegmentList;
+
 @end
 
 NS_ASSUME_NONNULL_END

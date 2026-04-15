@@ -63,6 +63,10 @@
         [self startTimeout];
     });
 }
+
+- (void)showSpinnerOnly {
+    [self show];
+}
 - (void)hide {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self cancelTimeout];

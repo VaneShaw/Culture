@@ -6,6 +6,7 @@
 //
 
 #import "AudioRemoteControlManager.h"
+#import "PublicTool.h"
 @interface AudioRemoteControlManager ()
 @property (nonatomic, strong) MPRemoteCommandCenter *commandCenter;
 @end
@@ -73,7 +74,7 @@
     // 拖动进度
     [self.commandCenter.changePlaybackPositionCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent * _Nonnull event) {
         MPChangePlaybackPositionCommandEvent *e = (MPChangePlaybackPositionCommandEvent *)event;
-        CMTime time = CMTimeMakeWithSeconds(e.positionTime, NSEC_PER_SEC);
+        CMTime time = [PublicTool cmTimeFromSecondsMillisecondPrecision:e.positionTime];
         [weakSelf.player seekToTime:time completionHandler:^(BOOL finished) {
             if (finished) {
                 [weakSelf refreshNowPlayingAfterSeek];

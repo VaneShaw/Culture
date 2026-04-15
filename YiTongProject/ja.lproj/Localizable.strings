@@ -12,6 +12,26 @@
 "Favorites" = "お気に入りです";
 "Orders" = "註文 します";
 "Clear Cache" = "キャッシュを消去 します";
+"Beginner" = "Beginner";
+"Simple" = "Simple";
+"Difficult" = "Difficult";
+"Talk_TopicHome_Title" = "キャンパス会話";
+"Talk_TopicHome_Subtitle" = "学校の実生活シーン";
+"Talk_Home_Title" = "シーン探索";
+"Talk_Home_Banner_Title" = "実生活シーンで中国語を身につける";
+"Talk_Home_Banner_Subtitle" = "Master Chinese in Real-life Scenarios";
+"Talk_Home_Banner_Tag" = "新しいシーン対話学習モード";
+"Talk_Home_Banner_Title_2" = "日常シーンで自然に話せるように";
+"Talk_Home_Banner_Subtitle_2" = "Practice speaking with practical dialogue";
+"Talk_Home_Banner_Tag_2" = "会話表現トレーニング";
+"Talk_Home_Banner_Title_3" = "入門から上級まで段階的に学習";
+"Talk_Home_Banner_Subtitle_3" = "Step-by-step practice for better fluency";
+"Talk_Home_Banner_Tag_3" = "レベル別学習パス";
+"Talk_Home_Tab_AllScenes" = "すべて";
+"Talk_Home_Tab_HotScenes" = "人気";
+"Talk_Home_Tab_NewScenes" = "最新";
+"Talk_Home_Tab_NearbyScenes" = "近くのシーン";
+"Talk_Home_Tab_RecommendedScenes" = "おすすめ";
 
  */
 

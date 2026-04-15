@@ -114,8 +114,10 @@
 
 #pragma mark - 设置视频
 - (void)removeObserverFromItem:(AVPlayerItem *)item {
+    if (!item) return;
     @try {
         [item removeObserver:self forKeyPath:@"status"];
+        [item removeObserver:self forKeyPath:@"loadedTimeRanges"];
         [item removeObserver:self forKeyPath:@"playbackBufferEmpty"];
         [item removeObserver:self forKeyPath:@"playbackLikelyToKeepUp"];
     } @catch (NSException *exception) {
@@ -125,6 +127,7 @@
 - (void)observePlayerItem:(AVPlayerItem *)item {
     [item addObserver:self forKeyPath:@"status" options:NSKeyValueObservingOptionNew context:nil];
     [item addObserver:self forKeyPath:@"loadedTimeRanges" options:NSKeyValueObservingOptionNew context:nil];
+    [item addObserver:self forKeyPath:@"playbackBufferEmpty" options:NSKeyValueObservingOptionNew context:nil];
 }
 
 - (void)setVideoURL:(NSURL *)url {
@@ -166,7 +169,7 @@
     }
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(videoDidFinish) name:AVPlayerItemDidPlayToEndTimeNotification object:_player.currentItem];
-    // 监听首帧
+    // 监听缓冲是否可播（与 observePlayerItem 中其它 KVO 分开写历史原因，避免重复注册）
     [item addObserver:self forKeyPath:@"playbackLikelyToKeepUp" options:NSKeyValueObservingOptionNew context:nil];
 }
 - (void)clearPlayerLayer {
@@ -263,6 +266,7 @@
     if (self.currentItem) {
         @try {
             [self.currentItem removeObserver:self forKeyPath:@"status"];
+            [self.currentItem removeObserver:self forKeyPath:@"loadedTimeRanges"];
             [self.currentItem removeObserver:self forKeyPath:@"playbackBufferEmpty"];
             [self.currentItem removeObserver:self forKeyPath:@"playbackLikelyToKeepUp"];
             [self.player removeObserver:self forKeyPath:@"timeControlStatus"];
@@ -305,16 +309,22 @@
     self.userDidTapPlay = NO;
 }
 - (void)dealloc {
-    if (self.timeObserver) {
+    if (self.timeObserver && self.player) {
         [self.player removeTimeObserver:self.timeObserver];
         self.timeObserver = nil;
     }
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    AVPlayerItem *item = self.currentItem ?: self.player.currentItem;
     @try {
-        [self.player.currentItem removeObserver:self forKeyPath:@"status"];
-        [self.player.currentItem removeObserver:self forKeyPath:@"playbackBufferEmpty"];
-        [self.player.currentItem removeObserver:self forKeyPath:@"playbackLikelyToKeepUp"];
-        [self.player.currentItem removeObserver:self forKeyPath:@"timeControlStatus"];//改动了_1
+        if (item) {
+            [item removeObserver:self forKeyPath:@"status"];
+            [item removeObserver:self forKeyPath:@"loadedTimeRanges"];
+            [item removeObserver:self forKeyPath:@"playbackBufferEmpty"];
+            [item removeObserver:self forKeyPath:@"playbackLikelyToKeepUp"];
+        }
+        if (self.player) {
+            [self.player removeObserver:self forKeyPath:@"timeControlStatus"];
+        }
     } @catch (NSException *exception) { }
 }
 #pragma mark - 全屏

@@ -688,15 +688,16 @@
     if([audioUrl isEqualToString:@""]){
         audioUrl = self.audio_url;
     }
+    __weak typeof(self) weakSelf = self;
     [[AudioPlayerManager sharedManager] playShortAudioWithURL:audioUrl completion:^(BOOL success, NSError * _Nullable error) {
+        __strong typeof(weakSelf) self = weakSelf;
         [[NSNotificationCenter defaultCenter] postNotificationName:@"AudioPlayDidFinishNotification"
                                                             object:nil
                                                           userInfo:@{@"status": @(YES)}];
+        if (!self) return;
         if (success) {
-            //播放成功完成
             [self updateUIForPlaybackSuccess];
         } else {
-            //处理播放错误
             [self handlePlaybackError:error];
         }
     }];

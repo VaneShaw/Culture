@@ -464,6 +464,7 @@
         NSString *strUrl = [NSString stringWithFormat:@"%@%@",host,@[@"/speech/pinyinUpload",@"/speech/hanziScore"][IS_Formal_Hanzi]];
         [manager POST:[NSString stringWithFormat:@"%@",strUrl] // 替换为实际API地址
            parameters:params
+              headers:nil
             constructingBodyWithBlock:^(id<AFMultipartFormData> formData) {
                 [formData appendPartWithFileData:audioData
                                             name:@"read_audio"//@"audio"

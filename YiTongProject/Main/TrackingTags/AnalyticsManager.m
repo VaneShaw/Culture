@@ -94,7 +94,6 @@
 }
 //独立事件 页面访问事件 登录 注册 注销         统计事件合流后这走这里
 - (void)trackEvent:(NSString *)eventType event_name:(NSString *)event_name params:(nullable NSDictionary *)event_params {
-    
     /*if (eventType.length == 0) return;
     NSMutableDictionary *events = [NSMutableDictionary dictionary];
     events[@"event_id"] = [[NSUUID UUID] UUIDString];       //事件id  事件类型   事件名称

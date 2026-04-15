@@ -237,6 +237,86 @@
 "Continue" = "继续开通";
 "Continue11" = "立即试用";
 "Renew to keep all stories and features." = "续费即可继续畅享全部故事和功能";
+
+/* Talk - LearningFlow */
+"Talk_Continue" = "继续";
+"Talk_Record_Again" = "再来一次";
+"Talk_PracticeTransition_NextLevel" = "下一等级";
+"Talk_PracticeTransition_NextStep" = "下一步";
+"Talk_SceneList_Action_Learning" = "学习";
+"Talk_SceneList_Action_ViewDetails" = "查看详情";
+"Talk_LevelEntry_Locked" = "该等级暂不可进入。";
+"Talk_Home_Title" = "探索场景";
+"Talk_Home_Banner_Title" = "在真实生活场景中掌握中文";
+"Talk_Home_Banner_Subtitle" = "Master Chinese in Real-life Scenarios";
+"Talk_Home_Banner_Tag" = "全新场景对话学习模式上线";
+"Talk_Home_Banner_Title_2" = "真实场景开口表达更自然";
+"Talk_Home_Banner_Subtitle_2" = "Practice speaking with practical dialogue";
+"Talk_Home_Banner_Tag_2" = "口语表达专项训练";
+"Talk_Home_Banner_Title_3" = "从入门到进阶系统学习";
+"Talk_Home_Banner_Subtitle_3" = "Step-by-step practice for better fluency";
+"Talk_Home_Banner_Tag_3" = "分级学习路径";
+"Talk_Home_Tab_AllScenes" = "全部场景";
+"Talk_Home_Tab_HotScenes" = "热门场景";
+"Talk_Home_Tab_NewScenes" = "最新场景";
+"Talk_Home_Tab_NearbyScenes" = "附近场景";
+"Talk_Home_Tab_RecommendedScenes" = "推荐场景";
+"Talk_TopicHome_Title" = "校园场景导航";
+"Talk_TopicHome_Subtitle" = "校园真实场景对话";
+"Talk_PracticeTransition_Title_Beginner" = "词汇学习完成";
+"Talk_PracticeTransition_Title_Intermediate" = "语法已掌握！";
+"Talk_PracticeTransition_Title_Advanced" = "语法升级！";
+"Talk_PracticeTransition_Subtitle" = "来看看你记住了多少";
+"Talk_PracticeTransition_Subtitle_Intermediate" = "小贴士：在陈述句后加「吗」即可构成疑问句。";
+"Talk_PracticeTransition_AdvSec1_Label" = "逻辑掌握";
+"Talk_PracticeTransition_AdvSec1_Body" = "预期表达（还没有）：你可以谈论尚未发生的事。";
+"Talk_PracticeTransition_AdvSec2_Label" = "表达风格";
+"Talk_PracticeTransition_AdvSec2_Body" = "文化缓冲（请问）：你的语气更专业、更礼貌。";
+
+"Talk_LevelComplete_Primary_MoveNext" = "进入下一等级";
+"Talk_LevelComplete_Primary_Explore" = "探索其他场景";
+"Talk_LevelComplete_Beginner_Score" = "4";
+"Talk_LevelComplete_Beginner_Headline" = "核心词汇";
+"Talk_LevelComplete_Beginner_Subtitle" = "你已掌握本话题的核心词汇";
+"Talk_LevelComplete_Intermediate_Headline" = "是非问句模式";
+"Talk_LevelComplete_Intermediate_Subtitle" = "你已掌握如何用「吗」提出简单疑问";
+"Talk_LevelComplete_Advanced_Headline" = "语法与文化";
+"Talk_LevelComplete_Advanced_Subtitle" = "你已掌握如何礼貌提问，并描述尚未发生的动作。";
+"Talk_LevelComplete_Nav_Again" = "重来";
+"Talk_ConfirmRestartLearning" = "是否重新开始学习？";
+"Talk_RestartLearning_Restart" = "重新开始";
+"Talk_Alert_Confirm" = "确定";
+"Talk_Alert_DefaultTopTitle" = "提示";
+"Talk_ResumeLearning_Continue" = "继续学习";
+"Talk_ResumeLearning_ProgressCaption" = "当前学习进度";
+
+"Talk_LearningFlow_LoadFailed" = "加载学习流失败，请稍后重试";
+"Talk_LearningFlow_InvalidScene_Restart" = "无效场景，无法重新学习";
+"Talk_LearningFlow_RestartFailed" = "重新学习失败，请稍后重试";
+"Talk_LearningFlow_NetworkError" = "网络异常，请稍后重试";
+"Talk_LearningFlow_InvalidScene_NextLevel" = "无效场景，无法进入下一难度";
+"Talk_LearningFlow_LoadNextLevelFailed" = "加载下一难度失败，请稍后重试";
+"Talk_LearningFlow_InvalidScene_Bootstrap" = "无效场景，无法加载学习流";
+"Talk_LearningFlow_BootstrapDataInvalid" = "学习流数据异常";
+
+"Talk_TopicHome_LoadingProgressWait" = "正在加载学习进度，请稍后再试";
+"Talk_TopicHome_UnlockIntermediateNeedPercent" = "您需要入门级学习进度完成度为%ld%%才能进入进阶难度";
+"Talk_TopicHome_UnlockAdvancedNeedPercent" = "您需要进阶难度学习进度完成度为%ld%%才能进入困难难度";
+
+"Talk_Recording_Error_IdentifierEmpty" = "标识为空";
+"Talk_Recording_Error_MicDenied" = "麦克风权限被拒绝";
+"Talk_Recording_Error_RecorderInitFailed" = "录音器初始化失败";
+"Talk_Recording_Error_StartFailed" = "开始录音失败";
+"Talk_Recording_Error_NotRecording" = "当前未在录音";
+"Talk_Recording_Error_RecordFailed" = "录音失败";
+
+"Talk_Pronounce_Error_FileURLEmpty" = "录音文件缺失";
+"Talk_Pronounce_Error_UnitEmpty" = "题目数据缺失";
+"Talk_Pronounce_Error_ExpectedTextEmpty" = "参考文本缺失";
+
+"Talk_Audio_Error_InvalidURL" = "无效音频 URL";
+"Talk_Audio_Error_InvalidURLList" = "无效音频 URL 列表";
+
 "Renew Now" = "立即续费";
 "Unlocked!" = "解锁成功!";
 "Your 7-day free trial is now active." = "7 天免费试用已激活";
@@ -405,3 +485,57 @@
 "Request failed" = "请求失败";
 
 "YTV_feed_loading_hint" = "视频加载中...";
+"Detected last learning at %@, continue?" = "检测到你上次学习到「%@」，是否继续？";
+"Continue last learning" = "继续上次学习";
+"Start from beginning" = "从头开始";
+"Error" = "错误";
+"OK" = "知道了";
+
+"Level completed" = "完成";
+"You have completed this level (MVP placeholder)" = "本等级学习完成（MVP占位）";
+
+"Correct Answer!" = "正确答案！";
+"The correct answer is :" = "正确答案是：";
+"Wrong Answer" = "错误答案";
+"Got it" = "明白了";
+
+"Progress" = "进度";
+"Vocabulary" = "词汇";
+"Congratulations, you've unlocked the next level!" = "恭喜你解锁下一个等级！";
+"Beginner" = "入门";
+"Simple" = "进阶";
+"Difficult" = "困难";
+"Intermediate" = "进阶";
+"Advanced" = "困难";
+"Step %ld" = "第%ld步";
+
+"Start recording" = "开始录音";
+"Recording… (tap to stop)" = "录音中…（点击停止）";
+"Go to Settings to enable microphone" = "去设置开启麦克风";
+"Scoring…" = "评分中…";
+"Correct" = "正确";
+"Try again" = "再试一次";
+
+"Playback complete (standard pronunciation)" = "已播放标准发音";
+"No reference audio; please use recording to practice." = "暂无标准音频，请通过录音练习";
+"Microphone permission denied, please enable it in system settings before recording." = "麦克风权限被拒绝，请到系统设置开启后再录音";
+"Recording failed; please try again." = "录音失败，请重试";
+"Scoring failed; please try again later." = "评分失败，可稍后再试";
+"Score %ld (completed)" = "得分 %ld（完成）";
+"Score %ld (retry)" = "得分 %ld（可再试）";
+"Play my recording (debug)" = "播放我的录音（调试）";
+"Please choose an option" = "请选择一个选项";
+"Please complete the sentence" = "请完成句子";
+
+"Choose the matching image" = "选择正确图片";
+"Choose the correct response" = "选择正确回应";
+"Choose the matching word" = "选择正确单词";
+"Choose the correct word" = "选择正确单词";
+"Build the sentence" = "拼出句子";
+"Complete the dialogue" = "完成对话";
+"Usage:" = "用法：";
+
+"Grammar Rule" = "语法规则";
+"Used at the end of a sentence to ask a yes/no question." = "用于句末询问是/否问题。";
+"Statement +  吗?  = Question" = "陈述句 + 吗?  = 疑问句";
+"EXAMPLE" = "示例";

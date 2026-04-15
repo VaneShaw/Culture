@@ -50,6 +50,7 @@
 @property (assign, nonatomic) BOOL isCove;
 
 @property (nonatomic, assign) BOOL hasCompletedStudy;
+@property (nonatomic, assign) BOOL observingStopAudioNotification;
 @end
 @implementation ReadStoryViewController
 - (void)viewWillAppear:(BOOL)animated {
@@ -270,6 +271,10 @@
     //[self.animatedImage removeFromSuperview];
 }
 - (void)setupHeaderVideoIfNeeded {//视频播放相关
+    if (self.observingStopAudioNotification) {
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:@"StopAudioPlayerNotification" object:nil];
+        self.observingStopAudioNotification = NO;
+    }
     BOOL hasVideo = (self.videoUrl.length > 6);
     self.menuView.audioControlView.hidden = hasVideo;
     self.menuView.unfoldButton.hidden = 1 - hasVideo;
@@ -278,8 +283,8 @@
 
     if(hasVideo){
          self.playerViewVideo = [self.headerView setupVideoIfVideoUrl:self.videoUrl];
-         // 监听关闭音频的通知
          [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playPauseAudio) name:@"StopAudioPlayerNotification" object:nil];
+         self.observingStopAudioNotification = YES;
      }
     if (!self.videoUrl || self.videoUrl.length == 0) {
         //return;
@@ -323,7 +328,10 @@
     self.storyId = storyId;
     NSMutableArray *arr = [NSMutableArray array];//@"/story/getIdiomStoryDetail"
     NSString *strUrl = @[@"/story/taleDetail",@"/story/mythDetail"][self.isFairy];
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequest:strUrl parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         if (success) {
             self.isTemp = YES;
             //NSLog(@"------ccdd-------[%@]----------ccdd----------",response.data);
@@ -518,7 +526,7 @@
     self.currentIndex = indexPath.row;
     self.menuView.lastIndex = self.currentIndex;
     //更新音频播放
-    float start = [Language_key isEqualToString:@"En"] ? model.startTimeEN : model.startTimeCN;
+    NSTimeInterval start = [Language_key isEqualToString:@"En"] ? model.startTimeEN : model.startTimeCN;
     [self.menuView clickCellToTime:start];
     [self.menuView.playPauseButton setImage:[UIImage imageNamed:@"pause_black"] forState:UIControlStateNormal];
     if(Index < 0){
@@ -738,7 +746,10 @@
     self.cover = cover;// 点击回调
 
     self.cover.hidden = YES;
+    __weak typeof(self) weakSelf = self;
     cover.subscribeHandler = ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         self.isCove = YES;
         if([[UserModel sharedInstance] isLogin]){//需判断登录
             PaymentViewController *payVC = [PaymentViewController new];
@@ -748,7 +759,8 @@
         } else {
             
             [[LoginManager sharedManager] handleLoginExpiredWithCompletion:^{
-                // 登录完成后的逻辑
+                __strong typeof(weakSelf) self = weakSelf;
+                if (!self) return;
                 NSLog(@"登录完成，回到调用方法");
                 [self loadStoryData:self.storyId];
                 
@@ -761,6 +773,10 @@
             }];
         }
     };
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 @end

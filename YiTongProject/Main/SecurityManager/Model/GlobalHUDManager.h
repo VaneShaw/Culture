@@ -15,6 +15,9 @@
 /// 显示 HUD（支付 / 网络）
 - (void)show;
 
+/// 仅转圈，不展示任何文案（不等同于 `showOrUpdateMessage:nil`，后者会显示「处理中…」）
+- (void)showSpinnerOnly;
+
 /// 主动隐藏（成功 / 失败）
 - (void)hide;
 

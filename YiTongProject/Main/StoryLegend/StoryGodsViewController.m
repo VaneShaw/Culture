@@ -205,7 +205,10 @@ NSInteger kRoundsWithoutCover = 0; // 可配置前 N 回合无封面
     NSString *strUrl = @"/classic/chapterContinuous";
     params[@"chapter_id"] = storyId;
     params[@"mode"] = @[@"backward",@"forward",@"window"][self.modeType];//+前。+后  中
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequest:strUrl parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         if (success) {
             self.isLoading = NO;
             self.isTemp = YES;
@@ -366,11 +369,15 @@ NSInteger kRoundsWithoutCover = 0; // 可配置前 N 回合无封面
         _menuView_1.audioControlView.hidden = NO;
         _menuView_1.unfoldButton.hidden = YES;
         _menuView_1.delegate = self;
+        StoryMenuView *menu = _menuView_1;
+        __weak typeof(self) weakSelf = self;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            _menuView_1.story_id = self.storyId;
-            [_menuView_1 getMythStory:self.isFairy];
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self || !menu) return;
+            menu.story_id = self.storyId;
+            [menu getMythStory:self.isFairy];
         });
-   }
+    }
     return _menuView_1;
 }
 //===============================================

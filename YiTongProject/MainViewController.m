@@ -114,8 +114,9 @@
     
     NoNetworkView *noNetView = [[NoNetworkView alloc] initWithFrame:self.view.bounds];
     self.noNetView = noNetView;
+    __weak typeof(self) weakSelf = self;
     noNetView.refreshHandler = ^{       // 刷新逻辑，比如重新发起网络请求
-        [self loadNewMessage];
+        [weakSelf loadNewMessage];
     };
     [self.view addSubview:self.noNetView];
     self.noNetView.hidden = YES;
@@ -126,6 +127,8 @@
     }  else {
         self.noNetView.alpha = 0;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
             self.noNetView.alpha = 1;
         });
         self.noNetView.hidden = [KUSER_DEFAULT boolForKey:@"notwork_key"];
@@ -143,11 +146,17 @@
  
     NSString *guest_uuid = [KUSER_DEFAULT objectForKey:Guest_Uuid_Key];
     if([KeychainUUID isEmptyString:guest_uuid]){
+        __weak typeof(self) weakSelf = self;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [self createGuest];
+            [weakSelf createGuest];
         });
     }
 }
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
 - (void)createGuest {
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params[@"device_id"] = [KeychainUUID getUUID];
@@ -167,7 +176,10 @@
 
 - (void)monitoringNetwork {
     [[NetworkMonitor sharedMonitor] startMonitoring];
+    __weak typeof(self) weakSelf = self;
     [NetworkMonitor sharedMonitor].statusChangeHandler = ^(NetworkStatusType status) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         switch (status) {
             case NetworkStatusTypeNotReachable:
                 self.noNetView.hidden = NO;
@@ -187,9 +199,12 @@
 }
 - (void)startNetworkMonitor {
     if (@available(iOS 12.0, *)) {
+        __weak typeof(self) weakSelf = self;
         nw_path_monitor_t monitor = nw_path_monitor_create();
         nw_path_monitor_set_queue(monitor, dispatch_get_main_queue());
         nw_path_monitor_set_update_handler(monitor, ^(nw_path_t path) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
             if (nw_path_get_status(path) == nw_path_status_satisfied) {
                 NSLog(@"网络可用 ✅");
                 [self loadNewMessage];// 用户允许后再触发请求
@@ -305,7 +320,9 @@
                     ReadStoryViewController *vc = [ReadStoryViewController new];
                     vc.hidesBottomBarWhenPushed = YES;
                     vc.storyId = story_id;
-                    [self.navigationController pushViewController:vc animated:YES];
+                    __strong typeof(weakSelf) navSelf = weakSelf;
+                    if (!navSelf) return;
+                    [navSelf.navigationController pushViewController:vc animated:YES];
                 }
             }];
         }
@@ -321,7 +338,9 @@
                         }
                     }
                 }
-                [self pushStoryGodsViewStoryId:story_id];
+                __strong typeof(weakSelf) navSelf = weakSelf;
+                if (!navSelf) return;
+                [navSelf pushStoryGodsViewStoryId:story_id];
             }];
         }
             break;
@@ -466,7 +485,10 @@
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params[@"is_user_info"] = @"1";
     params = [LanguageHelper currentLanguageParams:params];
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequest:@"/home/getBanner" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         self.tableView.tableHeaderView = self.headerView;
         self.noNetView.hidden = YES;
         [KUSER_DEFAULT setBool:NO forKey:@"DataChanged_KEY"];

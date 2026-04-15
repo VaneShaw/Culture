@@ -785,9 +785,12 @@
     params[@"email"] = self.txtEmailCode.text;
     params[@"scene"] = @"login";
     
+    __weak typeof(self) weakSelf = self;
     self.btnSendCode.userInteractionEnabled = NO;
     self.btnSendCode.countdownLabel.textColor = [self.view colorWithHexString:@"#C0D0E0" alpha:1];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         self.btnSendCode.userInteractionEnabled = YES;
         self.btnSendCode.countdownLabel.textColor = Main_COLOR;
         });
@@ -795,6 +798,8 @@
     //场景（'register'：注册, 'login'：登录, 'reset'：重置密码）
     params = [LanguageHelper currentLanguageParams:params];
     [HttpTools postRequestUsers:@"/captcha/send" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         //self.lblTips.text = @"";
         if (success) {
             [self.btnSendCode startCountDown];
@@ -898,8 +903,10 @@
     params[@"device_id_type"] = @"app_uuid";
     params[@"guest_uuid"] = [KUSER_DEFAULT objectForKey:Guest_Uuid_Key];
 
-    
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequestUsers:@"/auth/register" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         [MBProgressHUD hideHUD];
         
         for (int i = 0; i < 4; i ++) {
@@ -914,6 +921,8 @@
   
             [KUSER_DEFAULT setObject:self.firstView.txtEmail.text forKey:@"account_key"];
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) self = weakSelf;
+                if (!self) return;
                 [self btnReturnAction:self.btnReturnOld];
                 self.txtEmailAddress.text = [KUSER_DEFAULT objectForKey:@"account_key"];
                 //self.txtPassword.text = [KUSER_DEFAULT objectForKey:@"password_key"];
@@ -959,7 +968,10 @@
         [MBProgressHUD hideHUD];
     });
     params = [LanguageHelper currentLanguageParams:params];
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequestUsers:@"/auth/login" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         [MBProgressHUD hideHUD];
         
         //NSLog(@"左--------[%@]-[%d]-[%@]---------------------",response.msg,response.code,response.data);
@@ -1006,7 +1018,10 @@
         [MBProgressHUD hideHUD];
     });
     params = [LanguageHelper currentLanguageParams:params];
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequestUsers:@"/auth/login" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         [MBProgressHUD hideHUD];
         //NSLog(@"右边--------[%@]-[%d]-[%@]---------------------",response.msg,response.code,response.data);
          if (success) {

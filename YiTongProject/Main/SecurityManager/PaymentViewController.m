@@ -46,8 +46,10 @@
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params[@"app_region"] = @[@"domestic",@"overseas"][IS_OVERSEAS_VERSION];
     params = [LanguageHelper currentLanguageParams:params];
+    __weak typeof(self) weakSelf = self;
     [HttpTools postRequest:@"/vip/index" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
-    
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         if (success) {
             NSDictionary *dic = [NSDictionary dictionaryWithDictionary:response.data];
             self.service_support = [NSString stringWithFormat:@"%@",dic[@"service_support"]];
@@ -144,7 +146,6 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.
     self.view.backgroundColor = [UIColor whiteColor];
     self.navigationController.interactivePopGestureRecognizer.enabled = YES;
     self.navigationController.interactivePopGestureRecognizer.delegate = self;
@@ -185,6 +186,11 @@
 - (void)onMembershipUpdated{
     [self loadCheckVip];
 }
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
 - (UIView *)headerView {
     if (!_headerView) {
         _headerView = [[UIView alloc] init];

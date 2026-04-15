@@ -279,6 +279,7 @@
 }
 
 - (void)getCategoryList{
+    __weak typeof(self) weakSelf = self;
     __block BOOL hudHidden = NO;// 2. 创建一个 __block 标志，防止重复隐藏
     if (!self.isCategoryListLoaded) {
         // 1. 显示加载动画
@@ -288,7 +289,10 @@
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             if (!hudHidden) {
                 hudHidden = YES;
-                [MBProgressHUD hideHUDForView:self.view animated:YES]; //转圈圈隐藏
+                __strong typeof(weakSelf) self = weakSelf;
+                if (self) {
+                    [MBProgressHUD hideHUDForView:self.view animated:YES]; //转圈圈隐藏
+                }
             }
         });
     }
@@ -301,7 +305,8 @@
     params = [LanguageHelper currentLanguageParams:params];
     NSString *url = @[@"/pinyin/getElementList",@"/hanzi/getElementList"][self.isHanZi];
     [HttpTools postRequest:url parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
-        
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         if (!hudHidden) {
                hudHidden = YES;
                [MBProgressHUD hideHUDForView:self.view animated:YES];
@@ -357,12 +362,15 @@
                                  //(video_url.length > 6 ? @"blue" : @"default");
                  NSArray *titleArray = map[key];
                  
+                 __weak typeof(self) weakBar = self;
                  [self.barSwitch configureWithY:0
                                titles:titleArray
                                action:^(NSInteger index) {
+                     __strong typeof(weakBar) self = weakBar;
+                     if (!self) return;
                      NSLog(@"点击了第 %ld 个按钮", (long)index);
                      
-                     [self btnSelectExerciseTag:index];
+                     [self btnSelectExerciseTag:(int)index];
                      [self.scrollView.currentCardView configureWithType:titleArray[index]];
                      //[KUSER_DEFAULT setObject:titleArray[index] forKey:Card_Type];
                      [self.scrollView.currentCardView.playerVideo pause];

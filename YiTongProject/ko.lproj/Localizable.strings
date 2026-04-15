@@ -11,6 +11,26 @@
 "Favorites" = "파비콘";
 "Orders" = "주문서";
 "Clear Cache" = "캐시 지우기";
+"Beginner" = "Beginner";
+"Simple" = "Simple";
+"Difficult" = "Difficult";
+"Talk_TopicHome_Title" = "캠퍼스 회화";
+"Talk_TopicHome_Subtitle" = "학교 실생활 상황";
+"Talk_Home_Title" = "장면 탐색";
+"Talk_Home_Banner_Title" = "실생활 장면에서 중국어를 익히세요";
+"Talk_Home_Banner_Subtitle" = "Master Chinese in Real-life Scenarios";
+"Talk_Home_Banner_Tag" = "새로운 장면 대화 학습 모드";
+"Talk_Home_Banner_Title_2" = "일상 장면에서 더 자연스럽게 말하기";
+"Talk_Home_Banner_Subtitle_2" = "Practice speaking with practical dialogue";
+"Talk_Home_Banner_Tag_2" = "말하기 집중 훈련";
+"Talk_Home_Banner_Title_3" = "초급부터 고급까지 단계별 학습";
+"Talk_Home_Banner_Subtitle_3" = "Step-by-step practice for better fluency";
+"Talk_Home_Banner_Tag_3" = "레벨별 학습 경로";
+"Talk_Home_Tab_AllScenes" = "전체";
+"Talk_Home_Tab_HotScenes" = "인기";
+"Talk_Home_Tab_NewScenes" = "최신";
+"Talk_Home_Tab_NearbyScenes" = "근처";
+"Talk_Home_Tab_RecommendedScenes" = "추천";
 
 
  */

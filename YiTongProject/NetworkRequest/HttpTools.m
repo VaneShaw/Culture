@@ -10,6 +10,26 @@
 #import "TokenManager.h"
 
 #import "LoginViewController.h"
+
+/// 控制台打印用：字典/数组尽量格式化为 JSON，其余 `description`
+static NSString *YTHTTPLogStringForObject(id obj) {
+    if (!obj) {
+        return @"(nil)";
+    }
+    if ([obj isKindOfClass:[NSDictionary class]] || [obj isKindOfClass:[NSArray class]]) {
+        if ([NSJSONSerialization isValidJSONObject:obj]) {
+            NSError *jsonErr = nil;
+            NSData *jsonData = [NSJSONSerialization dataWithJSONObject:obj
+                                                               options:NSJSONWritingPrettyPrinted
+                                                                 error:&jsonErr];
+            if (jsonData && !jsonErr) {
+                return [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+            }
+        }
+    }
+    return [obj description];
+}
+
 @implementation HttpTools
 
 + (void)getRequest:(NSString *)URLString parames:(id)parames success:(void (^)(BOOL success,BaseDataModel *response))success failure:(void (^)(NSError *error))failure {
@@ -49,7 +69,7 @@
         NSLog(@"❌ URL 解析失败: [%@]------------------", encoded);
         return;
     } else {
-       NSLog(@"✅ 即将请求 URL: [%@]--------------------", url.absoluteString);
+        NSLog(@"✅ 即将请求 URL: [%@] 入参: %@ --------------------", url.absoluteString, YTHTTPLogStringForObject(parames));
     }
     __weak typeof(self) weakSelf = self;
     //void (^requestBlock)(void) = ^{
@@ -159,10 +179,76 @@
     nav.navigationBar.titleTextAttributes = dict;
 }
 
+// POST multipart：`parameters:nil`，所有表单项与文件均在 HTTP Body（Content-Type: multipart/form-data）。
++ (void)postMultipartRequest:(NSString *)URLString
+                      fields:(NSDictionary<NSString *, NSString *> *)fields
+                     fileURL:(NSURL *)fileURL
+                 fileFieldName:(NSString *)fileFieldName
+                     success:(void (^)(BOOL success, BaseDataModel *response))success
+                     failure:(void (^)(NSError *error))failure {
+    NSString *host = HOST;
+    NSString *strurl = [NSString stringWithFormat:@"%@%@", host, URLString];
+#if DEBUG
+    if ([URLString containsString:@"/talk/complete"]) {
+        NSLog(@"\n[HttpTools] 即将组包 multipart（与上方 [YTTalkComplete] 一致）\n"
+              @"URL: %@\n"
+              @"文本域键名: scene_id, level_id, unit_id, ref_table, content_id(若有), answer — 值均为 UTF-8 字符串\n"
+              @"文件域: name=\"%@\" ← 对应文档 read_audio\n",
+              strurl,
+              fileFieldName.length ? fileFieldName : @"read_audio");
+    }
+#endif
+    [[NetWorkTool sharedToolPostAuthorization] POST:strurl parameters:nil headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+        [fields enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *obj, BOOL *stop) {
+            if (key.length == 0) return;
+            NSString *v = obj ?: @"";
+            NSData *data = [v dataUsingEncoding:NSUTF8StringEncoding];
+            if (data) {
+                [formData appendPartWithFormData:data name:key];
+            }
+        }];
+        if (fileURL && [[NSFileManager defaultManager] fileExistsAtPath:fileURL.path]) {
+            NSString *name = fileFieldName.length ? fileFieldName : @"read_audio";
+            NSError *err = nil;
+            [formData appendPartWithFileURL:fileURL name:name fileName:fileURL.lastPathComponent mimeType:@"audio/mpeg" error:&err];
+            if (err) {
+                NSData *fileData = [NSData dataWithContentsOfURL:fileURL options:0 error:&err];
+                if (fileData.length > 0) {
+                    [formData appendPartWithFileData:fileData name:name fileName:fileURL.lastPathComponent mimeType:@"application/octet-stream"];
+                }
+            }
+        }
+    } progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)task.response;
+        if ([httpResponse isKindOfClass:[NSHTTPURLResponse class]]) {
+            NSDictionary *headers = [httpResponse allHeaderFields];
+            NSString *authorizationHeader = headers[@"Authorization"];
+            if (authorizationHeader) {
+                [KUSER_DEFAULT setObject:authorizationHeader forKey:@"Authorization_key"];
+            }
+        }
+        BOOL flag = NO;
+        BaseDataModel *model = [BaseDataModel mj_objectWithKeyValues:responseObject];
+        if (model.code == 401) {
+            [MBProgressHUD showLabel:NSLocalizedString(@"Login expired", @"")];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [[LoginManager sharedManager] handleLoginExpired];
+            });
+            return;
+        }
+        if (model.code == 0) {
+            flag = YES;
+        }
+        success(flag, model);
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        failure(error);
+    }];
+}
+
 + (void)uploadImageWithURL:(NSString *)url images:(NSArray <UIImage *> *)images params:(NSMutableDictionary *)params imageParamsName:(NSString *)imageParamsName success:(void (^)(BaseDataModel *result))success failure:(void (^)(NSError *))failure {
     //NSString *host = [AppConfig sharedConfig].main_host;
     NSString *host = HOST;
-    [[NetWorkTool sharedToolPostAuthorization] POST:[NSString stringWithFormat:@"%@%@",host,url] parameters:[self md5Parames:params] constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    [[NetWorkTool sharedToolPostAuthorization] POST:[NSString stringWithFormat:@"%@%@",host,url] parameters:[self md5Parames:params] headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         
         for (int i = 0; i < images.count; i ++) {
             NSDateFormatter *formatter=[[NSDateFormatter alloc]init];

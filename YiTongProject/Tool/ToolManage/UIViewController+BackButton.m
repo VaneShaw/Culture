@@ -19,14 +19,17 @@ static BOOL YTVBackButtonBackgroundIsDark(UIColor *color) {
     CGFloat lum = 0.299 * r + 0.587 * g + 0.114 * b;
     return lum < 0.45;
 }
+NSInteger const kGlobalBackButtonContainerTag = 8888;
 
 @implementation UIViewController (BackButton)
 //@{@"title":@"Membership",@"color":@"#FFFFFF"}
 - (void)addGlobalBackButtonColor:(UIColor *)color headerTitleDic:(NSDictionary *)dic {
     
     CGFloat statusBarH = [PublicTool getStatusBarHeight];
-    UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(Distance＿M, statusBarH, 55, 45)];
+    // 顶部导航高度基础上整体下移 17
+    UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(Distance＿M, statusBarH + 17.0, 55, 45)];
     buttonContainer.backgroundColor = [UIColor clearColor];
+    buttonContainer.tag = kGlobalBackButtonContainerTag;
 
     NSString *title = dic[@"title"];
     // 创建返回按钮
@@ -77,6 +80,7 @@ static BOOL YTVBackButtonBackgroundIsDark(UIColor *color) {
     CGFloat statusBarH = [PublicTool getStatusBarHeight];
     UIView *buttonContainer = [[UIView alloc] initWithFrame:CGRectMake(Distance＿M, statusBarH, 55, 45)];
     buttonContainer.backgroundColor = [UIColor clearColor];
+    buttonContainer.tag = kGlobalBackButtonContainerTag;
     //buttonContainer.backgroundColor = [UIColor orangeColor];
     // 创建返回按钮
     UIButton *backButton = [UIButton buttonWithType:UIButtonTypeCustom];

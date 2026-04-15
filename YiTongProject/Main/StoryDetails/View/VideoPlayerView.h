@@ -20,6 +20,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setVideoURL:(NSURL *)url;
 // 外部调用：播放视频并关闭音频播放器
 - (void)playVideoAndStopAudio;
+// 暂停（保留当前资源，用于切页等场景）
+- (void)pauseVideo;
 
 // 外部调用：关闭视频播放
 - (void)stopVideo;

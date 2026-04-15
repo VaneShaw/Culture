@@ -92,3 +92,141 @@ Tap to start recording and say this sound out loud
 "YTV_fullscreen_pause_hint" = "Pause";
 "Request failed" = "Request failed";
 "YTV_feed_loading_hint" = "Loading videos...";
+
+/* Talk - LearningFlow */
+"Talk_Continue" = "Continue";
+"Talk_Record_Again" = "Try again";
+"Talk_PracticeTransition_NextLevel" = "Next level";
+"Talk_PracticeTransition_NextStep" = "Next step";
+"Talk_SceneList_Action_Learning" = "Learning";
+"Talk_SceneList_Action_ViewDetails" = "View details";
+"Talk_LevelEntry_Locked" = "This level is not available yet.";
+"Talk_Home_Title" = "Explore Scenes";
+"Talk_Home_Banner_Title" = "Master Chinese in Real-life Scenarios";
+"Talk_Home_Banner_Subtitle" = "Structured scene dialogues to improve fast";
+"Talk_Home_Banner_Tag" = "New scenario dialogue learning mode";
+"Talk_Home_Banner_Title_2" = "Speak more naturally in daily situations";
+"Talk_Home_Banner_Subtitle_2" = "Practice speaking with practical dialogue";
+"Talk_Home_Banner_Tag_2" = "Focused speaking practice";
+"Talk_Home_Banner_Title_3" = "Learn step by step from beginner to advanced";
+"Talk_Home_Banner_Subtitle_3" = "Step-by-step practice for better fluency";
+"Talk_Home_Banner_Tag_3" = "Graded learning path";
+"Talk_Home_Tab_AllScenes" = "All Scenes";
+"Talk_Home_Tab_HotScenes" = "Hot Scenes";
+"Talk_Home_Tab_NewScenes" = "New Scenes";
+"Talk_Home_Tab_NearbyScenes" = "Nearby Scenes";
+"Talk_Home_Tab_RecommendedScenes" = "Recommended Scenes";
+"Talk_TopicHome_Title" = "Navigate Campus";
+"Talk_TopicHome_Subtitle" = "Real-life school situations";
+"Talk_PracticeTransition_Title_Beginner" = "Vocabulary Completed";
+"Talk_PracticeTransition_Title_Intermediate" = "Grammar Mastered!";
+"Talk_PracticeTransition_Title_Advanced" = "Grammar Level Up!";
+"Talk_PracticeTransition_Subtitle" = "Let's check what you remember";
+"Talk_PracticeTransition_Subtitle_Intermediate" = "Tip: Add 「吗」 to a statement to ask a question.";
+"Talk_PracticeTransition_AdvSec1_Label" = "Logic Mastered";
+"Talk_PracticeTransition_AdvSec1_Body" = "Expectation Logic (还没有): You can now talk about things that haven't happened — yet.";
+"Talk_PracticeTransition_AdvSec2_Label" = "Communication Style";
+"Talk_PracticeTransition_AdvSec2_Body" = "Cultural Softener (请问): Your tone is now more professional and polite.";
+
+"Talk_LevelComplete_Primary_MoveNext" = "Move to the next level";
+"Talk_LevelComplete_Primary_Explore" = "Explore another scenario";
+"Talk_LevelComplete_Beginner_Score" = "4";
+"Talk_LevelComplete_Beginner_Headline" = "Core Words";
+"Talk_LevelComplete_Beginner_Subtitle" = "You've mastered the key vocabulary for this topic";
+"Talk_LevelComplete_Intermediate_Headline" = "Yes/No Question Pattern";
+"Talk_LevelComplete_Intermediate_Subtitle" = "You've mastered how to ask simple questions using 「吗」(ma)";
+"Talk_LevelComplete_Advanced_Headline" = "Grammar & Culture";
+"Talk_LevelComplete_Advanced_Subtitle" = "You've mastered how to start questions politely and describe actions that haven't happened yet.";
+"Talk_LevelComplete_Nav_Again" = "Again";
+"Talk_ConfirmRestartLearning" = "Do you want to restart learning?";
+"Talk_RestartLearning_Restart" = "Restart";
+"Talk_Alert_Confirm" = "OK";
+"Talk_Alert_DefaultTopTitle" = "Tip";
+"Talk_ResumeLearning_Continue" = "Continue learning";
+"Talk_ResumeLearning_ProgressCaption" = "Current learning progress";
+
+"Talk_LearningFlow_LoadFailed" = "Couldn't load this lesson. Please try again.";
+"Talk_LearningFlow_InvalidScene_Restart" = "This scene isn't available. You can't restart.";
+"Talk_LearningFlow_RestartFailed" = "Couldn't restart. Please try again.";
+"Talk_LearningFlow_NetworkError" = "Network error. Please try again.";
+"Talk_LearningFlow_InvalidScene_NextLevel" = "This scene isn't available. You can't go to the next level.";
+"Talk_LearningFlow_LoadNextLevelFailed" = "Couldn't load the next level. Please try again.";
+"Talk_LearningFlow_InvalidScene_Bootstrap" = "Invalid scene. Can't load this lesson.";
+"Talk_LearningFlow_BootstrapDataInvalid" = "Lesson data is invalid.";
+
+"Talk_TopicHome_LoadingProgressWait" = "Loading your progress. Please try again in a moment.";
+"Talk_TopicHome_UnlockIntermediateNeedPercent" = "Reach %ld%% progress in Beginner to unlock Intermediate.";
+"Talk_TopicHome_UnlockAdvancedNeedPercent" = "Reach %ld%% progress in Intermediate to unlock Advanced.";
+
+"Talk_Recording_Error_IdentifierEmpty" = "Recording ID is missing.";
+"Talk_Recording_Error_MicDenied" = "Microphone access denied.";
+"Talk_Recording_Error_RecorderInitFailed" = "Couldn't initialize the recorder.";
+"Talk_Recording_Error_StartFailed" = "Couldn't start recording.";
+"Talk_Recording_Error_NotRecording" = "Not recording.";
+"Talk_Recording_Error_RecordFailed" = "Recording failed.";
+
+"Talk_Pronounce_Error_FileURLEmpty" = "Recording file is missing.";
+"Talk_Pronounce_Error_UnitEmpty" = "Lesson data is missing.";
+"Talk_Pronounce_Error_ExpectedTextEmpty" = "Expected text is missing.";
+
+"Talk_Audio_Error_InvalidURL" = "Invalid audio URL.";
+"Talk_Audio_Error_InvalidURLList" = "Invalid audio URL list.";
+
+"Detected last learning at %@, continue?" = "Detected last learning at %@, continue?";
+"Continue last learning" = "Continue last learning";
+"Start from beginning" = "Start from beginning";
+"Cancel" = "Cancel";
+"Error" = "Error";
+"OK" = "OK";
+
+"Level completed" = "Level completed";
+"You have completed this level (MVP placeholder)" = "You have completed this level (MVP placeholder)";
+
+"Correct Answer!" = "Correct Answer!";
+"The correct answer is :" = "The correct answer is :";
+"Wrong Answer" = "Wrong Answer";
+"Got it" = "Got it";
+
+"Progress" = "Progress";
+"Vocabulary" = "Vocabulary";
+"Congratulations, you've unlocked the next level!" = "Congratulations, you've unlocked the next level!";
+"Beginner" = "Beginner";
+"Simple" = "Simple";
+"Difficult" = "Difficult";
+"Intermediate" = "Intermediate";
+"Advanced" = "Advanced";
+"Step %ld" = "Step %ld";
+
+"Start recording" = "Start recording";
+"Recording… (tap to stop)" = "Recording… (tap to stop)";
+"Go to Settings to enable microphone" = "Go to Settings to enable microphone";
+"Scoring…" = "Scoring…";
+"Correct" = "Correct";
+"Try again" = "Try again";
+"Submit" = "Submit";
+
+"Playback complete (standard pronunciation)" = "Playback complete (standard pronunciation)";
+"No reference audio; please use recording to practice." = "No reference audio; please use recording to practice.";
+"Microphone permission denied, please enable it in system settings before recording." = "Microphone permission denied, please enable it in system settings before recording.";
+"Recording failed; please try again." = "Recording failed; please try again.";
+"Scoring failed; please try again later." = "Scoring failed; please try again later.";
+"Score %ld (completed)" = "Score %ld (completed)";
+"Score %ld (retry)" = "Score %ld (retry)";
+"Play my recording (debug)" = "Play my recording (debug)";
+"Please choose an option" = "Please choose an option";
+"Please complete the sentence" = "Please complete the sentence";
+
+"Choose the matching image" = "Choose the matching image";
+"Choose the correct response" = "Choose the correct response";
+"Choose the matching word" = "Choose the matching word";
+"Choose the correct word" = "Choose the correct word";
+"Build the sentence" = "Build the sentence";
+"Complete the dialogue" = "Complete the dialogue";
+"Usage:" = "Usage:";
+
+"Grammar Rule" = "Grammar Rule";
+"Used at the end of a sentence to ask a yes/no question." = "Used at the end of a sentence to ask a yes/no question.";
+"Statement +  吗?  = Question" = "Statement +  吗?  = Question";
+"EXAMPLE" = "EXAMPLE";
+
+"Processing..." = "Processing...";

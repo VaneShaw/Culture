@@ -36,6 +36,16 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
     NSLog(@"%@", log);
 }
 
+/// 与后端 JSON 对象键顺序一致（iOS 15+）；更早系统键序未定义
+/// NSJSONReadingOrderedCollections 在较旧 Xcode 头文件中可能未声明，故使用等价位 `(1UL << 3)`（与系统定义一致）
+static NSJSONReadingOptions YTNetJSONReadingOptions(void) {
+    NSJSONReadingOptions opts = 0;
+    if (@available(iOS 15.0, *)) {
+        opts |= (NSJSONReadingOptions)(1UL << 3);
+    }
+    return opts;
+}
+
 @implementation NetWorkTool
 /*不带token
 + (instancetype)sharedLoginTool {
@@ -45,7 +55,7 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
           instance = [NetWorkTool manager];
           //instance = [[super alloc]initWithBaseURL:[NSURL URLWithString:HOST]];
           instance.requestSerializer = [AFJSONRequestSerializer serializer];
-          instance.responseSerializer = [AFJSONResponseSerializer serializer];
+          instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
           //instance.responseSerializer = [AFHTTPResponseSerializer serializer];//新加
           NSMutableSet *acceptableContentTypes = [NSMutableSet setWithSet:instance.responseSerializer.acceptableContentTypes];
           [acceptableContentTypes addObjectsFromArray:@[@"application/json",@"text/json", @"text/javascript",@"text/html",@"plant/html",@"text/plain",@"text/xml",@"application/javascript"]];
@@ -61,13 +71,13 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
     //dispatch_once(&onceToken, ^{
       //instance = [[super alloc]initWithBaseURL:[NSURL URLWithString:HOST]];//=HOST=
       instance = [NetWorkTool manager];
-      instance.responseSerializer = [AFJSONResponseSerializer serializer];
+      instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
       AFHTTPRequestSerializer *requestSerializer = [AFHTTPRequestSerializer serializer];
       requestSerializer.timeoutInterval = 60;
       instance.requestSerializer = requestSerializer;
       NSMutableSet *acceptableContentTypes = [NSMutableSet setWithSet:instance.responseSerializer.acceptableContentTypes];
       [acceptableContentTypes addObjectsFromArray:@[@"application/json", @"text/json", @"text/javascript",@"text/html",@"plant/html",@"text/plain",@"text/xml",@"application/javascript"]];
-      instance.responseSerializer = [AFJSONResponseSerializer serializer];
+      instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
       instance.responseSerializer.acceptableContentTypes = acceptableContentTypes;
     
       //[instance.requestSerializer setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
@@ -85,7 +95,7 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
 
     instance = [NetWorkTool manager];
     instance.requestSerializer = [AFJSONRequestSerializer serializer];
-    instance.responseSerializer = [AFJSONResponseSerializer serializer];
+    instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
     //instance.requestSerializer.timeoutInterval = 30.0;
     //401
     NSString *authHeader = [KUSER_DEFAULT objectForKey:@"Authorization_key"];
@@ -95,7 +105,7 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
 
     NSMutableSet *acceptableContentTypes = [NSMutableSet setWithSet:instance.responseSerializer.acceptableContentTypes];
     [acceptableContentTypes addObjectsFromArray:@[@"application/json", @"text/json", @"text/javascript",@"text/html",@"plant/html",@"text/plain",@"text/xml",@"application/javascript"]];
-    instance.responseSerializer = [AFJSONResponseSerializer serializer];
+    instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
     
     // 获取版本号（1.0.6）
     NSString *appVersion = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
@@ -122,17 +132,17 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
     static NetWorkTool *instance;
     instance = [NetWorkTool manager];
     instance.requestSerializer = [AFJSONRequestSerializer serializer];
-    instance.responseSerializer = [AFJSONResponseSerializer serializer];
+    instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
 
     NSMutableSet *acceptableContentTypes = [NSMutableSet setWithSet:instance.responseSerializer.acceptableContentTypes];
        [acceptableContentTypes addObjectsFromArray:@[@"application/json", @"text/json", @"text/javascript",@"text/html",@"plant/html",@"text/plain",@"text/xml",@"application/javascript"]];
-    instance.responseSerializer = [AFJSONResponseSerializer serializer];
+    instance.responseSerializer = [AFJSONResponseSerializer serializerWithReadingOptions:YTNetJSONReadingOptions()];
     instance.responseSerializer.acceptableContentTypes = acceptableContentTypes;
     return instance;
 }
 #pragma mark - 自定义GET
 - (void)requestGET:(NSString *)urlString parames:(id)parames success:(void (^)(id responseObj))success failure:(void (^)(NSError *error))failure{
-    [self GET:urlString parameters:parames progress:^(NSProgress * _Nonnull downloadProgress) {
+    [self GET:urlString parameters:parames headers:nil progress:^(NSProgress * _Nonnull downloadProgress) {
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         success(responseObject);
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
@@ -143,7 +153,7 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
 #pragma mark - 自定义POST
 - (void)requestPOST:(NSString *)urlString parames:(id)parames success:(void (^)(NSURLSessionDataTask * _Nonnull task,id responseObj))success failure:(void (^)(NSError *error))failure{
     
-    [self POST:urlString parameters:parames progress:^(NSProgress * _Nonnull uploadProgress) {
+    [self POST:urlString parameters:parames headers:nil progress:^(NSProgress * _Nonnull uploadProgress) {
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
     success(task,responseObject);
         //NSString* responseString = [[NSString alloc] initWithData:responseObject encoding:NSUTF8StringEncoding];
@@ -168,7 +178,7 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
     return hex;
 }
 - (void)uploadImageWithURL:(NSString *)url image:(UIImage *)image params:(NSDictionary *)params success:(void (^)(BaseDataModel *result))success failure:(void (^)(NSError *))failure{
-    [self POST:url parameters:params constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    [self POST:url parameters:params headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         NSData *imageData =UIImageJPEGRepresentation(image,0.1);
         NSDateFormatter *formatter = [[NSDateFormatter alloc]init];
         formatter.dateFormat =@"yyyyMMddHHmmss";
@@ -196,7 +206,7 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
     }];
 }
 -(void)uploadImageWithURL:(NSString *)url images:(NSArray <UIImage *> *)images params:(NSDictionary *)params success:(void (^)(BaseDataModel *result))success failure:(void (^)(NSError *))failure{
-    [self POST:url parameters:params constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    [self POST:url parameters:params headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
          [MBProgressHUD showMessage:@"正在上传"];
         for (int i = 0; i < images.count; i ++) {
             NSDateFormatter *formatter=[[NSDateFormatter alloc]init];
@@ -231,7 +241,7 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
                   success:(void (^)(BaseDataModel *result))success
                   failure:(void (^)(NSError *))failure {
     
-    [self POST:url parameters:params constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    [self POST:url parameters:params headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         // 创建唯一文件名（使用时间戳）
         NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
         formatter.dateFormat = @"yyyyMMddHHmmss";
@@ -265,4 +275,3 @@ static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *t
     }];
 }
 @end
-

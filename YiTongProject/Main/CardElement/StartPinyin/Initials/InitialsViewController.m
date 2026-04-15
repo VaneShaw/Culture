@@ -217,6 +217,7 @@
 }
 
 - (void)getCategoryList{
+    __weak typeof(self) weakSelf = self;
     __block BOOL hudHidden = NO;// 2. 创建一个 __block 标志，防止重复隐藏
     if (!self.isCategoryListLoaded) {
         // 1. 显示加载动画
@@ -226,7 +227,10 @@
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             if (!hudHidden) {
                 hudHidden = YES;
-                [MBProgressHUD hideHUDForView:self.view animated:YES]; //转圈圈隐藏
+                __strong typeof(weakSelf) self = weakSelf;
+                if (self) {
+                    [MBProgressHUD hideHUDForView:self.view animated:YES]; //转圈圈隐藏
+                }
             }
         });
     }
@@ -235,6 +239,8 @@
     params[@"category_id"] = self.category_id;
     params = [LanguageHelper currentLanguageParams:params];
     [HttpTools postRequest:@"/pinyin/getCategoryList" parames:params success:^(BOOL success, BaseDataModel * _Nonnull response) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         if (!hudHidden) {
                hudHidden = YES;
                [MBProgressHUD hideHUDForView:self.view animated:YES];
