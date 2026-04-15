@@ -18,8 +18,9 @@
 @property (nonatomic, strong) UIView *playbackFailureOverlayView;
 @property (nonatomic, strong) UILabel *playbackFailureLabel;
 @property (nonatomic, strong) UIButton *playbackRetryButton;
-/// 横版内容：cell 内居中 16:9 条带 + ResizeAspect；竖版：铺满 + AspectFill
-@property (nonatomic, assign) BOOL ytv_landscapeBandLayout;
+/// 自 `YTVVideoFeedItem` 同步的自然像素尺寸；均为 0 表示尚未从接口或 AVAsset 探测到，布局退化为整页 `ResizeAspect`。
+@property (nonatomic, assign) CGFloat ytv_naturalVideoWidth;
+@property (nonatomic, assign) CGFloat ytv_naturalVideoHeight;
 @property (nonatomic, assign) BOOL ytv_playbackFailureVisible;
 @end
 
@@ -58,7 +59,8 @@
     self.pausedPlayHintView.hidden = YES;
     self.ytv_onVideoAreaTap = nil;
     self.ytv_onPlaybackRetryTap = nil;
-    self.ytv_landscapeBandLayout = NO;
+    self.ytv_naturalVideoWidth = 0;
+    self.ytv_naturalVideoHeight = 0;
     self.ytv_playbackFailureVisible = NO;
 }
 
@@ -68,22 +70,13 @@
     CGFloat h = CGRectGetHeight(self.contentView.bounds);
     self.fullScreenTapView.frame = self.contentView.bounds;
     self.playbackFailureOverlayView.frame = self.contentView.bounds;
-    CGRect videoFrame;
-    BOOL landscapeLayout = self.ytv_landscapeBandLayout;
-    if (landscapeLayout) {
-        CGFloat bandH = w * (9.0 / 16.0);
-        CGFloat y = (h - bandH) * 0.5;
-        videoFrame = CGRectMake(0, y, w, bandH);
-        self.coverImageView.contentMode = UIViewContentModeScaleAspectFit;
-    } else {
-        videoFrame = CGRectMake(0, 0, w, h);
-        self.coverImageView.contentMode = UIViewContentModeScaleAspectFill;
-    }
+    CGRect videoFrame = [self ytv_videoContentFrameInContentBounds:self.contentView.bounds];
+    self.coverImageView.contentMode = UIViewContentModeScaleAspectFit;
     /// 抖音式全屏会把 `renderView` 临时挂到遮罩上，仍在 cell 上时不要改其 frame。
     if (self.renderView.superview == self.contentView) {
         self.renderView.frame = videoFrame;
         self.coverImageView.frame = videoFrame;
-        self.renderView.playerLayer.videoGravity = landscapeLayout ? AVLayerVideoGravityResizeAspect : AVLayerVideoGravityResizeAspectFill;
+        self.renderView.playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
     } else {
         self.coverImageView.frame = videoFrame;
     }
@@ -143,23 +136,43 @@
 }
 
 - (void)ytv_applyVideoLayoutFromFeedItem:(YTVVideoFeedItem *)item {
-    BOOL next = item && item.ytv_hasNaturalVideoSize && [item ytv_isLandscapeNaturalVideo];
-    self.ytv_landscapeBandLayout = next;
+    if (item && item.ytv_hasNaturalVideoSize && item.ytv_naturalVideoWidth > 0.5 && item.ytv_naturalVideoHeight > 0.5) {
+        self.ytv_naturalVideoWidth = item.ytv_naturalVideoWidth;
+        self.ytv_naturalVideoHeight = item.ytv_naturalVideoHeight;
+    } else {
+        self.ytv_naturalVideoWidth = 0;
+        self.ytv_naturalVideoHeight = 0;
+    }
     [self setNeedsLayout];
 }
 
-- (CGRect)ytv_landscapeVideoContentFrameConvertedToView:(UIView *)view {
-    if (!view || !self.ytv_landscapeBandLayout) {
-        return CGRectZero;
-    }
-    CGFloat w = CGRectGetWidth(self.contentView.bounds);
-    CGFloat h = CGRectGetHeight(self.contentView.bounds);
+/// 宽度取满 contentView，高度为 `width * 自然高/宽` 并垂直居中；超高时在 cell 内上下裁切。无自然尺寸时为整页 bounds。
+- (CGRect)ytv_videoContentFrameInContentBounds:(CGRect)contentBounds {
+    CGFloat w = CGRectGetWidth(contentBounds);
+    CGFloat h = CGRectGetHeight(contentBounds);
     if (w < 1.0 || h < 1.0) {
         return CGRectZero;
     }
-    CGFloat bandH = w * (9.0 / 16.0);
-    CGFloat y = (h - bandH) * 0.5;
-    CGRect videoFrame = CGRectMake(0, y, w, bandH);
+    CGFloat nw = self.ytv_naturalVideoWidth;
+    CGFloat nh = self.ytv_naturalVideoHeight;
+    if (nw < 0.5 || nh < 0.5) {
+        return contentBounds;
+    }
+    CGFloat videoH = w * (nh / nw);
+    CGFloat y = (h - videoH) * 0.5;
+    return CGRectMake(0, y, w, videoH);
+}
+
+- (CGRect)ytv_landscapeVideoContentFrameConvertedToView:(UIView *)view {
+    if (!view) {
+        return CGRectZero;
+    }
+    CGFloat nw = self.ytv_naturalVideoWidth;
+    CGFloat nh = self.ytv_naturalVideoHeight;
+    if (nw < 0.5 || nh < 0.5 || nw <= nh + 0.5) {
+        return CGRectZero;
+    }
+    CGRect videoFrame = [self ytv_videoContentFrameInContentBounds:self.contentView.bounds];
     return [self.contentView convertRect:videoFrame toView:view];
 }
 

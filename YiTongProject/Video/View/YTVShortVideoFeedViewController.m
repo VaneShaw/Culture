@@ -212,6 +212,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 @property (nonatomic, assign) BOOL ytv_inlineFullscreenChromeSafeInsetsUpdatesEnabled;
 - (void)ytv_updateInlineFullscreenChromeInsetsFromWindowSafeArea;
 - (void)ytv_probeNaturalVideoSizeIfNeededForItem:(YTVVideoFeedItem *)item;
+- (nullable NSURL *)ytv_assetURLFromPlayURLString:(NSString *)playURL;
 - (void)ytv_applyVideoLayoutHintForVideoId:(NSString *)videoId;
 - (void)ytv_inlineFullscreenRemoveTimeObserverIfNeeded;
 - (void)ytv_inlineFullscreenInstallTimeObserver;
@@ -1289,9 +1290,9 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         return;
     }
     YTVVideoFeedItem *target = [self.feedViewModel itemAtIndex:targetIdx];
-    NSURL *url = [NSURL URLWithString:target.playURL];
+    NSURL *url = [self ytv_assetURLFromPlayURLString:target.playURL];
     NSString *scheme = url.scheme.lowercaseString;
-    if (!target || target.videoId.length == 0 || !url || (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"])) {
+    if (!target || target.videoId.length == 0 || !url || (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"] && ![scheme isEqualToString:@"file"])) {
         return;
     }
     self.ytv_standbyTargetIndex = targetIdx;
@@ -1411,13 +1412,14 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     }
     NSInteger bindIdx = self.currentPlayIndex;
     YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:bindIdx];
-    NSURL *remoteURL = [NSURL URLWithString:item.playURL];
-    if (!remoteURL || (![remoteURL.scheme.lowercaseString isEqualToString:@"http"] && ![remoteURL.scheme.lowercaseString isEqualToString:@"https"])) {
+    NSURL *assetURL = [self ytv_assetURLFromPlayURLString:item.playURL];
+    NSString *assetScheme = assetURL.scheme.lowercaseString;
+    if (!assetURL || (![assetScheme isEqualToString:@"http"] && ![assetScheme isEqualToString:@"https"] && ![assetScheme isEqualToString:@"file"])) {
         [self ytv_resetPlaybackSessionForInvalidCurrentItem];
         return;
     }
     YTVVideoCachePlaybackDecision *cacheDecision = [self.preloadManager playbackDecisionForVideoId:item.videoId playURL:item.playURL];
-    NSURL *expectedPlaybackURL = cacheDecision.playbackURL ?: remoteURL;
+    NSURL *expectedPlaybackURL = cacheDecision.playbackURL ?: assetURL;
     [self.preloadManager markPlaybackProtectedVideoId:item.videoId];
     [self ytv_probeNaturalVideoSizeIfNeededForItem:item];
     self.ytv_pendingBindIndex = bindIdx;
@@ -1435,7 +1437,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             return;
         }
     }
-    [self ytv_replacePlaybackForItem:item url:remoteURL bindIdx:bindIdx cell:cell];
+    [self ytv_replacePlaybackForItem:item url:assetURL bindIdx:bindIdx cell:cell];
 }
 
 /// 点击整页任意区域统一切换暂停/继续播放。
@@ -1627,9 +1629,9 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             [self ytv_applyShareChromeForItem:item];
             BOOL canFullScreenChrome = NO;
             if (item.playURL.length > 0) {
-                NSURL *pu = [NSURL URLWithString:item.playURL];
+                NSURL *pu = [self ytv_assetURLFromPlayURLString:item.playURL];
                 NSString *ps = pu.scheme.lowercaseString;
-                BOOL urlOk = pu != nil && ([ps isEqualToString:@"http"] || [ps isEqualToString:@"https"]);
+                BOOL urlOk = pu != nil && ([ps isEqualToString:@"http"] || [ps isEqualToString:@"https"] || [ps isEqualToString:@"file"]);
                 canFullScreenChrome = urlOk && item.ytv_hasNaturalVideoSize && [item ytv_isLandscapeNaturalVideo];
             }
             self.fullScreenChromeButton.hidden = !canFullScreenChrome;
@@ -1644,14 +1646,29 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     [self ytv_syncPausedPlayHintForCurrentCell];
 }
 
+/// 将 `playURL` 规范为可交给 AVURLAsset 的 NSURL（含 file:// 与无 scheme 的绝对路径）。
+- (nullable NSURL *)ytv_assetURLFromPlayURLString:(NSString *)playURL {
+    if (playURL.length == 0) {
+        return nil;
+    }
+    NSURL *url = [NSURL URLWithString:playURL];
+    if (url && url.scheme.length > 0) {
+        return url;
+    }
+    if ([playURL hasPrefix:@"/"]) {
+        return [NSURL fileURLWithPath:playURL];
+    }
+    return nil;
+}
+
 /// 无接口宽高时异步读 tracks，避免竖滑首帧前无法区分横竖；失败则按竖版默认（全屏条）
 - (void)ytv_probeNaturalVideoSizeIfNeededForItem:(YTVVideoFeedItem *)item {
     if (!item || item.ytv_hasNaturalVideoSize || item.playURL.length == 0) {
         return;
     }
-    NSURL *url = [NSURL URLWithString:item.playURL];
+    NSURL *url = [self ytv_assetURLFromPlayURLString:item.playURL];
     NSString *sc = url.scheme.lowercaseString;
-    if (!url || (![sc isEqualToString:@"http"] && ![sc isEqualToString:@"https"])) {
+    if (!url || (![sc isEqualToString:@"http"] && ![sc isEqualToString:@"https"] && ![sc isEqualToString:@"file"])) {
         return;
     }
     AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:@{ AVURLAssetPreferPreciseDurationAndTimingKey : @NO }];
@@ -1951,9 +1968,9 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (!item.ytv_hasNaturalVideoSize || ![item ytv_isLandscapeNaturalVideo]) {
         return;
     }
-    NSURL *u = [NSURL URLWithString:item.playURL];
+    NSURL *u = [self ytv_assetURLFromPlayURLString:item.playURL];
     NSString *s = u.scheme.lowercaseString;
-    if (!u || (![s isEqualToString:@"http"] && ![s isEqualToString:@"https"])) {
+    if (!u || (![s isEqualToString:@"http"] && ![s isEqualToString:@"https"] && ![s isEqualToString:@"file"])) {
         return;
     }
     [self ytv_enterInlineFullscreenAnimated];

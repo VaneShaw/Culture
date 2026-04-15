@@ -2,7 +2,7 @@
 //  YTVShortVideoCell.h
 //  YiTongProject
 //
-//  整页竖滑中的单条 cell：16:9 渲染区居中，上下黑边（技术设计 §2）
+//  整页竖滑中的单条 cell：视频区宽度铺满，高度按素材宽高比居中；无尺寸信息前整页等比留白（不裁切）。
 //
 
 #import <UIKit/UIKit.h>
