@@ -1107,7 +1107,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:idx];
         if (item.coverURL.length > 0) {
             NSURL *url = [NSURL URLWithString:item.coverURL];
-            if (url && ![url.pathExtension.lowercaseString isEqualToString:@"gif"]) {
+            if (url) {
                 [coverURLs addObject:url];
             }
         }

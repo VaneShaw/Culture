@@ -167,10 +167,6 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
     if (!coverURL) {
         return;
     }
-    NSString *coverPathExtension = coverURL.pathExtension.lowercaseString;
-    if ([coverPathExtension isEqualToString:@"gif"]) {
-        return;
-    }
     NSString *cacheKey = [[SDWebImageManager sharedManager] cacheKeyForURL:coverURL];
     SDImageCache *cache = [SDImageCache sharedImageCache];
     UIImage *cachedImage = [cache imageFromMemoryCacheForKey:cacheKey];

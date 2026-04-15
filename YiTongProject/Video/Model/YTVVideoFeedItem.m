@@ -12,13 +12,15 @@
         return nil;
     }
     YTVVideoFeedItem *item = [[YTVVideoFeedItem alloc] init];
-    item.videoId = [self ytv_string:dict[@"video_id"]];
+    // /video/feed/*: video_id, url, summary, category
+    // /video/list: tale_id, video_url, content, type
+    item.videoId = [self ytv_string:(dict[@"video_id"] ?: dict[@"tale_id"] ?: dict[@"id"])];
     item.title = [self ytv_string:dict[@"title"]];
-    item.category = [self ytv_string:dict[@"category"]];
-    item.summary = [self ytv_string:dict[@"summary"]];
-    item.playURL = [self ytv_string:dict[@"url"]];
+    item.category = [self ytv_string:(dict[@"category"] ?: dict[@"type"] ?: dict[@"tab"])];
+    item.summary = [self ytv_string:(dict[@"summary"] ?: dict[@"content"] ?: dict[@"desc"])];
+    item.playURL = [self ytv_string:(dict[@"url"] ?: dict[@"video_url"] ?: dict[@"videoUrl"])];
     item.fullTextURL = [self ytv_string:dict[@"full_text_url"]];
-    item.coverURL = [self ytv_string:dict[@"cover_url"]];
+    item.coverURL = [self ytv_string:(dict[@"cover_url"] ?: dict[@"head_image"] ?: dict[@"cover"] ?: dict[@"headImage"])];
     item.shareURL = [self ytv_string:dict[@"share_url"]];
     id fav = dict[@"is_favorite"];
     if ([fav isKindOfClass:[NSNumber class]]) {

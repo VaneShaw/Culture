@@ -94,7 +94,7 @@ const NSInteger kYTVVideoTabBarIndex = 2;
                 if (!self) {
                     return;
                 }
-                NSArray<NSString *> *fallbackKeys = @[ @"recommend" ];
+                NSArray<NSString *> *fallbackKeys = @[ @"tz" ];
                 NSArray<NSString *> *fallbackTitles = @[ NSLocalizedString(@"YTV_category_recommend", @"") ];
                 [self ytv_applyRemoteVideoTabKeys:fallbackKeys titles:fallbackTitles];
             });
