@@ -8,6 +8,34 @@
 #import "NetWorkTool.h"
 #import "BaseDataModel.h"
 
+/// 仅用于排查 `/video/tab` 等非 JSON 响应：把 NSError.userInfo 里 NSData 转成 UTF-8 字符串（失败则给长度说明）
+static void YTVLogFailureIfVideoTab(NSString *urlString, NSURLSessionDataTask *task, NSError *error) {
+    if (urlString.length == 0 || [urlString rangeOfString:@"/video/tab"].location == NSNotFound) {
+        return;
+    }
+    NSMutableString *log = [NSMutableString stringWithFormat:@"[YTVVideoTab][RAW] 请求失败\nURL: %@\nNSError: %@\n", urlString, error];
+    NSHTTPURLResponse *http = (NSHTTPURLResponse *)task.response;
+    if ([http isKindOfClass:[NSHTTPURLResponse class]]) {
+        [log appendFormat:@"HTTP 状态码: %ld\nMIME: %@\n", (long)http.statusCode, http.MIMEType ?: @"(nil)"];
+    }
+    [log appendString:@"--- userInfo ---\n"];
+    [error.userInfo enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+        if ([obj isKindOfClass:[NSData class]]) {
+            NSData *d = (NSData *)obj;
+            NSString *s = [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding];
+            if (s.length == 0) {
+                s = [NSString stringWithFormat:@"[无法按 UTF-8 解码，NSData 长度 %lu]", (unsigned long)d.length];
+            } else if (s.length > 4000) {
+                s = [[s substringToIndex:4000] stringByAppendingString:@"\n...（已截断至 4000 字符）"];
+            }
+            [log appendFormat:@"%@ = %@\n", key, s];
+        } else {
+            [log appendFormat:@"%@ = %@\n", key, obj];
+        }
+    }];
+    NSLog(@"%@", log);
+}
+
 @implementation NetWorkTool
 /*不带token
 + (instancetype)sharedLoginTool {
@@ -108,7 +136,7 @@
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         success(responseObject);
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
-        //NSLog(@"error------[%@]---------ing=[%@]---------111--------",error,urlString);
+        YTVLogFailureIfVideoTab(urlString, task, error);
         failure(error);
     }];
 }
@@ -121,7 +149,7 @@
         //NSString* responseString = [[NSString alloc] initWithData:responseObject encoding:NSUTF8StringEncoding];
         //NSLog(@"原始响应: [%@]============11============", responseString);
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
-       //NSLog(@"响应文本: %@]---------------221133", [[NSString alloc] initWithData:responseObject encoding:NSUTF8StringEncoding]);
+        YTVLogFailureIfVideoTab(urlString, task, error);
         failure(error);
     }];
 }

@@ -100,7 +100,7 @@ static NSString * const kYTVUDSampleFeed = @"YTVDebugVideoSampleFeed";
 
 + (NSArray<YTVVideoFeedItem *> *)ytv_filteredItemsForCategory:(NSString *)categoryKey {
     NSArray<YTVVideoFeedItem *> *all = [self allSampleItems];
-    if (categoryKey.length == 0 || [categoryKey isEqualToString:@"recommend"]) {
+    if (categoryKey.length == 0 || [categoryKey isEqualToString:@"recommend"] || [categoryKey isEqualToString:@"tz"]) {
         return all;
     }
     NSMutableArray *m = [NSMutableArray array];

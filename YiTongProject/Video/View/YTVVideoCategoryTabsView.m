@@ -32,7 +32,6 @@
             make.top.bottom.equalTo(self);
             make.right.equalTo(self.searchButton.mas_left).offset(-2);
         }];
-        /// Masonry 不支持约束到 UIScrollView 的 contentLayoutGuide / frameLayoutGuide，需用系统 Anchor。
         self.tabsRowStack.translatesAutoresizingMaskIntoConstraints = NO;
         UILayoutGuide *contentG = self.tabsScrollView.contentLayoutGuide;
         UILayoutGuide *frameG = self.tabsScrollView.frameLayoutGuide;
@@ -48,16 +47,21 @@
             make.centerY.equalTo(self);
             make.width.height.mas_equalTo(44);
         }];
-        [self.selectionUnderline mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.height.mas_equalTo(2.5);
-            make.bottom.equalTo(self).offset(-5);
-            make.width.mas_equalTo(28);
-            make.centerX.equalTo(self.tabButtons.firstObject);
-        }];
         self.tabsScrollView.showsHorizontalScrollIndicator = NO;
         self.tabsScrollView.showsVerticalScrollIndicator = NO;
         self.tabsScrollView.alwaysBounceHorizontal = YES;
         self.tabsScrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+        [self ytv_applyTabTitles:nil];
+        [self.selectionUnderline mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.height.mas_equalTo(2.5);
+            make.bottom.equalTo(self).offset(-5);
+            make.width.mas_equalTo(28);
+            if (self.tabButtons.count > 0) {
+                make.centerX.equalTo(self.tabButtons.firstObject);
+            } else {
+                make.centerX.equalTo(self.tabsScrollView);
+            }
+        }];
         [self ytv_updateButtonStylesAnimated:NO];
         [self layoutIfNeeded];
         [self ytv_updateSelectionUnderlineConstraints];
@@ -65,8 +69,54 @@
     return self;
 }
 
+- (void)ytv_applyTabTitles:(NSArray<NSString *> *)titles {
+    NSUInteger n = YTVVideoCategoryCount();
+    NSMutableArray<NSString *> *use = [NSMutableArray arrayWithCapacity:n];
+    for (NSUInteger i = 0; i < n; i++) {
+        NSString *t = nil;
+        if (titles != nil && i < titles.count) {
+            id o = titles[i];
+            if ([o isKindOfClass:[NSString class]]) {
+                t = [(NSString *)o stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            }
+        }
+        if (t.length == 0) {
+            t = YTVVideoCategoryTitleAtIndex(i);
+        }
+        if (t.length == 0) {
+            t = YTVVideoCategoryKeyAtIndex(i);
+        }
+        [use addObject:t];
+    }
+    for (UIView *v in [self.tabsRowStack.arrangedSubviews copy]) {
+        [self.tabsRowStack removeArrangedSubview:v];
+        [v removeFromSuperview];
+    }
+    NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
+    for (NSUInteger i = 0; i < use.count; i++) {
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+        [b setTitle:use[i] forState:UIControlStateNormal];
+        b.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:15];
+        b.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10);
+        b.tag = (NSInteger)i;
+        [b addTarget:self action:@selector(ytv_tabTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [buttons addObject:b];
+        [self.tabsRowStack addArrangedSubview:b];
+    }
+    self.tabButtons = [buttons copy];
+    if (self.selectedIndex >= (NSInteger)self.tabButtons.count) {
+        self.selectedIndex = MAX(0, (NSInteger)self.tabButtons.count - 1);
+    }
+    [self ytv_updateButtonStylesAnimated:NO];
+    [self layoutIfNeeded];
+    [self ytv_updateSelectionUnderlineConstraints];
+}
+
 - (void)ytv_setSelectedIndex:(NSInteger)index animated:(BOOL)animated {
     if (index < 0 || index >= (NSInteger)YTVVideoCategoryCount()) {
+        return;
+    }
+    if (index >= (NSInteger)self.tabButtons.count) {
         return;
     }
     self.selectedIndex = index;
@@ -85,24 +135,7 @@
 
 - (UIStackView *)tabsRowStack {
     if (!_tabsRowStack) {
-        NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
-        NSArray<NSString *> *titles = @[
-            NSLocalizedString(@"YTV_category_recommend", @""),
-            NSLocalizedString(@"YTV_category_idiom", @""),
-            NSLocalizedString(@"YTV_category_myth", @""),
-            NSLocalizedString(@"YTV_category_fengshen", @""),
-        ];
-        for (NSInteger i = 0; i < (NSInteger)titles.count; i++) {
-            UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-            [b setTitle:titles[(NSUInteger)i] forState:UIControlStateNormal];
-            b.titleLabel.font = [UIFont fontWithName:FONT_NAME_Regular size:15];
-            b.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10);
-            b.tag = i;
-            [b addTarget:self action:@selector(ytv_tabTapped:) forControlEvents:UIControlEventTouchUpInside];
-            [buttons addObject:b];
-        }
-        self.tabButtons = [buttons copy];
-        _tabsRowStack = [[UIStackView alloc] initWithArrangedSubviews:self.tabButtons];
+        _tabsRowStack = [[UIStackView alloc] init];
         _tabsRowStack.axis = UILayoutConstraintAxisHorizontal;
         _tabsRowStack.distribution = UIStackViewDistributionFill;
         _tabsRowStack.alignment = UIStackViewAlignmentCenter;

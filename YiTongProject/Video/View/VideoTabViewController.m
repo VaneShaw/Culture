@@ -8,6 +8,7 @@
 #import "YTVShortVideoFeedViewController.h"
 #import "YTVVideoCategoryTabsView.h"
 #import "YTVVideoCategoryKeys.h"
+#import "YTVVideoTabApi.h"
 
 const NSInteger kYTVVideoTabBarIndex = 2;
 
@@ -31,10 +32,6 @@ const NSInteger kYTVVideoTabBarIndex = 2;
     self.navigationController.navigationBarHidden = YES;
     self.currentCategoryIndex = 0;
     self.feedSlots = [NSMutableArray array];
-    NSUInteger n = YTVVideoCategoryCount();
-    for (NSUInteger i = 0; i < n; i++) {
-        [self.feedSlots addObject:[NSNull null]];
-    }
     [self.view addSubview:self.tabsView];
     [self addChildViewController:self.pageViewController];
     [self.view addSubview:self.pageViewController.view];
@@ -48,6 +45,13 @@ const NSInteger kYTVVideoTabBarIndex = 2;
         make.top.left.right.bottom.equalTo(self.view);
     }];
     [self.view bringSubviewToFront:self.tabsView];
+    UIViewController *placeholder = [[UIViewController alloc] init];
+    placeholder.view.backgroundColor = [UIColor blackColor];
+    [self.pageViewController setViewControllers:@[placeholder]
+                                       direction:UIPageViewControllerNavigationDirectionForward
+                                        animated:NO
+                                      completion:nil];
+    [self.tabsView ytv_applyTabTitles:nil];
     __weak typeof(self) weakSelf = self;
     self.tabsView.onSearchTap = ^{
         [MBProgressHUD showLabel:NSLocalizedString(@"YTV_video_search_coming_soon", @"")];
@@ -73,7 +77,65 @@ const NSInteger kYTVVideoTabBarIndex = 2;
             }
         }];
     };
+    [self ytv_fetchVideoTabConfigurationIfNeeded];
+}
+
+/// GET /video/tab：刷新 segment 文案；若分类 key 集合变化则重建各分类 Feed 槽位与 PageVC。
+- (void)ytv_fetchVideoTabConfigurationIfNeeded {
+    __weak typeof(self) weakSelf = self;
+    [YTVVideoTabApi ytv_fetchVideoTabsWithCompletion:^(NSArray<NSString *> *keys, NSArray<NSString *> *titles, NSError *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        if (error != nil) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) self = weakSelf;
+                if (!self) {
+                    return;
+                }
+                NSArray<NSString *> *fallbackKeys = @[ @"recommend" ];
+                NSArray<NSString *> *fallbackTitles = @[ NSLocalizedString(@"YTV_category_recommend", @"") ];
+                [self ytv_applyRemoteVideoTabKeys:fallbackKeys titles:fallbackTitles];
+            });
+            return;
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) {
+                return;
+            }
+            [self ytv_applyRemoteVideoTabKeys:keys titles:titles];
+        });
+    }];
+}
+
+- (void)ytv_applyRemoteVideoTabKeys:(NSArray<NSString *> *)keys titles:(NSArray<NSString *> *)titles {
+    if (keys.count == 0) {
+        return;
+    }
+    BOOL sameKeyLayout = YTVVideoCategoryConfigurationMatchesKeys(keys);
+    if (sameKeyLayout) {
+        YTVVideoCategorySetFeedTabConfiguration(keys, titles);
+        [self.tabsView ytv_applyTabTitles:titles];
+        return;
+    }
+    for (UIViewController *child in [self.pageViewController.childViewControllers copy]) {
+        [child willMoveToParentViewController:nil];
+        [child.view removeFromSuperview];
+        [child removeFromParentViewController];
+    }
+    self.feedSlots = [NSMutableArray array];
+    YTVVideoCategorySetFeedTabConfiguration(keys, titles);
+    NSUInteger n = YTVVideoCategoryCount();
+    for (NSUInteger i = 0; i < n; i++) {
+        [self.feedSlots addObject:[NSNull null]];
+    }
+    self.currentCategoryIndex = 0;
+    [self.tabsView ytv_applyTabTitles:titles];
+    [self.tabsView ytv_setSelectedIndex:0 animated:NO];
     YTVShortVideoFeedViewController *first = [self ytv_feedViewControllerAtIndex:0];
+    __weak typeof(self) weakSelf = self;
     [self.pageViewController setViewControllers:@[first]
                                        direction:UIPageViewControllerNavigationDirectionForward
                                         animated:NO
@@ -82,7 +144,7 @@ const NSInteger kYTVVideoTabBarIndex = 2;
         if (!self) {
             return;
         }
-        [self ytv_commitActiveFeed:first updateTabSelection:YES];
+        [self ytv_commitActiveFeed:first updateTabSelection:NO];
     }];
 }
 
@@ -98,9 +160,10 @@ const NSInteger kYTVVideoTabBarIndex = 2;
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     UIViewController *cur = self.pageViewController.viewControllers.firstObject;
-    if ([cur isKindOfClass:[YTVShortVideoFeedViewController class]]) {
-        [self ytv_commitActiveFeed:(YTVShortVideoFeedViewController *)cur updateTabSelection:NO];
+    if (![cur isKindOfClass:[YTVShortVideoFeedViewController class]]) {
+        return;
     }
+    [self ytv_commitActiveFeed:(YTVShortVideoFeedViewController *)cur updateTabSelection:NO];
 }
 
 #pragma mark - 分类实例与激活（每分类独立 VC，非当前降载）
@@ -202,6 +265,9 @@ const NSInteger kYTVVideoTabBarIndex = 2;
 
 - (void)ytv_openDeepLinkWithVideoId:(NSString *)videoId categoryKey:(NSString *)categoryKey {
     if (videoId.length == 0) {
+        return;
+    }
+    if (YTVVideoCategoryCount() == 0) {
         return;
     }
     NSInteger catIdx = 0;
