@@ -142,7 +142,6 @@
 		4248E6082E14C30700525590 /* CountDownButton.m in Sources */ = {isa = PBXBuildFile; fileRef = 4248E6072E14C30700525590 /* CountDownButton.m */; };
 		4248E60B2E14CA5B00525590 /* EmailValidator.m in Sources */ = {isa = PBXBuildFile; fileRef = 4248E60A2E14CA5B00525590 /* EmailValidator.m */; };
 		425518362E0BD7E7007764C7 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 425518352E0BD7E7007764C7 /* AppDelegate.m */; };
-		7F88AAB02EA0050100ABC101 /* YTTabBarController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7F88AAB22EA0050100ABC103 /* YTTabBarController.m */; };
 		425518392E0BD7E7007764C7 /* SceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 425518382E0BD7E7007764C7 /* SceneDelegate.m */; };
 		4255183C2E0BD7E7007764C7 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4255183B2E0BD7E7007764C7 /* ViewController.m */; };
 		4255183F2E0BD7E7007764C7 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4255183D2E0BD7E7007764C7 /* Main.storyboard */; };
@@ -186,34 +185,6 @@
 		42E3C66B2E3F9B9E00D309FC /* QuizResultViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 42E3C66A2E3F9B9E00D309FC /* QuizResultViewController.m */; };
 		42F2C63D2E2A1F2F0040966A /* SpeakResultsView.m in Sources */ = {isa = PBXBuildFile; fileRef = 42F2C63C2E2A1F2F0040966A /* SpeakResultsView.m */; };
 		42FB742A2E0E3AFF00C9330B /* LoginFirstView.m in Sources */ = {isa = PBXBuildFile; fileRef = 42FB74292E0E3AFF00C9330B /* LoginFirstView.m */; };
-		7A7012402E80000100ABCD01 /* VideoTabViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012392E80000100ABCD00 /* VideoTabViewController.m */; };
-		7A7012412E80000100ABCD02 /* YTVFeedTypes.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012312E80000100ABCD00 /* YTVFeedTypes.m */; };
-		7A7012422E80000100ABCD03 /* YTVVideoFeedItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012332E80000100ABCD00 /* YTVVideoFeedItem.m */; };
-		7A7012432E80000100ABCD04 /* YTVFeedPageResult.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012352E80000100ABCD00 /* YTVFeedPageResult.m */; };
-		7A7012442E80000100ABCD05 /* YTVFeedRepository.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012372E80000100ABCD00 /* YTVFeedRepository.m */; };
-		7A7012452E80000100ABCD07 /* YTVPlayerSessionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012612E80000100ABCD07 /* YTVPlayerSessionManager.m */; };
-		7A7012462E80000100ABCD08 /* YTVVideoRenderView.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012632E80000100ABCD09 /* YTVVideoRenderView.m */; };
-		7A7012482E80000100ABCD0C /* YTVShortVideoFeedViewModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012712E80000100ABCD21 /* YTVShortVideoFeedViewModel.m */; };
-		7A7012492E80000100ABCD0D /* YTVShortVideoCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012732E80000100ABCD23 /* YTVShortVideoCell.m */; };
-		7A70124A2E80000100ABCD0E /* YTVShortVideoFeedViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012752E80000100ABCD25 /* YTVShortVideoFeedViewController.m */; };
-		7A70124B2E80000100ABCD0F /* YTVVideoCategoryKeys.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012772E80000100ABCD27 /* YTVVideoCategoryKeys.m */; };
-		7A70127A2E80000100ABCD2A /* YTVVideoTabApi.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70127C2E80000100ABCD2F /* YTVVideoTabApi.m */; };
-		7A70124C2E80000100ABCD10 /* YTVVideoCategoryTabsView.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012792E80000100ABCD29 /* YTVVideoCategoryTabsView.m */; };
-		7A70124D2E80000100ABCD11 /* YTVFeedSnapshotCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012812E80000100ABCD2B /* YTVFeedSnapshotCache.m */; };
-		7A70124E2E80000100ABCD12 /* YTVVideoPreloadManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012832E80000100ABCD2D /* YTVVideoPreloadManager.m */; };
-		7A70AA012F90000100ABCD01 /* YTVFeedResumeCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70AA032F90000100ABCD03 /* YTVFeedResumeCache.m */; };
-		7A70AA022F90000100ABCD02 /* YTVVideoDiskCacheManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70AA052F90000100ABCD05 /* YTVVideoDiskCacheManager.m */; };
-		7A70AA072F90000100ABCD07 /* YTVVideoCacheProxyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70AA092F90000100ABCD09 /* YTVVideoCacheProxyManager.m */; };
-		7A7012E02E8A040100ABCD01 /* YTVVideoFavoritesRepository.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012E22E8A040100ABCD03 /* YTVVideoFavoritesRepository.m */; };
-		7A7012E32E8A040100ABCD04 /* VideoTextWebViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012E52E8A040100ABCD06 /* VideoTextWebViewController.m */; };
-		7A7013012E8B040100ABCD01 /* YTVVideoDebugSampleFeed.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013062E8B040100ABCD06 /* YTVVideoDebugSampleFeed.m */; };
-		7A7013022E8B040100ABCD02 /* YTVFavoritesListViewModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013082E8B040100ABCD08 /* YTVFavoritesListViewModel.m */; };
-		7A7013032E8B040100ABCD03 /* YTVFavoritesListCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70130A2E8B040100ABCD0A /* YTVFavoritesListCell.m */; };
-		7A7013042E8B040100ABCD04 /* YTVFavoritesListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70130C2E8B040100ABCD0C /* YTVFavoritesListViewController.m */; };
-		7A7013162E8C040100ABCD16 /* YTVVideoPRDShareHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013182E8C040100ABCD18 /* YTVVideoPRDShareHelper.m */; };
-		7A7013182E8D040100ABCD18 /* YTVVideoDeepLinkRouter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70131B2E8D040100ABCD1B /* YTVVideoDeepLinkRouter.m */; };
-		7A7013192E8D040100ABCD19 /* YTVFeedCoordinator.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70131D2E8D040100ABCD1D /* YTVFeedCoordinator.m */; };
-		7A7013242E8E040100ABCD20 /* YTVFeedFullscreenViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013262E8E040100ABCD22 /* YTVFeedFullscreenViewController.m */; };
 		6A7E0D898A2A4C9AA1B3C10F /* TalkLearningFlowViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D808A2A4C9AA1B3C106 /* TalkLearningFlowViewController.m */; };
 		6A7E0D8B8A2A4C9AA1B3C111 /* YTUnit.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D848A2A4C9AA1B3C10A /* YTUnit.m */; };
 		6A7E0D8C8A2A4C9AA1B3C112 /* YTLastPosition.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0D868A2A4C9AA1B3C10C /* YTLastPosition.m */; };
@@ -227,6 +198,35 @@
 		6A7E0DA78A2A4C9AA1B3C12D /* YTDepthPrimaryButton.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */; };
 		6A7E0DA8BA2A4C9AA1B3C131 /* YTTipAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */; };
 		6A7E0DA8EA2A4C9AA1B3C134 /* YTResumeLearningAlertView.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */; };
+		7A7012402E80000100ABCD01 /* VideoTabViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012392E80000100ABCD00 /* VideoTabViewController.m */; };
+		7A7012412E80000100ABCD02 /* YTVFeedTypes.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012312E80000100ABCD00 /* YTVFeedTypes.m */; };
+		7A7012422E80000100ABCD03 /* YTVVideoFeedItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012332E80000100ABCD00 /* YTVVideoFeedItem.m */; };
+		7A7012432E80000100ABCD04 /* YTVFeedPageResult.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012352E80000100ABCD00 /* YTVFeedPageResult.m */; };
+		7A7012442E80000100ABCD05 /* YTVFeedRepository.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012372E80000100ABCD00 /* YTVFeedRepository.m */; };
+		7A7012452E80000100ABCD07 /* YTVPlayerSessionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012612E80000100ABCD07 /* YTVPlayerSessionManager.m */; };
+		7A7012462E80000100ABCD08 /* YTVVideoRenderView.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012632E80000100ABCD09 /* YTVVideoRenderView.m */; };
+		7A7012482E80000100ABCD0C /* YTVShortVideoFeedViewModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012712E80000100ABCD21 /* YTVShortVideoFeedViewModel.m */; };
+		7A7012492E80000100ABCD0D /* YTVShortVideoCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012732E80000100ABCD23 /* YTVShortVideoCell.m */; };
+		7A70124A2E80000100ABCD0E /* YTVShortVideoFeedViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012752E80000100ABCD25 /* YTVShortVideoFeedViewController.m */; };
+		7A70124B2E80000100ABCD0F /* YTVVideoCategoryKeys.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012772E80000100ABCD27 /* YTVVideoCategoryKeys.m */; };
+		7A70124C2E80000100ABCD10 /* YTVVideoCategoryTabsView.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012792E80000100ABCD29 /* YTVVideoCategoryTabsView.m */; };
+		7A70124D2E80000100ABCD11 /* YTVFeedSnapshotCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012812E80000100ABCD2B /* YTVFeedSnapshotCache.m */; };
+		7A70124E2E80000100ABCD12 /* YTVVideoPreloadManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012832E80000100ABCD2D /* YTVVideoPreloadManager.m */; };
+		7A70127A2E80000100ABCD2A /* YTVVideoTabApi.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70127C2E80000100ABCD2F /* YTVVideoTabApi.m */; };
+		7A7012E02E8A040100ABCD01 /* YTVVideoFavoritesRepository.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012E22E8A040100ABCD03 /* YTVVideoFavoritesRepository.m */; };
+		7A7012E32E8A040100ABCD04 /* VideoTextWebViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7012E52E8A040100ABCD06 /* VideoTextWebViewController.m */; };
+		7A7013012E8B040100ABCD01 /* YTVVideoDebugSampleFeed.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013062E8B040100ABCD06 /* YTVVideoDebugSampleFeed.m */; };
+		7A7013022E8B040100ABCD02 /* YTVFavoritesListViewModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013082E8B040100ABCD08 /* YTVFavoritesListViewModel.m */; };
+		7A7013032E8B040100ABCD03 /* YTVFavoritesListCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70130A2E8B040100ABCD0A /* YTVFavoritesListCell.m */; };
+		7A7013042E8B040100ABCD04 /* YTVFavoritesListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70130C2E8B040100ABCD0C /* YTVFavoritesListViewController.m */; };
+		7A7013162E8C040100ABCD16 /* YTVVideoPRDShareHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013182E8C040100ABCD18 /* YTVVideoPRDShareHelper.m */; };
+		7A7013182E8D040100ABCD18 /* YTVVideoDeepLinkRouter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70131B2E8D040100ABCD1B /* YTVVideoDeepLinkRouter.m */; };
+		7A7013192E8D040100ABCD19 /* YTVFeedCoordinator.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70131D2E8D040100ABCD1D /* YTVFeedCoordinator.m */; };
+		7A7013242E8E040100ABCD20 /* YTVFeedFullscreenViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A7013262E8E040100ABCD22 /* YTVFeedFullscreenViewController.m */; };
+		7A70AA012F90000100ABCD01 /* YTVFeedResumeCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70AA032F90000100ABCD03 /* YTVFeedResumeCache.m */; };
+		7A70AA022F90000100ABCD02 /* YTVVideoDiskCacheManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70AA052F90000100ABCD05 /* YTVVideoDiskCacheManager.m */; };
+		7A70AA072F90000100ABCD07 /* YTVVideoCacheProxyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A70AA092F90000100ABCD09 /* YTVVideoCacheProxyManager.m */; };
+		7F88AAB02EA0050100ABC101 /* YTTabBarController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7F88AAB22EA0050100ABC103 /* YTTabBarController.m */; };
 		A1F0B0012F70000100B00100 /* YTLearningFlowBootstrap.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0002F70000100B00100 /* YTLearningFlowBootstrap.m */; };
 		A1F0B0032F70000200B00100 /* YTUnitMapper.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B0062F70000200B00100 /* YTUnitMapper.m */; };
 		A1F0B0092F70000300B00100 /* YTMockLearningFlowBootstrapService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1F0B00B2F70000300B00100 /* YTMockLearningFlowBootstrapService.m */; };
@@ -533,8 +533,6 @@
 		425518312E0BD7E7007764C7 /* YiTongProject.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YiTongProject.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		425518342E0BD7E7007764C7 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		425518352E0BD7E7007764C7 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
-		7F88AAB12EA0050100ABC102 /* YTTabBarController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTabBarController.h; sourceTree = "<group>"; };
-		7F88AAB22EA0050100ABC103 /* YTTabBarController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTabBarController.m; sourceTree = "<group>"; };
 		425518372E0BD7E7007764C7 /* SceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SceneDelegate.h; sourceTree = "<group>"; };
 		425518382E0BD7E7007764C7 /* SceneDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SceneDelegate.m; sourceTree = "<group>"; };
 		4255183A2E0BD7E7007764C7 /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
@@ -617,6 +615,33 @@
 		42F2C63C2E2A1F2F0040966A /* SpeakResultsView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SpeakResultsView.m; sourceTree = "<group>"; };
 		42FB74282E0E3AFF00C9330B /* LoginFirstView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LoginFirstView.h; sourceTree = "<group>"; };
 		42FB74292E0E3AFF00C9330B /* LoginFirstView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LoginFirstView.m; sourceTree = "<group>"; };
+		6A7E0D7F8A2A4C9AA1B3C105 /* TalkLearningFlowViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkLearningFlowViewController.h; sourceTree = "<group>"; };
+		6A7E0D808A2A4C9AA1B3C106 /* TalkLearningFlowViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkLearningFlowViewController.m; sourceTree = "<group>"; };
+		6A7E0D838A2A4C9AA1B3C109 /* YTUnit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnit.h; sourceTree = "<group>"; };
+		6A7E0D848A2A4C9AA1B3C10A /* YTUnit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnit.m; sourceTree = "<group>"; };
+		6A7E0D858A2A4C9AA1B3C10B /* YTLastPosition.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLastPosition.h; sourceTree = "<group>"; };
+		6A7E0D868A2A4C9AA1B3C10C /* YTLastPosition.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLastPosition.m; sourceTree = "<group>"; };
+		6A7E0D878A2A4C9AA1B3C10D /* YTDifficultyTheme.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDifficultyTheme.h; sourceTree = "<group>"; };
+		6A7E0D888A2A4C9AA1B3C10E /* YTDifficultyTheme.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDifficultyTheme.m; sourceTree = "<group>"; };
+		6A7E0D8F8A2A4C9AA1B3C115 /* YTAudioMuxService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAudioMuxService.h; sourceTree = "<group>"; };
+		6A7E0D908A2A4C9AA1B3C116 /* YTAudioMuxService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAudioMuxService.m; sourceTree = "<group>"; };
+		6A7E0D918A2A4C9AA1B3C117 /* YTRecordingService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTRecordingService.h; sourceTree = "<group>"; };
+		6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTRecordingService.m; sourceTree = "<group>"; };
+		6A7E0D938A2A4C9AA1B3C119 /* YTScoringService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTScoringService.h; sourceTree = "<group>"; };
+		6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTScoringService.m; sourceTree = "<group>"; };
+		6A7E0D998A2A4C9AA1B3C11F /* YTUnitViewProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitViewProtocol.h; sourceTree = "<group>"; };
+		6A7E0D9A8A2A4C9AA1B3C120 /* YTUnitViewFactory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitViewFactory.h; sourceTree = "<group>"; };
+		6A7E0D9A8A2A4C9AA1B3C140 /* YTTalkLearningDataService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkLearningDataService.h; sourceTree = "<group>"; };
+		6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkLearningDataService.m; sourceTree = "<group>"; };
+		6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnitViewFactory.m; sourceTree = "<group>"; };
+		6A7E0DA18A2A4C9AA1B3C127 /* YTAnswerResultBottomSheet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAnswerResultBottomSheet.h; sourceTree = "<group>"; };
+		6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAnswerResultBottomSheet.m; sourceTree = "<group>"; };
+		6A7E0DA58A2A4C9AA1B3C12B /* YTDepthPrimaryButton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDepthPrimaryButton.h; sourceTree = "<group>"; };
+		6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDepthPrimaryButton.m; sourceTree = "<group>"; };
+		6A7E0DA888A2A4C9AA1B3C12E /* YTTipAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTipAlertView.h; sourceTree = "<group>"; };
+		6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTipAlertView.m; sourceTree = "<group>"; };
+		6A7E0DA8CA2A4C9AA1B3C132 /* YTResumeLearningAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTResumeLearningAlertView.h; sourceTree = "<group>"; };
+		6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTResumeLearningAlertView.m; sourceTree = "<group>"; };
 		7A7012302E80000100ABCD00 /* YTVFeedTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVFeedTypes.h; sourceTree = "<group>"; };
 		7A7012312E80000100ABCD00 /* YTVFeedTypes.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFeedTypes.m; sourceTree = "<group>"; };
 		7A7012322E80000100ABCD00 /* YTVVideoFeedItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoFeedItem.h; sourceTree = "<group>"; };
@@ -647,12 +672,6 @@
 		7A7012812E80000100ABCD2B /* YTVFeedSnapshotCache.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFeedSnapshotCache.m; sourceTree = "<group>"; };
 		7A7012822E80000100ABCD2C /* YTVVideoPreloadManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoPreloadManager.h; sourceTree = "<group>"; };
 		7A7012832E80000100ABCD2D /* YTVVideoPreloadManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoPreloadManager.m; sourceTree = "<group>"; };
-		7A70AA032F90000100ABCD03 /* YTVFeedResumeCache.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFeedResumeCache.m; sourceTree = "<group>"; };
-		7A70AA042F90000100ABCD04 /* YTVFeedResumeCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVFeedResumeCache.h; sourceTree = "<group>"; };
-		7A70AA052F90000100ABCD05 /* YTVVideoDiskCacheManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoDiskCacheManager.m; sourceTree = "<group>"; };
-		7A70AA062F90000100ABCD06 /* YTVVideoDiskCacheManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoDiskCacheManager.h; sourceTree = "<group>"; };
-		7A70AA092F90000100ABCD09 /* YTVVideoCacheProxyManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoCacheProxyManager.m; sourceTree = "<group>"; };
-		7A70AA0A2F90000100ABCD0A /* YTVVideoCacheProxyManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoCacheProxyManager.h; sourceTree = "<group>"; };
 		7A7012E12E8A040100ABCD02 /* YTVVideoFavoritesRepository.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoFavoritesRepository.h; sourceTree = "<group>"; };
 		7A7012E22E8A040100ABCD03 /* YTVVideoFavoritesRepository.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoFavoritesRepository.m; sourceTree = "<group>"; };
 		7A7012E42E8A040100ABCD05 /* VideoTextWebViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VideoTextWebViewController.h; sourceTree = "<group>"; };
@@ -673,33 +692,14 @@
 		7A70131D2E8D040100ABCD1D /* YTVFeedCoordinator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFeedCoordinator.m; sourceTree = "<group>"; };
 		7A7013252E8E040100ABCD21 /* YTVFeedFullscreenViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVFeedFullscreenViewController.h; sourceTree = "<group>"; };
 		7A7013262E8E040100ABCD22 /* YTVFeedFullscreenViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFeedFullscreenViewController.m; sourceTree = "<group>"; };
-		6A7E0D7F8A2A4C9AA1B3C105 /* TalkLearningFlowViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TalkLearningFlowViewController.h; sourceTree = "<group>"; };
-		6A7E0D808A2A4C9AA1B3C106 /* TalkLearningFlowViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TalkLearningFlowViewController.m; sourceTree = "<group>"; };
-		6A7E0D838A2A4C9AA1B3C109 /* YTUnit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnit.h; sourceTree = "<group>"; };
-		6A7E0D848A2A4C9AA1B3C10A /* YTUnit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnit.m; sourceTree = "<group>"; };
-		6A7E0D858A2A4C9AA1B3C10B /* YTLastPosition.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLastPosition.h; sourceTree = "<group>"; };
-		6A7E0D868A2A4C9AA1B3C10C /* YTLastPosition.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLastPosition.m; sourceTree = "<group>"; };
-		6A7E0D878A2A4C9AA1B3C10D /* YTDifficultyTheme.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDifficultyTheme.h; sourceTree = "<group>"; };
-		6A7E0D888A2A4C9AA1B3C10E /* YTDifficultyTheme.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDifficultyTheme.m; sourceTree = "<group>"; };
-		6A7E0D8F8A2A4C9AA1B3C115 /* YTAudioMuxService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAudioMuxService.h; sourceTree = "<group>"; };
-		6A7E0D908A2A4C9AA1B3C116 /* YTAudioMuxService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAudioMuxService.m; sourceTree = "<group>"; };
-		6A7E0D918A2A4C9AA1B3C117 /* YTRecordingService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTRecordingService.h; sourceTree = "<group>"; };
-		6A7E0D928A2A4C9AA1B3C118 /* YTRecordingService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTRecordingService.m; sourceTree = "<group>"; };
-		6A7E0D938A2A4C9AA1B3C119 /* YTScoringService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTScoringService.h; sourceTree = "<group>"; };
-		6A7E0D948A2A4C9AA1B3C11A /* YTScoringService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTScoringService.m; sourceTree = "<group>"; };
-		6A7E0D998A2A4C9AA1B3C11F /* YTUnitViewProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitViewProtocol.h; sourceTree = "<group>"; };
-		6A7E0D9A8A2A4C9AA1B3C120 /* YTUnitViewFactory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitViewFactory.h; sourceTree = "<group>"; };
-		6A7E0D9A8A2A4C9AA1B3C140 /* YTTalkLearningDataService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTalkLearningDataService.h; sourceTree = "<group>"; };
-		6A7E0D9A8A2A4C9AA1B3C141 /* YTTalkLearningDataService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTalkLearningDataService.m; sourceTree = "<group>"; };
-		6A7E0D9B8A2A4C9AA1B3C121 /* YTUnitViewFactory.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTUnitViewFactory.m; sourceTree = "<group>"; };
-		6A7E0DA18A2A4C9AA1B3C127 /* YTAnswerResultBottomSheet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTAnswerResultBottomSheet.h; sourceTree = "<group>"; };
-		6A7E0DA28A2A4C9AA1B3C128 /* YTAnswerResultBottomSheet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTAnswerResultBottomSheet.m; sourceTree = "<group>"; };
-		6A7E0DA58A2A4C9AA1B3C12B /* YTDepthPrimaryButton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTDepthPrimaryButton.h; sourceTree = "<group>"; };
-		6A7E0DA68A2A4C9AA1B3C12C /* YTDepthPrimaryButton.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTDepthPrimaryButton.m; sourceTree = "<group>"; };
-		6A7E0DA888A2A4C9AA1B3C12E /* YTTipAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTipAlertView.h; sourceTree = "<group>"; };
-		6A7E0DA898A2A4C9AA1B3C12F /* YTTipAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTipAlertView.m; sourceTree = "<group>"; };
-		6A7E0DA8CA2A4C9AA1B3C132 /* YTResumeLearningAlertView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTResumeLearningAlertView.h; sourceTree = "<group>"; };
-		6A7E0DA8DA2A4C9AA1B3C133 /* YTResumeLearningAlertView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTResumeLearningAlertView.m; sourceTree = "<group>"; };
+		7A70AA032F90000100ABCD03 /* YTVFeedResumeCache.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVFeedResumeCache.m; sourceTree = "<group>"; };
+		7A70AA042F90000100ABCD04 /* YTVFeedResumeCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVFeedResumeCache.h; sourceTree = "<group>"; };
+		7A70AA052F90000100ABCD05 /* YTVVideoDiskCacheManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoDiskCacheManager.m; sourceTree = "<group>"; };
+		7A70AA062F90000100ABCD06 /* YTVVideoDiskCacheManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoDiskCacheManager.h; sourceTree = "<group>"; };
+		7A70AA092F90000100ABCD09 /* YTVVideoCacheProxyManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTVVideoCacheProxyManager.m; sourceTree = "<group>"; };
+		7A70AA0A2F90000100ABCD0A /* YTVVideoCacheProxyManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTVVideoCacheProxyManager.h; sourceTree = "<group>"; };
+		7F88AAB12EA0050100ABC102 /* YTTabBarController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTTabBarController.h; sourceTree = "<group>"; };
+		7F88AAB22EA0050100ABC103 /* YTTabBarController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTTabBarController.m; sourceTree = "<group>"; };
 		A1F0AFFF2F70000100B00100 /* YTLearningFlowBootstrap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTLearningFlowBootstrap.h; sourceTree = "<group>"; };
 		A1F0B0002F70000100B00100 /* YTLearningFlowBootstrap.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YTLearningFlowBootstrap.m; sourceTree = "<group>"; };
 		A1F0B0052F70000200B00100 /* YTUnitMapper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YTUnitMapper.h; sourceTree = "<group>"; };
@@ -959,109 +959,6 @@
 				3DCE4D502F7B22A100A1B2C3 /* TalkTopicHomeViewController.m */,
 			);
 			path = Talk;
-			sourceTree = "<group>";
-		};
-		7A7012902E80000200ABCD30 /* Model */ = {
-			isa = PBXGroup;
-			children = (
-				7A7012302E80000100ABCD00 /* YTVFeedTypes.h */,
-				7A7012312E80000100ABCD00 /* YTVFeedTypes.m */,
-				7A7012322E80000100ABCD00 /* YTVVideoFeedItem.h */,
-				7A7012332E80000100ABCD00 /* YTVVideoFeedItem.m */,
-				7A7012342E80000100ABCD00 /* YTVFeedPageResult.h */,
-				7A7012352E80000100ABCD00 /* YTVFeedPageResult.m */,
-				7A7012362E80000100ABCD00 /* YTVFeedRepository.h */,
-				7A7012372E80000100ABCD00 /* YTVFeedRepository.m */,
-				7A7012802E80000100ABCD2A /* YTVFeedSnapshotCache.h */,
-				7A7012812E80000100ABCD2B /* YTVFeedSnapshotCache.m */,
-				7A70AA042F90000100ABCD04 /* YTVFeedResumeCache.h */,
-				7A70AA032F90000100ABCD03 /* YTVFeedResumeCache.m */,
-				7A7012762E80000100ABCD26 /* YTVVideoCategoryKeys.h */,
-				7A7012772E80000100ABCD27 /* YTVVideoCategoryKeys.m */,
-				7A70127B2E80000100ABCD2E /* YTVVideoTabApi.h */,
-				7A70127C2E80000100ABCD2F /* YTVVideoTabApi.m */,
-				7A7012E12E8A040100ABCD02 /* YTVVideoFavoritesRepository.h */,
-				7A7012E22E8A040100ABCD03 /* YTVVideoFavoritesRepository.m */,
-				7A7013052E8B040100ABCD05 /* YTVVideoDebugSampleFeed.h */,
-				7A7013062E8B040100ABCD06 /* YTVVideoDebugSampleFeed.m */,
-			);
-			path = Model;
-			sourceTree = "<group>";
-		};
-		7A7012912E80000200ABCD31 /* ViewModel */ = {
-			isa = PBXGroup;
-			children = (
-				7A7012702E80000100ABCD20 /* YTVShortVideoFeedViewModel.h */,
-				7A7012712E80000100ABCD21 /* YTVShortVideoFeedViewModel.m */,
-				7A7013072E8B040100ABCD07 /* YTVFavoritesListViewModel.h */,
-				7A7013082E8B040100ABCD08 /* YTVFavoritesListViewModel.m */,
-			);
-			path = ViewModel;
-			sourceTree = "<group>";
-		};
-		7A7012922E80000200ABCD32 /* View */ = {
-			isa = PBXGroup;
-			children = (
-				7A7012382E80000100ABCD00 /* VideoTabViewController.h */,
-				7A7012392E80000100ABCD00 /* VideoTabViewController.m */,
-				7A7012742E80000100ABCD24 /* YTVShortVideoFeedViewController.h */,
-				7A7012752E80000100ABCD25 /* YTVShortVideoFeedViewController.m */,
-				7A7012782E80000100ABCD28 /* YTVVideoCategoryTabsView.h */,
-				7A7012792E80000100ABCD29 /* YTVVideoCategoryTabsView.m */,
-				7A7012722E80000100ABCD22 /* YTVShortVideoCell.h */,
-				7A7012732E80000100ABCD23 /* YTVShortVideoCell.m */,
-				7A7012622E80000100ABCD08 /* YTVVideoRenderView.h */,
-				7A7012632E80000100ABCD09 /* YTVVideoRenderView.m */,
-				7A7012E42E8A040100ABCD05 /* VideoTextWebViewController.h */,
-				7A7012E52E8A040100ABCD06 /* VideoTextWebViewController.m */,
-				7A7013092E8B040100ABCD09 /* YTVFavoritesListCell.h */,
-				7A70130A2E8B040100ABCD0A /* YTVFavoritesListCell.m */,
-				7A70130B2E8B040100ABCD0B /* YTVFavoritesListViewController.h */,
-				7A70130C2E8B040100ABCD0C /* YTVFavoritesListViewController.m */,
-				7A7013172E8C040100ABCD17 /* YTVVideoPRDShareHelper.h */,
-				7A7013182E8C040100ABCD18 /* YTVVideoPRDShareHelper.m */,
-				7A7013252E8E040100ABCD21 /* YTVFeedFullscreenViewController.h */,
-				7A7013262E8E040100ABCD22 /* YTVFeedFullscreenViewController.m */,
-			);
-			path = View;
-			sourceTree = "<group>";
-		};
-		7A7012932E80000200ABCD33 /* Service */ = {
-			isa = PBXGroup;
-			children = (
-				7A7012602E80000100ABCD06 /* YTVPlayerSessionManager.h */,
-				7A7012612E80000100ABCD07 /* YTVPlayerSessionManager.m */,
-				7A7012822E80000100ABCD2C /* YTVVideoPreloadManager.h */,
-				7A7012832E80000100ABCD2D /* YTVVideoPreloadManager.m */,
-				7A70AA062F90000100ABCD06 /* YTVVideoDiskCacheManager.h */,
-				7A70AA052F90000100ABCD05 /* YTVVideoDiskCacheManager.m */,
-				7A70AA0A2F90000100ABCD0A /* YTVVideoCacheProxyManager.h */,
-				7A70AA092F90000100ABCD09 /* YTVVideoCacheProxyManager.m */,
-			);
-			path = Service;
-			sourceTree = "<group>";
-		};
-		7A70131F2E8D040100ABCD1F /* Coordinator */ = {
-			isa = PBXGroup;
-			children = (
-				7A70131A2E8D040100ABCD1A /* YTVVideoDeepLinkRouter.h */,
-				7A70131B2E8D040100ABCD1B /* YTVVideoDeepLinkRouter.m */,
-				7A70131C2E8D040100ABCD1C /* YTVFeedCoordinator.h */,
-				7A70131D2E8D040100ABCD1D /* YTVFeedCoordinator.m */,
-			);
-			path = Coordinator;
-			sourceTree = "<group>";
-		};
-		7A7012502E80000100ABCD06 /* Video */ = {
-			isa = PBXGroup;
-			children = (
-				7A7012902E80000200ABCD30 /* Model */,
-				7A7012912E80000200ABCD31 /* ViewModel */,
-				7A7012922E80000200ABCD32 /* View */,
-				7A7012932E80000200ABCD33 /* Service */,
-				7A70131F2E8D040100ABCD1F /* Coordinator */,
-			);
-			path = Video;
 			sourceTree = "<group>";
 		};
 		3D7121D02ED827A40038E925 /* View */ = {
@@ -1665,6 +1562,109 @@
 			path = View;
 			sourceTree = "<group>";
 		};
+		7A7012502E80000100ABCD06 /* Video */ = {
+			isa = PBXGroup;
+			children = (
+				7A7012902E80000200ABCD30 /* Model */,
+				7A7012912E80000200ABCD31 /* ViewModel */,
+				7A7012922E80000200ABCD32 /* View */,
+				7A7012932E80000200ABCD33 /* Service */,
+				7A70131F2E8D040100ABCD1F /* Coordinator */,
+			);
+			path = Video;
+			sourceTree = "<group>";
+		};
+		7A7012902E80000200ABCD30 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				7A7012302E80000100ABCD00 /* YTVFeedTypes.h */,
+				7A7012312E80000100ABCD00 /* YTVFeedTypes.m */,
+				7A7012322E80000100ABCD00 /* YTVVideoFeedItem.h */,
+				7A7012332E80000100ABCD00 /* YTVVideoFeedItem.m */,
+				7A7012342E80000100ABCD00 /* YTVFeedPageResult.h */,
+				7A7012352E80000100ABCD00 /* YTVFeedPageResult.m */,
+				7A7012362E80000100ABCD00 /* YTVFeedRepository.h */,
+				7A7012372E80000100ABCD00 /* YTVFeedRepository.m */,
+				7A7012802E80000100ABCD2A /* YTVFeedSnapshotCache.h */,
+				7A7012812E80000100ABCD2B /* YTVFeedSnapshotCache.m */,
+				7A70AA042F90000100ABCD04 /* YTVFeedResumeCache.h */,
+				7A70AA032F90000100ABCD03 /* YTVFeedResumeCache.m */,
+				7A7012762E80000100ABCD26 /* YTVVideoCategoryKeys.h */,
+				7A7012772E80000100ABCD27 /* YTVVideoCategoryKeys.m */,
+				7A70127B2E80000100ABCD2E /* YTVVideoTabApi.h */,
+				7A70127C2E80000100ABCD2F /* YTVVideoTabApi.m */,
+				7A7012E12E8A040100ABCD02 /* YTVVideoFavoritesRepository.h */,
+				7A7012E22E8A040100ABCD03 /* YTVVideoFavoritesRepository.m */,
+				7A7013052E8B040100ABCD05 /* YTVVideoDebugSampleFeed.h */,
+				7A7013062E8B040100ABCD06 /* YTVVideoDebugSampleFeed.m */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		7A7012912E80000200ABCD31 /* ViewModel */ = {
+			isa = PBXGroup;
+			children = (
+				7A7012702E80000100ABCD20 /* YTVShortVideoFeedViewModel.h */,
+				7A7012712E80000100ABCD21 /* YTVShortVideoFeedViewModel.m */,
+				7A7013072E8B040100ABCD07 /* YTVFavoritesListViewModel.h */,
+				7A7013082E8B040100ABCD08 /* YTVFavoritesListViewModel.m */,
+			);
+			path = ViewModel;
+			sourceTree = "<group>";
+		};
+		7A7012922E80000200ABCD32 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				7A7012382E80000100ABCD00 /* VideoTabViewController.h */,
+				7A7012392E80000100ABCD00 /* VideoTabViewController.m */,
+				7A7012742E80000100ABCD24 /* YTVShortVideoFeedViewController.h */,
+				7A7012752E80000100ABCD25 /* YTVShortVideoFeedViewController.m */,
+				7A7012782E80000100ABCD28 /* YTVVideoCategoryTabsView.h */,
+				7A7012792E80000100ABCD29 /* YTVVideoCategoryTabsView.m */,
+				7A7012722E80000100ABCD22 /* YTVShortVideoCell.h */,
+				7A7012732E80000100ABCD23 /* YTVShortVideoCell.m */,
+				7A7012622E80000100ABCD08 /* YTVVideoRenderView.h */,
+				7A7012632E80000100ABCD09 /* YTVVideoRenderView.m */,
+				7A7012E42E8A040100ABCD05 /* VideoTextWebViewController.h */,
+				7A7012E52E8A040100ABCD06 /* VideoTextWebViewController.m */,
+				7A7013092E8B040100ABCD09 /* YTVFavoritesListCell.h */,
+				7A70130A2E8B040100ABCD0A /* YTVFavoritesListCell.m */,
+				7A70130B2E8B040100ABCD0B /* YTVFavoritesListViewController.h */,
+				7A70130C2E8B040100ABCD0C /* YTVFavoritesListViewController.m */,
+				7A7013172E8C040100ABCD17 /* YTVVideoPRDShareHelper.h */,
+				7A7013182E8C040100ABCD18 /* YTVVideoPRDShareHelper.m */,
+				7A7013252E8E040100ABCD21 /* YTVFeedFullscreenViewController.h */,
+				7A7013262E8E040100ABCD22 /* YTVFeedFullscreenViewController.m */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
+		7A7012932E80000200ABCD33 /* Service */ = {
+			isa = PBXGroup;
+			children = (
+				7A7012602E80000100ABCD06 /* YTVPlayerSessionManager.h */,
+				7A7012612E80000100ABCD07 /* YTVPlayerSessionManager.m */,
+				7A7012822E80000100ABCD2C /* YTVVideoPreloadManager.h */,
+				7A7012832E80000100ABCD2D /* YTVVideoPreloadManager.m */,
+				7A70AA062F90000100ABCD06 /* YTVVideoDiskCacheManager.h */,
+				7A70AA052F90000100ABCD05 /* YTVVideoDiskCacheManager.m */,
+				7A70AA0A2F90000100ABCD0A /* YTVVideoCacheProxyManager.h */,
+				7A70AA092F90000100ABCD09 /* YTVVideoCacheProxyManager.m */,
+			);
+			path = Service;
+			sourceTree = "<group>";
+		};
+		7A70131F2E8D040100ABCD1F /* Coordinator */ = {
+			isa = PBXGroup;
+			children = (
+				7A70131A2E8D040100ABCD1A /* YTVVideoDeepLinkRouter.h */,
+				7A70131B2E8D040100ABCD1B /* YTVVideoDeepLinkRouter.m */,
+				7A70131C2E8D040100ABCD1C /* YTVFeedCoordinator.h */,
+				7A70131D2E8D040100ABCD1D /* YTVFeedCoordinator.m */,
+			);
+			path = Coordinator;
+			sourceTree = "<group>";
+		};
 		ABA93DBD1AD53EB4874632E6 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -1819,13 +1819,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1862,13 +1858,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-YiTongProject/Pods-YiTongProject-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
