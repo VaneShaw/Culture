@@ -225,4 +225,8 @@
     }];
 }
 
+- (void)ytv_setSelectionUnderlineHidden:(BOOL)hidden {
+    self.selectionUnderline.hidden = hidden;
+}
+
 @end

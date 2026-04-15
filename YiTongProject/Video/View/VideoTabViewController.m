@@ -52,6 +52,7 @@ const NSInteger kYTVVideoTabBarIndex = 2;
                                         animated:NO
                                       completion:nil];
     [self.tabsView ytv_applyTabTitles:nil];
+    [self.tabsView ytv_setSelectionUnderlineHidden:YES];
     __weak typeof(self) weakSelf = self;
     self.tabsView.onSearchTap = ^{
         [MBProgressHUD showLabel:NSLocalizedString(@"YTV_video_search_coming_soon", @"")];
@@ -118,6 +119,7 @@ const NSInteger kYTVVideoTabBarIndex = 2;
     if (sameKeyLayout) {
         YTVVideoCategorySetFeedTabConfiguration(keys, titles);
         [self.tabsView ytv_applyTabTitles:titles];
+        [self.tabsView ytv_setSelectionUnderlineHidden:NO];
         return;
     }
     for (UIViewController *child in [self.pageViewController.childViewControllers copy]) {
@@ -134,6 +136,7 @@ const NSInteger kYTVVideoTabBarIndex = 2;
     self.currentCategoryIndex = 0;
     [self.tabsView ytv_applyTabTitles:titles];
     [self.tabsView ytv_setSelectedIndex:0 animated:NO];
+    [self.tabsView ytv_setSelectionUnderlineHidden:NO];
     YTVShortVideoFeedViewController *first = [self ytv_feedViewControllerAtIndex:0];
     __weak typeof(self) weakSelf = self;
     [self.pageViewController setViewControllers:@[first]

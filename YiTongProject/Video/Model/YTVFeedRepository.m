@@ -8,7 +8,6 @@
 #import "YTVVideoFeedItem.h"
 #import "HttpTools.h"
 #import "BaseDataModel.h"
-#import "YTVVideoDebugSampleFeed.h"
 #import "LanguageHelper.h"
 
 static NSString * const kYTVPathList = @"/video/list";
@@ -26,36 +25,21 @@ static NSString *YTVVideoListTabFromCategoryKey(NSString *categoryKey) {
 - (void)fetchBootstrapWithCategoryKey:(NSString *)categoryKey
                                cursor:(NSString *)cursor
                              pageSize:(NSInteger)pageSize
-                      lastVideoId:(NSString *)lastVideoId
+                          lastVideoId:(NSString *)lastVideoId
                            completion:(void (^)(YTVFeedPageResult * _Nullable, NSError * _Nullable))completion {
-    if ([YTVVideoDebugSampleFeed isSampleFeedEnabled]) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            YTVFeedPageResult *page = [YTVVideoDebugSampleFeed bootstrapPageForCategoryKey:categoryKey ?: @"" pageSize:pageSize];
-            if (completion) {
-                completion(page, nil);
-            }
-        });
-        return;
-    }
+    (void)cursor;
+    (void)pageSize;
+    (void)lastVideoId;
     [self ytv_fetchListWithCategoryKey:categoryKey cursor:nil completion:completion];
 }
 
 - (void)fetchNextWithCategoryKey:(NSString *)categoryKey
                           cursor:(NSString *)cursor
                         pageSize:(NSInteger)pageSize
-                   lastVideoId:(NSString *)lastVideoId
+                      lastVideoId:(NSString *)lastVideoId
                       completion:(void (^)(YTVFeedPageResult * _Nullable, NSError * _Nullable))completion {
-    if ([YTVVideoDebugSampleFeed isSampleFeedEnabled]) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            YTVFeedPageResult *page = [YTVVideoDebugSampleFeed nextPageForCategoryKey:categoryKey ?: @""
-                                                                       lastVideoId:lastVideoId
-                                                                          pageSize:pageSize];
-            if (completion) {
-                completion(page, nil);
-            }
-        });
-        return;
-    }
+    (void)pageSize;
+    (void)lastVideoId;
     [self ytv_fetchListWithCategoryKey:categoryKey cursor:cursor completion:completion];
 }
 

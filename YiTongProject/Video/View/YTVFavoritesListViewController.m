@@ -8,7 +8,6 @@
 #import "YTVFavoritesListCell.h"
 #import "YTVShortVideoFeedViewController.h"
 #import "YTVVideoFeedItem.h"
-#import "YTVVideoDebugSampleFeed.h"
 #import "HeaderConfig.h"
 
 static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
@@ -78,9 +77,9 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
     [self.navigationController setNavigationBarHidden:YES animated:animated];
 }
 
-/// 拉取列表：DEBUG 样例流与视频页一致走本地条目；否则需登录并请求收藏接口。
+/// 拉取列表：未登录只显示空态；已登录读取缓存并请求收藏接口。
 - (void)ytv_reloadList {
-    if (![[UserModel sharedInstance] isLogin] && ![YTVVideoDebugSampleFeed isSampleFeedEnabled]) {
+    if (![[UserModel sharedInstance] isLogin]) {
         [self.listViewModel clearItemsForLogout];
         [self.tableView reloadData];
         [self ytv_applyEmptyState:YES message:NSLocalizedString(@"YTV_favorites_list_need_login", @"")];

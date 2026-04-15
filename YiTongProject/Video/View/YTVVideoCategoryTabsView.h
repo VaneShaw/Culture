@@ -19,6 +19,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)ytv_setSelectedIndex:(NSInteger)index animated:(BOOL)animated;
 /// 重建 Segment 按钮；`titles` 为 nil 时用 `YTVVideoCategoryTitleAtIndex` 兜底
 - (void)ytv_applyTabTitles:(NSArray<NSString *> * _Nullable)titles;
+/// `video/tab` 未返回前隐藏选中横杠，避免先露出默认选中态。
+- (void)ytv_setSelectionUnderlineHidden:(BOOL)hidden;
 
 @end
 
