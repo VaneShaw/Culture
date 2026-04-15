@@ -210,7 +210,7 @@ isPhoneX = [[UIApplication sharedApplication] delegate].window.safeAreaInsets.bo
 //#define HOST @"https://api.shiyi-yitong.com"             //上架必备   海外      上架必须要这个
 //#define HOST @"https://apicn.shiyi-yitong.com"           //上架必备   大陆
 
-#define HOST @"https://testapi.shiyi-yitong.com"         //测试版
+#define HOST @"https://api-test.shiyi-yitong.com"         //测试版
 #endif
 
 
