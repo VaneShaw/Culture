@@ -18,6 +18,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// 点击整页任意区域：暂停/播放切换（由 VC 绑定）。
 @property (nonatomic, copy, nullable) void (^ytv_onVideoAreaTap)(YTVShortVideoCell *cell);
 @property (nonatomic, copy, nullable) void (^ytv_onPlaybackRetryTap)(YTVShortVideoCell *cell);
+/// 收藏 / 分享 / 横版全屏 / 摘要「查看全部」由 VC 绑定；与对应条目的模型一致并随 cell 滑动。
+@property (nonatomic, copy, nullable) void (^ytv_onFavoriteChromeTap)(YTVShortVideoCell *cell);
+@property (nonatomic, copy, nullable) void (^ytv_onShareChromeTap)(YTVShortVideoCell *cell);
+@property (nonatomic, copy, nullable) void (^ytv_onFullScreenChromeTap)(YTVShortVideoCell *cell);
+@property (nonatomic, copy, nullable) void (^ytv_onChromeSeeAllTap)(YTVShortVideoCell *cell);
 
 - (void)configureWithItem:(nullable YTVVideoFeedItem *)item;
 
@@ -40,6 +45,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 横版条带布局时返回条带在 `view` 坐标系中的 frame；竖版全屏时为 `CGRectZero`（供 Feed 全屏按钮对齐）。
 - (CGRect)ytv_landscapeVideoContentFrameConvertedToView:(UIView *)view;
+
+/// 绑定左下标题/摘要、右侧收藏分享与横版全屏入口；`chromeEnabled` 为 NO 时整层隐藏（分类未激活、流未就绪等）。
+- (void)ytv_configureInteractionChromeWithItem:(nullable YTVVideoFeedItem *)item chromeEnabled:(BOOL)chromeEnabled;
+
+/// 跟手滑动：整页（含互动层）变暗，opacity 建议 0～0.5
+- (void)ytv_setSwipeDimOpacity:(CGFloat)opacity;
+
+/// 内联全屏动画期间隐藏互动层，避免与旋转层叠乱
+- (void)ytv_setInteractionChromeSuppressed:(BOOL)suppressed;
+
+/// 系统分享 popover 锚点（iPad）
+- (UIView *)ytv_shareChromePresentationAnchor;
 
 @end
 
