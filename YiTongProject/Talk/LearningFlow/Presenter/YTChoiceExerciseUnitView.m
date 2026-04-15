@@ -338,17 +338,26 @@
     CGFloat gap = 13;
     CGFloat w = (SCREEN_WIDTH - 32 - 32 - gap) / 2.0;
     CGFloat h = w * 166.0 / 145.0;
+    CGFloat imageHorizontalInset = 16.0;
+    CGFloat imageTopInset = 12.0;
+    CGFloat imageTitleSpacing = 10.0;
+    CGFloat titleBottomInset = 12.0;
+    CGFloat titleHeight = 20.0;
     UIColor *borderColorD4 = [UIColor colorWithRed:0xD4 / 255.0
                                              green:0xD4 / 255.0
                                               blue:0xE4 / 255.0
                                              alpha:1.0];
+    UIColor *titleColor63637D = [UIColor colorWithRed:0x63 / 255.0
+                                                green:0x63 / 255.0
+                                                 blue:0x7D / 255.0
+                                                alpha:1.0];
 
     for (NSInteger i = 0; i < self.unit.options.count; i++) {
         NSDictionary *opt = self.unit.options[i];
         NSString *optId = opt[@"id"];
         NSString *imgName = opt[@"imageName"];
         NSString *imgURLString = opt[@"imageURL"];
-        NSString *text = opt[@"text"];
+        NSString *text = opt[@"text"] ?: opt[@"title"];
 
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
         btn.tag = i;
@@ -373,7 +382,8 @@
 
         NSString *iconName = imgName.length > 0 ? imgName : @"talk_default";
         UIImage *rawDef = [UIImage imageNamed:@"talk_default"];
-        CGSize optCanvas = CGSizeMake(MAX(32, w - 14), MAX(32, h - 55));
+        CGSize optCanvas = CGSizeMake(MAX(32, w - imageHorizontalInset * 2.0),
+                                      MAX(32, h - imageTopInset - imageTitleSpacing - titleBottomInset - titleHeight));
         UIImage *iconImg = [UIImage imageNamed:iconName] ?: rawDef;
         if (iconImg == rawDef) {
             iconImg = YTTalkImageAspectFitInBounds(rawDef, optCanvas, 0, 0.5) ?: rawDef;
@@ -390,18 +400,23 @@
         UILabel *lbl = [[UILabel alloc] init];
         lbl.text = text;
         lbl.textAlignment = NSTextAlignmentCenter;
-        lbl.textColor = [UIColor colorWithWhite:0.35 alpha:1];
-        lbl.font = [UIFont fontWithName:FONT_NAME_Regular size:12];
+        lbl.textColor = titleColor63637D;
+        lbl.font = [UIFont fontWithName:FONT_NAME_Regular size:14] ?: [UIFont systemFontOfSize:14];
+        lbl.numberOfLines = 1;
+        lbl.lineBreakMode = NSLineBreakByTruncatingTail;
+        lbl.adjustsFontSizeToFitWidth = YES;
+        lbl.minimumScaleFactor = 0.85;
         [btn addSubview:lbl];
         [lbl mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.right.equalTo(btn).inset(6);
-            make.bottom.equalTo(btn).offset(-10);
+            make.left.right.equalTo(btn).inset(10);
+            make.bottom.equalTo(btn).offset(-titleBottomInset);
+            make.height.mas_equalTo(titleHeight);
         }];
 
         [iv mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.right.equalTo(btn).inset(7);
-            make.top.equalTo(btn).offset(7);
-            make.bottom.equalTo(lbl.mas_top).offset(-7);
+            make.left.right.equalTo(btn).inset(imageHorizontalInset);
+            make.top.equalTo(btn).offset(imageTopInset);
+            make.bottom.equalTo(lbl.mas_top).offset(-imageTitleSpacing);
         }];
     }
 }
