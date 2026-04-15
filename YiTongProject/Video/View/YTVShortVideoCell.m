@@ -37,6 +37,7 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
 @property (nonatomic, assign) BOOL ytv_chromeConstraintsInstalled;
 @property (nonatomic, assign) BOOL ytv_interactionChromeSuppressed;
 @property (nonatomic, assign) BOOL ytv_interactionChromeEnabled;
+@property (nonatomic, assign) BOOL ytv_coverSuppressed;
 @property (nonatomic, strong, nullable) YTVVideoFeedItem *ytv_boundChromeItem;
 /// 自 `YTVVideoFeedItem` 同步的自然像素尺寸；均为 0 表示尚未从接口或 AVAsset 探测到，布局退化为整页 `ResizeAspect`。
 @property (nonatomic, assign) CGFloat ytv_naturalVideoWidth;
@@ -90,6 +91,7 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
     self.ytv_playbackFailureVisible = NO;
     self.ytv_interactionChromeSuppressed = NO;
     self.ytv_interactionChromeEnabled = NO;
+    self.ytv_coverSuppressed = NO;
     self.ytv_boundChromeItem = nil;
     [self ytv_setSwipeDimOpacity:0];
     self.chromeLeftStack.hidden = YES;
@@ -149,18 +151,20 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
 /// 短视频首显只读取已预取到缓存里的封面，不在 cell 露出瞬间再发起网络请求，避免拖慢滑动手势。
 - (void)configureWithItem:(YTVVideoFeedItem *)item {
     if (!item) {
+        self.ytv_coverSuppressed = NO;
         [self.coverImageView sd_cancelCurrentImageLoad];
         self.coverImageView.image = nil;
         [self ytv_showCoverImmediately];
         [self ytv_applyVideoLayoutFromFeedItem:nil];
         return;
     }
+    self.ytv_coverSuppressed = [item ytv_coverIsGIF];
     [self ytv_applyVideoLayoutFromFeedItem:item];
     [self ytv_showCoverImmediately];
     [self ytv_clearPlaybackFailureState];
     [self.coverImageView sd_cancelCurrentImageLoad];
     self.coverImageView.image = nil;
-    if (item.coverURL.length == 0) {
+    if (item.coverURL.length == 0 || self.ytv_coverSuppressed) {
         return;
     }
     NSURL *coverURL = [NSURL URLWithString:item.coverURL];
@@ -415,7 +419,7 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
 }
 
 - (void)ytv_showCoverImmediately {
-    [self ytv_setCoverHidden:NO animated:NO];
+    [self ytv_setCoverHidden:self.ytv_coverSuppressed animated:NO];
 }
 
 - (void)ytv_hideCoverAfterFirstFrameAnimated:(BOOL)animated {

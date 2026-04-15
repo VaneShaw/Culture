@@ -43,6 +43,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// 宽明显大于高时视为横版（竖滑流中居中条带 + 全屏入口）
 - (BOOL)ytv_isLandscapeNaturalVideo;
 
+/// 目前 GIF 封面暂不展示，供 Cell/预取层统一判定。
+- (BOOL)ytv_coverIsGIF;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -137,4 +137,16 @@
     return W > H + 0.5;
 }
 
+- (BOOL)ytv_coverIsGIF {
+    if (self.coverURL.length == 0) {
+        return NO;
+    }
+    NSURL *url = [NSURL URLWithString:self.coverURL];
+    NSString *ext = url.pathExtension.lowercaseString;
+    if (ext.length == 0) {
+        ext = self.coverURL.pathExtension.lowercaseString;
+    }
+    return [ext isEqualToString:@"gif"];
+}
+
 @end

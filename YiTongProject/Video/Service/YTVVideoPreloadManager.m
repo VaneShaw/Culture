@@ -120,9 +120,9 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
         if (item.videoId.length > 0) {
             [preservedIds addObject:item.videoId];
         }
-        if (item.coverURL.length > 0) {
+        if (item.coverURL.length > 0 && ![item ytv_coverIsGIF]) {
             NSURL *u = [NSURL URLWithString:item.coverURL];
-            if (u && ![u.pathExtension.lowercaseString isEqualToString:@"gif"]) {
+            if (u) {
                 [coverURLs addObject:u];
             }
         }
