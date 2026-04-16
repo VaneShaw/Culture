@@ -16,6 +16,14 @@
 static const NSInteger kYTVFeedPageSize = 10;
 static const NSInteger kYTVFeedLowWaterMark = 5;
 static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
+static const NSTimeInterval kYTVFavoriteToggleDebounceSeconds = 0.4;
+
+static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
+    if (taleType.length == 0 || taleId.length == 0) {
+        return @"";
+    }
+    return [NSString stringWithFormat:@"%@#%@", taleType, taleId];
+}
 
 @interface YTVShortVideoFeedViewModel ()
 @property (nonatomic, copy, readwrite) NSString *categoryKey;
@@ -34,6 +42,8 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
 @property (nonatomic, assign, readwrite) BOOL ytv_bootstrapLoadedFromSnapshot;
 @property (nonatomic, copy, readwrite, nullable) NSString *ytv_initialVideoSourceLabel;
 @property (nonatomic, assign) NSInteger ytv_resumeInitialDisplayIndex;
+@property (nonatomic, strong) NSMutableSet<NSString *> *ytv_pendingFavoriteToggleKeys;
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSNumber *> *ytv_lastFavoriteToggleTimes;
 @end
 
 @implementation YTVShortVideoFeedViewModel
@@ -109,6 +119,8 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
         _ytv_categoryBootstrapNetworkFinished = NO;
         _ytv_bootstrapLoadedFromSnapshot = NO;
         _ytv_resumeInitialDisplayIndex = 0;
+        _ytv_pendingFavoriteToggleKeys = [NSMutableSet set];
+        _ytv_lastFavoriteToggleTimes = [NSMutableDictionary dictionary];
     }
     return self;
 }
@@ -504,12 +516,46 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
         }
         return;
     }
+    NSString *taleId = [item.videoId copy];
+    NSString *taleType = item.category.length > 0 ? [item.category copy] : @"";
+    if (taleType.length == 0
+        && self.feedSource == YTVShortVideoFeedSourceCategory
+        && self.categoryKey.length > 0
+        && ![self.categoryKey hasPrefix:@"__"]) {
+        taleType = [self.categoryKey copy];
+    }
+    NSString *toggleKey = YTVFavoriteToggleKey(taleType, taleId);
+    if (toggleKey.length == 0) {
+        if (completion) {
+            completion(NO, NSLocalizedString(@"YTV_favorite_failed", @""));
+        }
+        return;
+    }
+    NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
+    NSNumber *lastToggleTime = self.ytv_lastFavoriteToggleTimes[toggleKey];
+    if ([self.ytv_pendingFavoriteToggleKeys containsObject:toggleKey]
+        || (lastToggleTime != nil && (now - lastToggleTime.doubleValue) < kYTVFavoriteToggleDebounceSeconds)) {
+        if (completion) {
+            completion(NO, nil);
+        }
+        return;
+    }
+    self.ytv_lastFavoriteToggleTimes[toggleKey] = @(now);
+    [self.ytv_pendingFavoriteToggleKeys addObject:toggleKey];
     NSString *videoId = [item.videoId copy];
     BOOL previousFavorite = item.isFavorite;
+    NSInteger previousFavoritesCount = item.favoritesCount;
     item.isFavorite = !previousFavorite;
+    if (previousFavoritesCount >= 0) {
+        NSInteger delta = previousFavorite ? -1 : 1;
+        item.favoritesCount = MAX(0, previousFavoritesCount + delta);
+    }
     [self ytv_persistSnapshot];
     __weak typeof(self) weakSelf = self;
-    [self.favoritesRepository toggleFavoriteWithVideoId:videoId completion:^(BOOL success, BOOL isFavorite, NSInteger favoritesCount, NSString *message) {
+    [self.favoritesRepository toggleFavoriteWithTaleType:taleType
+                                                  taleId:taleId
+                                              isFavorite:!previousFavorite
+                                              completion:^(BOOL success, BOOL isFavorite, NSInteger favoritesCount, NSString *message) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) {
             if (completion) {
@@ -517,6 +563,7 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
             }
             return;
         }
+        [self.ytv_pendingFavoriteToggleKeys removeObject:toggleKey];
         YTVVideoFeedItem *live = [self itemAtIndex:index];
         if (!live || ![live.videoId isEqualToString:videoId]) {
             if (completion) {
@@ -542,6 +589,7 @@ static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
             }
         } else {
             live.isFavorite = previousFavorite;
+            live.favoritesCount = previousFavoritesCount;
             [self ytv_persistSnapshot];
             if (completion) {
                 completion(NO, message.length ? message : NSLocalizedString(@"YTV_favorite_failed", @""));

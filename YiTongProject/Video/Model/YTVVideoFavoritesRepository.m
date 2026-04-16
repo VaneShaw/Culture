@@ -8,14 +8,16 @@
 #import "BaseDataModel.h"
 #import "YTVFeedPageResult.h"
 
-static NSString * const kYTVPathFavoriteToggle = @"/user/videoFavorites/toggle";
+static NSString * const kYTVPathFavoriteToggle = @"/video/favorite";
 static NSString * const kYTVPathFavoriteList = @"/user/videoFavorites/list";
 
 @implementation YTVVideoFavoritesRepository
 
-- (void)toggleFavoriteWithVideoId:(NSString *)videoId
+- (void)toggleFavoriteWithTaleType:(NSString *)taleType
+                            taleId:(NSString *)taleId
+                        isFavorite:(BOOL)isFavorite
                        completion:(void (^)(BOOL success, BOOL isFavorite, NSInteger favoritesCount, NSString * _Nullable message))completion {
-    if (videoId.length == 0) {
+    if (taleType.length == 0 || taleId.length == 0) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (completion) {
                 completion(NO, NO, -1, nil);
@@ -23,7 +25,11 @@ static NSString * const kYTVPathFavoriteList = @"/user/videoFavorites/list";
         });
         return;
     }
-    NSDictionary *params = @{ @"video_id": videoId };
+    NSDictionary *params = @{
+        @"tale_type": taleType,
+        @"tale_id": taleId,
+        @"is_favorite": isFavorite ? @"1" : @"0"
+    };
     [HttpTools postRequest:kYTVPathFavoriteToggle parames:params success:^(BOOL success, BaseDataModel *response) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (!success || response == nil) {
@@ -40,10 +46,14 @@ static NSString * const kYTVPathFavoriteList = @"/user/videoFavorites/list";
                 id f = d[@"is_favorite"];
                 if ([f isKindOfClass:[NSNumber class]]) {
                     fav = [f boolValue];
+                } else if ([f isKindOfClass:[NSString class]]) {
+                    fav = [(NSString *)f integerValue] != 0;
                 }
                 id c = d[@"favorites_count"];
                 if ([c isKindOfClass:[NSNumber class]]) {
                     fc = [c integerValue];
+                } else if ([c isKindOfClass:[NSString class]]) {
+                    fc = [(NSString *)c integerValue];
                 }
             }
             if (completion) {

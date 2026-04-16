@@ -2,7 +2,7 @@
 //  YTVVideoFavoritesRepository.h
 //  YiTongProject
 //
-//  POST /user/videoFavorites/toggle（技术设计 §7 / 阶段 6）
+//  POST /video/favorite
 //
 
 #import <Foundation/Foundation.h>
@@ -14,7 +14,9 @@ NS_ASSUME_NONNULL_BEGIN
 @interface YTVVideoFavoritesRepository : NSObject
 
 /// 回调在主线程。`favoritesCount` 无字段时为 -1；失败时 `isFavorite` 无意义。
-- (void)toggleFavoriteWithVideoId:(NSString *)videoId
+- (void)toggleFavoriteWithTaleType:(NSString *)taleType
+                            taleId:(NSString *)taleId
+                        isFavorite:(BOOL)isFavorite
                        completion:(void (^)(BOOL success, BOOL isFavorite, NSInteger favoritesCount, NSString * _Nullable message))completion;
 
 /// `POST /user/videoFavorites/list`，结构与 Feed 分页一致（items / next_cursor / has_more）。
