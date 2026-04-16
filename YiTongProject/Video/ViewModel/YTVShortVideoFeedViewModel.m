@@ -285,7 +285,7 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
             }
         }
         self.nextCursor = @"";
-        self.hasMore = YES;
+        self.hasMore = NO;
         self.state = self.mutableItems.count > 0 ? YTVShortVideoFeedStateReady : YTVShortVideoFeedStateEmpty;
         [self ytv_persistSnapshot];
         if (completion) {
@@ -294,6 +294,8 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
         return;
     }
     BOOL hadDisk = [self ytv_applySnapshotIfAvailable];
+    self.nextCursor = @"";
+    self.hasMore = NO;
     if (!hadDisk) {
         self.state = YTVShortVideoFeedStateLoading;
     } else if (completion) {
@@ -339,8 +341,8 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
                     [self.mutableItems addObject:it];
                 }
             }
-            self.nextCursor = result.nextCursor ?: @"";
-            self.hasMore = [self.class ytv_hasMoreAfterPage:result];
+            self.nextCursor = @"";
+            self.hasMore = NO;
             if (self.mutableItems.count == 0) {
                 self.state = YTVShortVideoFeedStateEmpty;
             } else {

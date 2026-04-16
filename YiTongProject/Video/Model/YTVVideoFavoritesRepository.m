@@ -7,9 +7,10 @@
 #import "HttpTools.h"
 #import "BaseDataModel.h"
 #import "YTVFeedPageResult.h"
+#import "LanguageHelper.h"
 
 static NSString * const kYTVPathFavoriteToggle = @"/video/favorite";
-static NSString * const kYTVPathFavoriteList = @"/user/videoFavorites/list";
+static NSString * const kYTVPathFavoriteList = @"/video/favoriteList";
 
 @implementation YTVVideoFavoritesRepository
 
@@ -73,12 +74,11 @@ static NSString * const kYTVPathFavoriteList = @"/user/videoFavorites/list";
                    pageSize:(NSInteger)pageSize
               lastVideoId:(NSString *)lastVideoId
                  completion:(void (^)(YTVFeedPageResult * _Nullable, NSError * _Nullable))completion {
+    (void)cursor;
+    (void)pageSize;
+    (void)lastVideoId;
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
-    params[@"cursor"] = cursor ?: @"";
-    params[@"pageSize"] = @(MAX(1, pageSize));
-    if (lastVideoId.length > 0) {
-        params[@"lastVideoId"] = lastVideoId;
-    }
+    params = [LanguageHelper currentLanguageParams:params];
     [HttpTools postRequest:kYTVPathFavoriteList parames:params success:^(BOOL success, BaseDataModel *response) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (!success || response == nil) {
@@ -96,9 +96,10 @@ static NSString * const kYTVPathFavoriteList = @"/user/videoFavorites/list";
             if (!page) {
                 page = [[YTVFeedPageResult alloc] init];
                 page.items = @[];
-                page.nextCursor = @"";
-                page.hasMore = NO;
             }
+            // `/video/favoriteList` 当前返回全量收藏列表，无 cursor/has_more 语义。
+            page.nextCursor = @"";
+            page.hasMore = NO;
             if (completion) {
                 completion(page, nil);
             }

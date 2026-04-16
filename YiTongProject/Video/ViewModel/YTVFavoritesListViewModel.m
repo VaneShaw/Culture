@@ -26,7 +26,7 @@ static const NSInteger kYTVFavoritesListPageSize = 20;
     self = [super init];
     if (self) {
         _mutableItems = [NSMutableArray array];
-        _hasMore = YES;
+        _hasMore = NO;
         _repository = [[YTVVideoFavoritesRepository alloc] init];
     }
     return self;
@@ -63,10 +63,8 @@ static const NSInteger kYTVFavoritesListPageSize = 20;
             }
         }
     }
-    id nc = snap[@"nextCursor"];
-    self.nextCursor = [nc isKindOfClass:[NSString class]] ? (NSString *)nc : @"";
-    id hm = snap[@"hasMore"];
-    self.hasMore = [hm isKindOfClass:[NSNumber class]] ? [(NSNumber *)hm boolValue] : YES;
+    self.nextCursor = @"";
+    self.hasMore = NO;
 }
 
 - (void)reloadFromCacheThenNetworkWithCompletion:(void (^)(NSError * _Nullable))completion {
@@ -100,8 +98,8 @@ static const NSInteger kYTVFavoritesListPageSize = 20;
                 }
                 [self.mutableItems addObjectsFromArray:result.items];
             }
-            self.nextCursor = result.nextCursor ?: @"";
-            self.hasMore = result.hasMore;
+            self.nextCursor = @"";
+            self.hasMore = NO;
             [YTVFeedSnapshotCache saveCategoryKey:kYTVFavoritesListCacheKey
                                             items:self.mutableItems
                                        nextCursor:self.nextCursor ?: @""

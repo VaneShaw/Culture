@@ -19,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
                         isFavorite:(BOOL)isFavorite
                        completion:(void (^)(BOOL success, BOOL isFavorite, NSInteger favoritesCount, NSString * _Nullable message))completion;
 
-/// `POST /user/videoFavorites/list`，结构与 Feed 分页一致（items / next_cursor / has_more）。
+/// `POST /video/favoriteList`，当前仅需 `lang`，返回全量收藏列表；为兼容调用方保留分页参数签名。
 - (void)fetchListWithCursor:(nullable NSString *)cursor
                    pageSize:(NSInteger)pageSize
               lastVideoId:(nullable NSString *)lastVideoId
