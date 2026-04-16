@@ -11,7 +11,6 @@
 // 条数/字节略放宽，减少滑到列表后部时 LRU 过早驱逐、首条仍走 network_first 的情况。
 static const NSUInteger kYTVVideoDiskCacheMaxItems = 12;
 static const unsigned long long kYTVVideoDiskCacheMaxBytes = 256ull * 1024ull * 1024ull;
-static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
 
 @interface YTVVideoDiskCacheManager ()
 @property (nonatomic, strong) dispatch_queue_t ioQueue;
@@ -103,7 +102,6 @@ static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
         if (data.length > 0) {
             [data writeToURL:localURL atomically:YES];
             self.manifest[remoteURLString] = @([[NSDate date] timeIntervalSince1970]);
-            NSLog(@"%@ cached url=%@", kYTVVideoDiskCacheLogPrefix, remoteURLString);
             [self ytv_trimCacheLockedIfNeeded];
         }
         [self.inflightURLs removeObject:remoteURLString];
@@ -208,7 +206,6 @@ static NSString * const kYTVVideoDiskCacheLogPrefix = @"[YTVDiskCache]";
         [[NSFileManager defaultManager] removeItemAtURL:fileURL error:nil];
         [self.manifest removeObjectForKey:oldestKey];
         totalBytes = (fileBytes >= totalBytes) ? 0 : (totalBytes - fileBytes);
-        NSLog(@"%@ evict url=%@ bytes=%llu", kYTVVideoDiskCacheLogPrefix, oldestKey, fileBytes);
     }
     [self.manifest writeToURL:[self.class ytv_manifestURL] atomically:YES];
 }

@@ -16,14 +16,7 @@ static NSString * const kYTVVideoTabPath = @"/video/tab";
 + (void)ytv_fetchVideoTabsWithCompletion:(void (^)(NSArray<NSString *> * _Nullable, NSArray<NSString *> * _Nullable, NSError * _Nullable))completion {
     NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params = [LanguageHelper currentLanguageParams:params];
-    NSString *fullURL = [NSString stringWithFormat:@"%@%@", HOST, kYTVVideoTabPath];
-    NSLog(@"[YTVVideoTab] ▶️ 请求 POST %@ JSON Body: %@", fullURL, params);
     [HttpTools postRequest:kYTVVideoTabPath parames:params success:^(BOOL success, BaseDataModel *response) {
-        if (response) {
-            NSLog(@"[YTVVideoTab] ◀️ 收到 BaseDataModel success=%d code=%ld msg=%@ data类型=%@", success, (long)response.code, response.msg ?: @"", NSStringFromClass([response.data class]));
-        } else {
-            NSLog(@"[YTVVideoTab] ◀️ 收到 success=%d response=nil", success);
-        }
         if (!success || response == nil) {
             NSInteger code = response ? (NSInteger)response.code : -1;
             NSString *msg = response.msg.length ? response.msg : NSLocalizedString(@"Request failed", @"");
@@ -55,7 +48,7 @@ static NSString * const kYTVVideoTabPath = @"/video/tab";
             completion(keys, titles, nil);
         }
     } failure:^(NSError *error) {
-        NSLog(@"[YTVVideoTab] ❌ HttpTools failure domain=%@ code=%ld desc=%@（若 JSON 解析失败，请往上翻 [YTVVideoTab][RAW] 日志看原始响应体）", error.domain, (long)error.code, error.localizedDescription);
+        NSLog(@"[YTVVideoTab] request failed domain=%@ code=%ld desc=%@", error.domain, (long)error.code, error.localizedDescription);
         if (completion) {
             completion(nil, nil, error);
         }

@@ -23,6 +23,13 @@ NS_ASSUME_NONNULL_BEGIN
 /// 浅预热命中：`ItemReady` 或更深状态时返回可复用的 playerItem；否则返回 nil。
 - (nullable AVPlayerItem *)preparedPlayerItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL;
 
+/// 兜底拿一个基于同一 warming asset 构造的 playback item。
+/// 即使还没到 `prepared` 状态，也能避免前台重新从 URL 冷起一条完全独立的请求。
+- (nullable AVPlayerItem *)playbackSeedPlayerItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL;
+
+/// 首播前只对当前目标条做一次轻量 prime，不扩散到邻条；用于恢复场景下给首条创造 `preferred item` 命中机会。
+- (void)primePlaybackItemForImmediateUse:(YTVVideoFeedItem *)item;
+
 /// 首条首播获取最终播放 URL：优先命中本地缓存，未命中则回退远端 URL。
 - (YTVVideoCachePlaybackDecision *)playbackDecisionForVideoId:(NSString *)videoId playURL:(NSString *)playURL;
 

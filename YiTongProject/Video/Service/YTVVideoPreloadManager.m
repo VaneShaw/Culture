@@ -13,7 +13,10 @@
 static const NSUInteger kYTVMediaWarmMaxItems = 18;
 // 略增大前向缓冲，有利于首帧更快稳定（仍低于深预热的 4s）。
 static const NSTimeInterval kYTVWarmForwardBufferDuration = 2.8;
-static NSString * const kYTVVideoWarmLogPrefix = @"[YTVWarm]";
+static const NSTimeInterval kYTVWarmBufferedGoalSeconds = 0.35;
+static void *kYTVWarmItemStatusContext = &kYTVWarmItemStatusContext;
+static void *kYTVWarmItemLoadedTimeRangesContext = &kYTVWarmItemLoadedTimeRangesContext;
+static void *kYTVWarmPlayerStatusContext = &kYTVWarmPlayerStatusContext;
 
 typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     YTVVideoWarmEntryStateIdle = 0,
@@ -30,9 +33,14 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 @property (nonatomic, copy) NSString *playURL;
 @property (nonatomic, strong) AVURLAsset *asset;
 @property (nonatomic, strong, nullable) AVPlayerItem *playerItem;
+@property (nonatomic, strong, nullable) AVPlayerItem *bufferingItem;
 @property (nonatomic, assign) YTVVideoWarmEntryState state;
 @property (nonatomic, strong) NSDate *lastAccess;
 @property (nonatomic, assign) BOOL isDeepTarget;
+@property (nonatomic, strong, nullable) AVPlayer *bufferingPlayer;
+@property (nonatomic, assign) BOOL bufferingPlayerObserved;
+@property (nonatomic, assign) BOOL bufferingPrerollStarted;
+@property (nonatomic, assign) BOOL bufferingPrerollFinished;
 @end
 
 @implementation YTVVideoWarmEntry
@@ -48,9 +56,19 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 @property (nonatomic, assign) BOOL adaptiveAllowsDeepNext2;
 @property (nonatomic, assign) CGFloat lastObservedVelocityY;
 @property (nonatomic, strong) NSMutableOrderedSet<NSString *> *recentBackwardVideoIds;
+@property (nonatomic, strong) NSSet<NSString *> *activeDeepWarmVideoIds;
 @end
 
 @implementation YTVVideoPreloadManager
+
+- (nullable AVPlayerItem *)ytv_freshPlaybackItemForEntry:(YTVVideoWarmEntry *)entry preferredForwardBufferDuration:(NSTimeInterval)preferredForwardBufferDuration {
+    if (!entry || !entry.asset) {
+        return nil;
+    }
+    AVPlayerItem *item = [AVPlayerItem playerItemWithAsset:entry.asset];
+    item.preferredForwardBufferDuration = MAX(preferredForwardBufferDuration, 0.05);
+    return item;
+}
 
 - (instancetype)init {
     self = [super init];
@@ -60,8 +78,13 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
         _preservedWarmVideoIds = [NSSet set];
         _adaptiveForwardCount = 3;
         _recentBackwardVideoIds = [NSMutableOrderedSet orderedSet];
+        _activeDeepWarmVideoIds = [NSSet set];
     }
     return self;
+}
+
+- (void)dealloc {
+    [self invalidateAllWarmItems];
 }
 
 - (void)warmAroundDisplayIndex:(NSInteger)displayIndex items:(NSArray<YTVVideoFeedItem *> *)items {
@@ -71,13 +94,19 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 - (void)warmAroundDisplayIndex:(NSInteger)displayIndex items:(NSArray<YTVVideoFeedItem *> *)items ringHeadTailPinned:(BOOL)pinHeadTail {
     if (items.count == 0) {
         self.preservedWarmVideoIds = [NSSet set];
+        self.activeDeepWarmVideoIds = [NSSet set];
         return;
     }
     NSMutableArray<NSURL *> *coverURLs = [NSMutableArray array];
     NSMutableIndexSet *warmIndices = [NSMutableIndexSet indexSet];
+    NSMutableSet<NSString *> *deepWarmIds = [NSMutableSet set];
     NSInteger n = (NSInteger)items.count;
     if (displayIndex >= 0 && displayIndex < n) {
         [warmIndices addIndex:(NSUInteger)displayIndex];
+        YTVVideoFeedItem *focus = items[(NSUInteger)displayIndex];
+        if (focus.videoId.length > 0) {
+            [deepWarmIds addObject:focus.videoId];
+        }
     }
     if (displayIndex > 0) {
         [warmIndices addIndex:(NSUInteger)(displayIndex - 1)];
@@ -109,8 +138,16 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
             [warmIndices addIndex:(NSUInteger)(n - 2)];
         }
     }
-
-    self.deepPrewarmTargetVideoId = nil;
+    if (self.deepPrewarmTargetVideoId.length > 0) {
+        [deepWarmIds addObject:self.deepPrewarmTargetVideoId];
+    }
+    if (self.adaptiveAllowsDeepNext2 && displayIndex + 1 < n) {
+        YTVVideoFeedItem *next = items[(NSUInteger)(displayIndex + 1)];
+        if (next.videoId.length > 0) {
+            [deepWarmIds addObject:next.videoId];
+        }
+    }
+    self.activeDeepWarmVideoIds = [deepWarmIds copy];
     NSMutableSet<NSString *> *preservedIds = [NSMutableSet set];
     if (self.protectedPlaybackVideoId.length > 0) {
         [preservedIds addObject:self.protectedPlaybackVideoId];
@@ -128,6 +165,7 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
         }
         [self ytv_enqueueMediaWarmForItem:item];
     }];
+    [self ytv_reconcileDeepWarmStates];
     self.preservedWarmVideoIds = [preservedIds copy];
     [self trimWarmPoolPreservingCurrentWindow];
     if (coverURLs.count > 0) {
@@ -148,19 +186,24 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     [[YTVVideoCacheProxyManager sharedManager] prefetchVideoForRemoteURLString:item.playURL];
 
     YTVVideoWarmEntry *entry = self.warmByVideoId[item.videoId];
-    BOOL isDeepTarget = (self.deepPrewarmTargetVideoId.length > 0 && [self.deepPrewarmTargetVideoId isEqualToString:item.videoId]);
+    BOOL isDeepTarget = [self.activeDeepWarmVideoIds containsObject:item.videoId];
     if (entry) {
         if (![entry.playURL isEqualToString:item.playURL]) {
+            [self ytv_teardownDeepWarmForEntry:entry];
             [self.warmByVideoId removeObjectForKey:item.videoId];
             [self.warmAccessOrder removeObject:item.videoId];
             entry = nil;
         } else {
-            entry.isDeepTarget = isDeepTarget || self.adaptiveAllowsDeepNext2;
+            entry.isDeepTarget = isDeepTarget;
             [self ytv_touchEntry:entry];
-            if (entry.state == YTVVideoWarmEntryStatePreparingAsset || entry.state == YTVVideoWarmEntryStateBufferedReady) {
+            if (entry.state == YTVVideoWarmEntryStatePreparingAsset) {
                 return;
             }
-            if (!isDeepTarget && (entry.state == YTVVideoWarmEntryStateAssetReady || entry.state == YTVVideoWarmEntryStateItemReady || entry.state == YTVVideoWarmEntryStateBufferedReady)) {
+            if (isDeepTarget) {
+                [self ytv_startDeepBufferIfNeededForEntry:entry];
+                return;
+            }
+            if (entry.state == YTVVideoWarmEntryStateAssetReady || entry.state == YTVVideoWarmEntryStateItemReady || entry.state == YTVVideoWarmEntryStateBufferedReady) {
                 return;
             }
         }
@@ -172,8 +215,9 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
             break;
         }
         [self.warmAccessOrder removeObject:evict];
+        YTVVideoWarmEntry *evictEntry = self.warmByVideoId[evict];
+        [self ytv_teardownDeepWarmForEntry:evictEntry];
         [self.warmByVideoId removeObjectForKey:evict];
-        NSLog(@"%@ warm evict videoId=%@", kYTVVideoWarmLogPrefix, evict ?: @"<nil>");
     }
 
     if (!entry) {
@@ -184,7 +228,10 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     }
     entry.asset = [AVURLAsset URLAssetWithURL:url options:nil];
     entry.playerItem = nil;
+    entry.bufferingItem = nil;
     entry.isDeepTarget = isDeepTarget;
+    entry.bufferingPrerollStarted = NO;
+    entry.bufferingPrerollFinished = NO;
     entry.state = YTVVideoWarmEntryStatePreparingAsset;
     [self ytv_touchEntry:entry];
 
@@ -211,19 +258,17 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
             if (!playableReady || !tracksReady) {
                 currentEntry.state = YTVVideoWarmEntryStateFailed;
                 currentEntry.playerItem = nil;
-                NSError *logError = playableError ?: tracksError;
-                NSLog(@"%@ warm failed videoId=%@ error=%@",
-                      kYTVVideoWarmLogPrefix,
-                      currentEntry.videoId ?: @"<nil>",
-                      logError.localizedDescription ?: @"asset keys not ready");
                 return;
             }
             currentEntry.state = YTVVideoWarmEntryStateAssetReady;
             AVPlayerItem *playerItem = [AVPlayerItem playerItemWithAsset:asset];
             playerItem.preferredForwardBufferDuration = currentEntry.isDeepTarget ? MAX(kYTVWarmForwardBufferDuration, 4.0) : kYTVWarmForwardBufferDuration;
             currentEntry.playerItem = playerItem;
-            currentEntry.state = currentEntry.isDeepTarget ? YTVVideoWarmEntryStateBufferedReady : YTVVideoWarmEntryStateItemReady;
+            currentEntry.state = YTVVideoWarmEntryStateItemReady;
             [self ytv_touchEntry:currentEntry];
+            if (currentEntry.isDeepTarget) {
+                [self ytv_startDeepBufferIfNeededForEntry:currentEntry];
+            }
         });
     }];
 }
@@ -234,7 +279,37 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
         return nil;
     }
     [self ytv_touchEntry:entry];
-    return entry.playerItem;
+    NSTimeInterval preferredForwardBufferDuration = ((entry.state == YTVVideoWarmEntryStateBufferedReady || entry.bufferingPlayer != nil) && entry.asset)
+        ? MAX(kYTVWarmForwardBufferDuration, 4.0)
+        : kYTVWarmForwardBufferDuration;
+    // Do not hand the foreground player a previously-consumed warm item instance.
+    // Rebuild a fresh AVPlayerItem from the warmed asset so playback starts from a clean item state.
+    return [self ytv_freshPlaybackItemForEntry:entry preferredForwardBufferDuration:preferredForwardBufferDuration];
+}
+
+- (nullable AVPlayerItem *)playbackSeedPlayerItemForVideoId:(NSString *)videoId playURL:(NSString *)playURL {
+    YTVVideoWarmEntry *entry = [self ytv_validEntryForVideoId:videoId playURL:playURL];
+    if (!entry) {
+        return nil;
+    }
+    [self ytv_touchEntry:entry];
+    NSTimeInterval preferredForwardBufferDuration = (entry.state == YTVVideoWarmEntryStateBufferedReady || entry.bufferingPlayer != nil || entry.isDeepTarget)
+        ? MAX(kYTVWarmForwardBufferDuration, 4.0)
+        : kYTVWarmForwardBufferDuration;
+    return [self ytv_freshPlaybackItemForEntry:entry preferredForwardBufferDuration:preferredForwardBufferDuration];
+}
+
+- (void)primePlaybackItemForImmediateUse:(YTVVideoFeedItem *)item {
+    if (item.videoId.length == 0 || item.playURL.length == 0) {
+        return;
+    }
+    self.protectedPlaybackVideoId = item.videoId;
+    self.deepPrewarmTargetVideoId = item.videoId;
+    self.activeDeepWarmVideoIds = [NSSet setWithObject:item.videoId];
+    self.preservedWarmVideoIds = [NSSet setWithObject:item.videoId];
+    [self ytv_enqueueMediaWarmForItem:item];
+    [self ytv_reconcileDeepWarmStates];
+    [self trimWarmPoolPreservingCurrentWindow];
 }
 
 - (YTVVideoCachePlaybackDecision *)playbackDecisionForVideoId:(NSString *)videoId playURL:(NSString *)playURL {
@@ -260,13 +335,7 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
 
 - (void)setDeepPrewarmTargetVideoId:(NSString *)videoId {
     _deepPrewarmTargetVideoId = videoId.length > 0 ? [videoId copy] : nil;
-    for (YTVVideoWarmEntry *entry in self.warmByVideoId.allValues) {
-        BOOL deep = (_deepPrewarmTargetVideoId.length > 0 && [entry.videoId isEqualToString:_deepPrewarmTargetVideoId]);
-        entry.isDeepTarget = deep;
-        if (deep && entry.state == YTVVideoWarmEntryStateItemReady) {
-            entry.state = YTVVideoWarmEntryStateBufferedReady;
-        }
-    }
+    [self ytv_reconcileDeepWarmStates];
 }
 
 
@@ -312,8 +381,9 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
             break;
         }
         [self.warmAccessOrder removeObject:evict];
+        YTVVideoWarmEntry *evictEntry = self.warmByVideoId[evict];
+        [self ytv_teardownDeepWarmForEntry:evictEntry];
         [self.warmByVideoId removeObjectForKey:evict];
-        NSLog(@"%@ warm evict videoId=%@", kYTVVideoWarmLogPrefix, evict ?: @"<nil>");
     }
 }
 
@@ -347,9 +417,10 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
         }
     }
     for (NSString *vid in toRemove) {
+        YTVVideoWarmEntry *entry = self.warmByVideoId[vid];
+        [self ytv_teardownDeepWarmForEntry:entry];
         [self.warmByVideoId removeObjectForKey:vid];
         [self.warmAccessOrder removeObject:vid];
-        NSLog(@"%@ warm evict (inactive trim) videoId=%@", kYTVVideoWarmLogPrefix, vid ?: @"<nil>");
     }
     self.preservedWarmVideoIds = [keep copy];
 }
@@ -358,7 +429,11 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     self.protectedPlaybackVideoId = nil;
     [self.recentBackwardVideoIds removeAllObjects];
     self.deepPrewarmTargetVideoId = nil;
+    self.activeDeepWarmVideoIds = [NSSet set];
     self.preservedWarmVideoIds = [NSSet set];
+    for (YTVVideoWarmEntry *entry in self.warmByVideoId.allValues) {
+        [self ytv_teardownDeepWarmForEntry:entry];
+    }
     [self.warmByVideoId removeAllObjects];
     [self.warmAccessOrder removeAllObjects];
 }
@@ -378,6 +453,216 @@ typedef NS_ENUM(NSInteger, YTVVideoWarmEntryState) {
     entry.lastAccess = [NSDate date];
     [self.warmAccessOrder removeObject:entry.videoId];
     [self.warmAccessOrder addObject:entry.videoId];
+}
+
+- (void)ytv_reconcileDeepWarmStates {
+    NSSet<NSString *> *deepIds = self.activeDeepWarmVideoIds ?: [NSSet set];
+    for (YTVVideoWarmEntry *entry in self.warmByVideoId.allValues) {
+        BOOL shouldDeep = (entry.videoId.length > 0 && [deepIds containsObject:entry.videoId]);
+        if (!shouldDeep) {
+            if (entry.isDeepTarget || entry.bufferingPlayer) {
+                [self ytv_demoteDeepWarmEntryIfNeeded:entry];
+            }
+            entry.isDeepTarget = NO;
+            continue;
+        }
+        entry.isDeepTarget = YES;
+        [self ytv_startDeepBufferIfNeededForEntry:entry];
+    }
+}
+
+- (void)ytv_startDeepBufferIfNeededForEntry:(YTVVideoWarmEntry *)entry {
+    if (!entry || !entry.isDeepTarget || !entry.asset) {
+        return;
+    }
+    if (entry.state == YTVVideoWarmEntryStatePreparingAsset || entry.state == YTVVideoWarmEntryStateFailed || entry.state == YTVVideoWarmEntryStateBufferedReady) {
+        return;
+    }
+    if (!entry.playerItem) {
+        entry.playerItem = [AVPlayerItem playerItemWithAsset:entry.asset];
+        entry.playerItem.preferredForwardBufferDuration = MAX(kYTVWarmForwardBufferDuration, 4.0);
+        entry.state = YTVVideoWarmEntryStateItemReady;
+    }
+    if (!entry.bufferingItem) {
+        entry.bufferingItem = [AVPlayerItem playerItemWithAsset:entry.asset];
+        entry.bufferingItem.preferredForwardBufferDuration = MAX(kYTVWarmForwardBufferDuration, 4.0);
+    }
+    if (!entry.bufferingPlayer) {
+        entry.bufferingPlayer = [[AVPlayer alloc] init];
+        entry.bufferingPlayer.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+        entry.bufferingPlayer.automaticallyWaitsToMinimizeStalling = YES;
+    }
+    if (entry.bufferingPlayer.currentItem == entry.bufferingItem) {
+        [self ytv_resolveDeepWarmStateForEntry:entry];
+        return;
+    }
+    if (!entry.bufferingPlayerObserved) {
+        [entry.bufferingPlayer addObserver:self
+                                forKeyPath:@"status"
+                                   options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew
+                                   context:kYTVWarmPlayerStatusContext];
+        entry.bufferingPlayerObserved = YES;
+    }
+    @try {
+        [entry.bufferingItem removeObserver:self forKeyPath:@"status" context:kYTVWarmItemStatusContext];
+    } @catch (__unused NSException *e) {
+    }
+    @try {
+        [entry.bufferingItem removeObserver:self forKeyPath:@"loadedTimeRanges" context:kYTVWarmItemLoadedTimeRangesContext];
+    } @catch (__unused NSException *e) {
+    }
+    [entry.bufferingItem addObserver:self forKeyPath:@"status" options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew context:kYTVWarmItemStatusContext];
+    [entry.bufferingItem addObserver:self forKeyPath:@"loadedTimeRanges" options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew context:kYTVWarmItemLoadedTimeRangesContext];
+    entry.bufferingPrerollStarted = NO;
+    entry.bufferingPrerollFinished = NO;
+    [entry.bufferingPlayer replaceCurrentItemWithPlayerItem:entry.bufferingItem];
+    [entry.bufferingPlayer pause];
+    [self ytv_resolveDeepWarmStateForEntry:entry];
+}
+
+- (void)ytv_demoteDeepWarmEntryIfNeeded:(YTVVideoWarmEntry *)entry {
+    if (!entry) {
+        return;
+    }
+    [self ytv_teardownDeepWarmForEntry:entry];
+    if (entry.state != YTVVideoWarmEntryStateFailed && entry.asset) {
+        if (!entry.playerItem) {
+            entry.playerItem = [AVPlayerItem playerItemWithAsset:entry.asset];
+        }
+        entry.playerItem.preferredForwardBufferDuration = kYTVWarmForwardBufferDuration;
+        entry.state = YTVVideoWarmEntryStateItemReady;
+    }
+}
+
+- (void)ytv_teardownDeepWarmForEntry:(YTVVideoWarmEntry *)entry {
+    if (!entry) {
+        return;
+    }
+    if (entry.bufferingItem) {
+        @try {
+            [entry.bufferingItem removeObserver:self forKeyPath:@"status" context:kYTVWarmItemStatusContext];
+        } @catch (__unused NSException *e) {
+        }
+        @try {
+            [entry.bufferingItem removeObserver:self forKeyPath:@"loadedTimeRanges" context:kYTVWarmItemLoadedTimeRangesContext];
+        } @catch (__unused NSException *e) {
+        }
+    }
+    if (entry.bufferingPlayerObserved) {
+        @try {
+            [entry.bufferingPlayer removeObserver:self forKeyPath:@"status" context:kYTVWarmPlayerStatusContext];
+        } @catch (__unused NSException *e) {
+        }
+        entry.bufferingPlayerObserved = NO;
+    }
+    [entry.bufferingPlayer pause];
+    [entry.bufferingPlayer replaceCurrentItemWithPlayerItem:nil];
+    entry.bufferingPlayer = nil;
+    entry.bufferingItem = nil;
+    entry.bufferingPrerollStarted = NO;
+    entry.bufferingPrerollFinished = NO;
+}
+
+- (void)ytv_resolveDeepWarmStateForEntry:(YTVVideoWarmEntry *)entry {
+    if (!entry || !entry.isDeepTarget || !entry.bufferingItem || !entry.bufferingPlayer) {
+        return;
+    }
+    AVPlayerItem *item = entry.bufferingItem;
+    if (item.status == AVPlayerItemStatusFailed) {
+        entry.state = YTVVideoWarmEntryStateFailed;
+        return;
+    }
+    if (item.status != AVPlayerItemStatusReadyToPlay) {
+        return;
+    }
+    if (entry.bufferingPlayer.status == AVPlayerStatusFailed) {
+        entry.state = YTVVideoWarmEntryStateFailed;
+        return;
+    }
+    if (entry.bufferingPlayer.status != AVPlayerStatusReadyToPlay) {
+        return;
+    }
+    if (!entry.bufferingPrerollStarted) {
+        entry.bufferingPrerollStarted = YES;
+        __weak typeof(self) weakSelf = self;
+        __weak YTVVideoWarmEntry *weakEntry = entry;
+        [entry.bufferingPlayer prerollAtRate:0.0 completionHandler:^(BOOL finished) {
+            __strong typeof(weakSelf) self = weakSelf;
+            YTVVideoWarmEntry *strongEntry = weakEntry;
+            if (!self || !strongEntry || !strongEntry.isDeepTarget) {
+                return;
+            }
+            strongEntry.bufferingPrerollFinished = finished;
+            if (!finished) {
+                return;
+            }
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self ytv_resolveDeepWarmStateForEntry:strongEntry];
+            });
+        }];
+        return;
+    }
+    if (!entry.bufferingPrerollFinished) {
+        return;
+    }
+    BOOL bufferedEnough = NO;
+    NSArray *ranges = item.loadedTimeRanges;
+    if ([ranges isKindOfClass:[NSArray class]] && ranges.count > 0) {
+        CMTimeRange tr = [[ranges firstObject] CMTimeRangeValue];
+        NSTimeInterval start = CMTimeGetSeconds(tr.start);
+        NSTimeInterval dur = CMTimeGetSeconds(tr.duration);
+        if (isfinite(start) && isfinite(dur) && (start + dur) >= kYTVWarmBufferedGoalSeconds) {
+            bufferedEnough = YES;
+        }
+    }
+    if (!bufferedEnough && item.playbackLikelyToKeepUp) {
+        bufferedEnough = YES;
+    }
+    if (!bufferedEnough) {
+        return;
+    }
+    entry.state = YTVVideoWarmEntryStateBufferedReady;
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey,id> *)change
+                       context:(void *)context {
+    if (context == kYTVWarmItemStatusContext || context == kYTVWarmItemLoadedTimeRangesContext) {
+        YTVVideoWarmEntry *entry = [self ytv_entryForPlayerItem:(AVPlayerItem *)object];
+        [self ytv_resolveDeepWarmStateForEntry:entry];
+        return;
+    }
+    if (context == kYTVWarmPlayerStatusContext) {
+        YTVVideoWarmEntry *entry = [self ytv_entryForPlayer:(AVPlayer *)object];
+        [self ytv_resolveDeepWarmStateForEntry:entry];
+        return;
+    }
+    [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+}
+
+- (nullable YTVVideoWarmEntry *)ytv_entryForPlayerItem:(AVPlayerItem *)playerItem {
+    if (!playerItem) {
+        return nil;
+    }
+    for (YTVVideoWarmEntry *entry in self.warmByVideoId.allValues) {
+        if (entry.playerItem == playerItem || entry.bufferingItem == playerItem) {
+            return entry;
+        }
+    }
+    return nil;
+}
+
+- (nullable YTVVideoWarmEntry *)ytv_entryForPlayer:(AVPlayer *)player {
+    if (!player) {
+        return nil;
+    }
+    for (YTVVideoWarmEntry *entry in self.warmByVideoId.allValues) {
+        if (entry.bufferingPlayer == player) {
+            return entry;
+        }
+    }
+    return nil;
 }
 
 - (nullable NSString *)ytv_nextLRUEvictVideoIdSkippingProtectedWindow {
