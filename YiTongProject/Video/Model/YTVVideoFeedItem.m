@@ -22,22 +22,9 @@
     item.fullTextURL = [self ytv_string:dict[@"full_text_url"]];
     item.coverURL = [self ytv_string:(dict[@"cover_url"] ?: dict[@"head_image"] ?: dict[@"cover"] ?: dict[@"headImage"])];
     item.shareURL = [self ytv_string:dict[@"share_url"]];
-    id fav = dict[@"is_favorite"];
-    if ([fav isKindOfClass:[NSNumber class]]) {
-        item.isFavorite = [fav boolValue];
-    }
-    id fc = dict[@"favorites_count"];
-    if ([fc isKindOfClass:[NSNumber class]]) {
-        item.favoritesCount = [fc integerValue];
-    } else {
-        item.favoritesCount = -1;
-    }
-    id sc = dict[@"share_count"] ?: dict[@"shares_count"] ?: dict[@"shareCount"];
-    if ([sc isKindOfClass:[NSNumber class]]) {
-        item.shareCount = [sc integerValue];
-    } else {
-        item.shareCount = -1;
-    }
+    item.isFavorite = [self ytv_boolValue:dict[@"is_favorite"]];
+    item.favoritesCount = [self ytv_integerValueFromObject:(dict[@"favorites_count"] ?: dict[@"favorite_num"]) defaultValue:-1];
+    item.shareCount = [self ytv_integerValueFromObject:(dict[@"share_count"] ?: dict[@"shares_count"] ?: dict[@"shareCount"] ?: dict[@"share_num"]) defaultValue:-1];
     id dur = dict[@"duration_ms"];
     if ([dur isKindOfClass:[NSNumber class]]) {
         item.durationMs = [dur integerValue];
@@ -80,6 +67,40 @@
         return [(NSNumber *)obj stringValue];
     }
     return @"";
+}
+
++ (BOOL)ytv_boolValue:(id)obj {
+    if ([obj isKindOfClass:[NSNumber class]]) {
+        return [(NSNumber *)obj boolValue];
+    }
+    if ([obj isKindOfClass:[NSString class]]) {
+        NSString *value = [(NSString *)obj stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]].lowercaseString;
+        if (value.length == 0) {
+            return NO;
+        }
+        if ([value isEqualToString:@"true"] || [value isEqualToString:@"yes"]) {
+            return YES;
+        }
+        if ([value isEqualToString:@"false"] || [value isEqualToString:@"no"]) {
+            return NO;
+        }
+        return value.integerValue != 0;
+    }
+    return NO;
+}
+
++ (NSInteger)ytv_integerValueFromObject:(id)obj defaultValue:(NSInteger)defaultValue {
+    if ([obj isKindOfClass:[NSNumber class]]) {
+        return [(NSNumber *)obj integerValue];
+    }
+    if ([obj isKindOfClass:[NSString class]]) {
+        NSString *value = [(NSString *)obj stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (value.length == 0) {
+            return defaultValue;
+        }
+        return value.integerValue;
+    }
+    return defaultValue;
 }
 
 - (NSDictionary *)ytv_toSnapshotDictionary {
