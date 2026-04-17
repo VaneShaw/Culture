@@ -9,6 +9,7 @@
 #import "YTVVideoCategoryTabsView.h"
 #import "YTVVideoCategoryKeys.h"
 #import "YTVVideoTabApi.h"
+#import "AppDelegate.h"
 
 const NSInteger kYTVVideoTabBarIndex = 2;
 
@@ -24,6 +25,24 @@ const NSInteger kYTVVideoTabBarIndex = 2;
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self.navigationController setNavigationBarHidden:YES animated:animated];
+    [self ytv_applyVideoTabBarAppearanceIfNeeded];
+    id<UIViewControllerTransitionCoordinator> coordinator = self.transitionCoordinator;
+    if (coordinator != nil) {
+        __weak typeof(self) weakSelf = self;
+        [coordinator animateAlongsideTransition:^(__unused id<UIViewControllerTransitionCoordinatorContext> context) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) {
+                return;
+            }
+            [self ytv_applyVideoTabBarAppearanceIfNeeded];
+        } completion:^(__unused id<UIViewControllerTransitionCoordinatorContext> context) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) {
+                return;
+            }
+            [self ytv_applyVideoTabBarAppearanceIfNeeded];
+        }];
+    }
 }
 
 - (void)viewDidLoad {
@@ -162,11 +181,19 @@ const NSInteger kYTVVideoTabBarIndex = 2;
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    [self ytv_applyVideoTabBarAppearanceIfNeeded];
     UIViewController *cur = self.pageViewController.viewControllers.firstObject;
     if (![cur isKindOfClass:[YTVShortVideoFeedViewController class]]) {
         return;
     }
     [self ytv_commitActiveFeed:(YTVShortVideoFeedViewController *)cur updateTabSelection:NO];
+}
+
+- (void)ytv_applyVideoTabBarAppearanceIfNeeded {
+    id appDelegate = UIApplication.sharedApplication.delegate;
+    if ([appDelegate isKindOfClass:[AppDelegate class]] && self.tabBarController != nil) {
+        [(AppDelegate *)appDelegate ytb_applyTabBarAppearanceForTabBarController:self.tabBarController];
+    }
 }
 
 #pragma mark - 分类实例与激活（每分类独立 VC，非当前降载）
