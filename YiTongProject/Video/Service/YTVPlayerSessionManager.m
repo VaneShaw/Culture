@@ -15,6 +15,8 @@ static void *kYTVStandbyPlayerItemLoadedTimeRangesContext = &kYTVStandbyPlayerIt
 static void *kYTVStandbyPlayerStatusContext = &kYTVStandbyPlayerStatusContext;
 static const NSTimeInterval kYTVStandbyBufferGoalSeconds = 0.35;
 static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
+static const NSTimeInterval kYTVForegroundSteadyBufferSeconds = 2.8;
+static const NSTimeInterval kYTVForegroundStallRecoveryBufferSeconds = 4.0;
 
 @interface YTVPlayerSessionManager ()
 @property (nonatomic, strong, readwrite) AVPlayer *player;
@@ -37,6 +39,17 @@ static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
 @end
 
 @implementation YTVPlayerSessionManager
+
+- (void)ytv_prepareForegroundPlayerForAggressiveStartup {
+    self.player.automaticallyWaitsToMinimizeStalling = NO;
+}
+
+- (void)ytv_applyMinimumForwardBufferDuration:(NSTimeInterval)duration toPlayerItem:(AVPlayerItem *)item {
+    if (!item) {
+        return;
+    }
+    item.preferredForwardBufferDuration = MAX(item.preferredForwardBufferDuration, MAX(duration, 0.05));
+}
 
 - (instancetype)init {
     self = [super init];
@@ -114,7 +127,8 @@ static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
     if (!item) {
         item = [[AVPlayerItem alloc] initWithURL:url];
     }
-    item.preferredForwardBufferDuration = MAX(self.foregroundBufferDuration, 0.05);
+    [self ytv_prepareForegroundPlayerForAggressiveStartup];
+    [self ytv_applyMinimumForwardBufferDuration:self.foregroundBufferDuration toPlayerItem:item];
     self.currentRequestId += 1;
     NSUInteger requestId = self.currentRequestId;
     self.currentReplaceStartDate = [NSDate date];
@@ -198,7 +212,6 @@ static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
         return 0;
     }
     AVPlayerItem *standbyItem = self.standbyObservedItem;
-    NSString *u = self.standbyURLString;
     AVPlayerItem *item = nil;
     if ([standbyItem.asset isKindOfClass:[AVURLAsset class]]) {
         NSURL *assetURL = [(AVURLAsset *)standbyItem.asset URL];
@@ -209,7 +222,8 @@ static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
     if (!item) {
         item = [[AVPlayerItem alloc] initWithURL:url];
     }
-    item.preferredForwardBufferDuration = MAX(self.foregroundBufferDuration, 0.05);
+    [self ytv_prepareForegroundPlayerForAggressiveStartup];
+    [self ytv_applyMinimumForwardBufferDuration:self.foregroundBufferDuration toPlayerItem:item];
     self.currentRequestId += 1;
     NSUInteger requestId = self.currentRequestId;
     self.currentReplaceStartDate = [NSDate date];
@@ -229,6 +243,25 @@ static const NSTimeInterval kYTVForegroundStartBufferSeconds = 0.15;
     self.standbyPrerollFinished = NO;
     [self.standbyPlayer pause];
     [self.standbyPlayer replaceCurrentItemWithPlayerItem:nil];
+}
+
+- (void)promoteCurrentPlaybackToSteadyState {
+    AVPlayerItem *item = self.player.currentItem;
+    if (!item) {
+        return;
+    }
+    self.player.automaticallyWaitsToMinimizeStalling = YES;
+    [self ytv_applyMinimumForwardBufferDuration:kYTVForegroundSteadyBufferSeconds toPlayerItem:item];
+}
+
+- (void)recoverCurrentPlaybackAfterStall {
+    AVPlayerItem *item = self.player.currentItem;
+    if (!item) {
+        return;
+    }
+    self.player.automaticallyWaitsToMinimizeStalling = YES;
+    [self ytv_applyMinimumForwardBufferDuration:kYTVForegroundStallRecoveryBufferSeconds toPlayerItem:item];
+    [self.player play];
 }
 
 - (void)bindPlayerLayerForFirstFrameObservation:(AVPlayerLayer *)playerLayer {

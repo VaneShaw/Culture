@@ -67,6 +67,12 @@ typedef void (^YTVPlayerSessionEventHandler)(YTVPlayerSessionEventType eventType
 /// 当前条或候场条切换后，取消无效候场，避免额外占用解码与带宽。
 - (void)clearStandbyPlayback;
 
+/// 首帧出来后切到更稳的前台播放策略，减少边播边饿缓冲。
+- (void)promoteCurrentPlaybackToSteadyState;
+
+/// 发生 stall 后切到更保守的缓冲策略，并主动恢复 `play` 进入等待/续播。
+- (void)recoverCurrentPlaybackAfterStall;
+
 - (void)play;
 - (void)pause;
 

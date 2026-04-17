@@ -201,6 +201,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 @property (nonatomic, assign) NSTimeInterval ytv_perfAccumulatedPlayDuration;
 @property (nonatomic, assign) NSTimeInterval ytv_perfAccumulatedStallDuration;
 @property (nonatomic, assign) NSUInteger ytv_perfStallCount;
+@property (nonatomic, strong, nullable) NSTimer *ytv_playbackDiagnosticTimer;
+@property (nonatomic, assign) Float64 ytv_playbackDiagnosticLastTimeSeconds;
+@property (nonatomic, assign) NSUInteger ytv_playbackDiagnosticFrozenTickCount;
+@property (nonatomic, assign) BOOL ytv_playbackDiagnosticStuckLogged;
 @property (nonatomic, assign) NSInteger ytv_pendingStartupPrimePlaybackIndex;
 @property (nonatomic, assign) NSUInteger ytv_pendingStartupPrimePlaybackToken;
 @property (nonatomic, assign) BOOL ytv_startupScrollLockEnabled;
@@ -246,6 +250,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 - (NSInteger)ytv_provisionalWarmVelocityBucketForVelocityY:(CGFloat)velocityY;
 - (NSInteger)ytv_predictedExtendedPageForScrollView:(UIScrollView *)scrollView pageHeight:(CGFloat)pageHeight velocityY:(CGFloat)velocityY;
 - (BOOL)ytv_shouldDeferNonCriticalStartupWork;
+- (BOOL)ytv_shouldThrottleNonCriticalWarmForCurrentPlayback;
+- (void)ytv_suspendNonCriticalWarmForCurrentPlaybackIfNeeded;
 - (NSInteger)ytv_targetIndexMatchingActivePlaybackInCurrentFeed;
 - (void)ytv_applyDeferredFeedReloadAligningToActivePlaybackIfNeeded;
 - (void)ytv_updateVisibleCellsSwipeDim;
@@ -256,6 +262,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 - (void)ytv_onChromeSeeAllTapFromCell:(YTVShortVideoCell *)cell;
 - (void)ytv_installPlaybackPerformanceObserversIfNeeded;
 - (void)ytv_removePlaybackPerformanceObserversIfNeeded;
+- (void)ytv_startPlaybackDiagnosticTimerIfNeeded;
+- (void)ytv_stopPlaybackDiagnosticTimer;
+- (void)ytv_resetPlaybackDiagnosticWatchdog;
+- (void)ytv_handlePlaybackDiagnosticTimerTick:(NSTimer *)timer;
 - (void)ytv_resetPlaybackPerformanceTrackingForItem:(YTVVideoFeedItem *)item index:(NSInteger)index;
 - (void)ytv_finalizePlaybackPerformanceLogIfNeededWithReason:(NSString *)reason error:(nullable NSError *)error;
 - (void)ytv_handlePlaybackTimeControlStatusChanged;
@@ -445,6 +455,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
                                              selector:@selector(ytv_handlePlaybackStalledNotification:)
                                                  name:AVPlayerItemPlaybackStalledNotification
                                                object:nil];
+    [self ytv_startPlaybackDiagnosticTimerIfNeeded];
     self.ytv_perfObserversInstalled = YES;
 }
 
@@ -462,7 +473,34 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     [[NSNotificationCenter defaultCenter] removeObserver:self
                                                     name:AVPlayerItemPlaybackStalledNotification
                                                   object:nil];
+    [self ytv_stopPlaybackDiagnosticTimer];
     self.ytv_perfObserversInstalled = NO;
+}
+
+- (void)ytv_startPlaybackDiagnosticTimerIfNeeded {
+    if (self.ytv_playbackDiagnosticTimer) {
+        return;
+    }
+    NSTimer *timer = [NSTimer timerWithTimeInterval:0.5
+                                             target:self
+                                           selector:@selector(ytv_handlePlaybackDiagnosticTimerTick:)
+                                           userInfo:nil
+                                            repeats:YES];
+    [[NSRunLoop mainRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
+    self.ytv_playbackDiagnosticTimer = timer;
+    [self ytv_resetPlaybackDiagnosticWatchdog];
+}
+
+- (void)ytv_stopPlaybackDiagnosticTimer {
+    [self.ytv_playbackDiagnosticTimer invalidate];
+    self.ytv_playbackDiagnosticTimer = nil;
+    [self ytv_resetPlaybackDiagnosticWatchdog];
+}
+
+- (void)ytv_resetPlaybackDiagnosticWatchdog {
+    self.ytv_playbackDiagnosticLastTimeSeconds = -1;
+    self.ytv_playbackDiagnosticFrozenTickCount = 0;
+    self.ytv_playbackDiagnosticStuckLogged = NO;
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath
@@ -476,6 +514,162 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
 }
 
+- (NSString *)ytv_playerTimeControlStatusLabel:(AVPlayerTimeControlStatus)status {
+    switch (status) {
+        case AVPlayerTimeControlStatusPaused:
+            return @"paused";
+        case AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate:
+            return @"waiting";
+        case AVPlayerTimeControlStatusPlaying:
+            return @"playing";
+    }
+    return @"unknown";
+}
+
+- (NSString *)ytv_playerItemStatusLabel:(AVPlayerItemStatus)status {
+    switch (status) {
+        case AVPlayerItemStatusUnknown:
+            return @"unknown";
+        case AVPlayerItemStatusReadyToPlay:
+            return @"ready";
+        case AVPlayerItemStatusFailed:
+            return @"failed";
+    }
+    return @"unknown";
+}
+
+- (NSString *)ytv_loadedTimeRangesSummaryForPlayerItem:(AVPlayerItem *)item {
+    NSArray *ranges = item.loadedTimeRanges;
+    if (![ranges isKindOfClass:[NSArray class]] || ranges.count == 0) {
+        return @"<none>";
+    }
+    NSMutableArray<NSString *> *parts = [NSMutableArray array];
+    NSUInteger limit = MIN(ranges.count, 2);
+    for (NSUInteger idx = 0; idx < limit; idx++) {
+        id raw = ranges[idx];
+        if (![raw isKindOfClass:[NSValue class]]) {
+            continue;
+        }
+        CMTimeRange tr = [raw CMTimeRangeValue];
+        Float64 start = CMTimeGetSeconds(tr.start);
+        Float64 dur = CMTimeGetSeconds(tr.duration);
+        if (!isfinite(start) || !isfinite(dur)) {
+            continue;
+        }
+        [parts addObject:[NSString stringWithFormat:@"%.2f-%.2f", start, start + MAX(dur, 0)]];
+    }
+    if (parts.count == 0) {
+        return @"<none>";
+    }
+    return [parts componentsJoinedByString:@","];
+}
+
+- (void)ytv_logPlaybackDiagnosticWithTag:(NSString *)tag extra:(NSString *)extra {
+    if (tag.length == 0) {
+        return;
+    }
+    AVPlayer *player = self.playerSession.player;
+    AVPlayerItem *item = player.currentItem;
+    YTVVideoFeedItem *sessionItem = [self ytv_perfSessionItem];
+    NSMutableString *line = [NSMutableString stringWithFormat:@"%@ diag tag=%@ idx=%ld videoId=%@ source=%@",
+                             kYTVPlaybackPerfLogPrefix,
+                             tag,
+                             (long)self.ytv_perfSessionIndex,
+                             self.ytv_perfSessionVideoId.length > 0 ? self.ytv_perfSessionVideoId : @"<nil>",
+                             self.ytv_currentPlaybackSourceLabel ?: @"unknown"];
+    [line appendFormat:@" time_control=%@", [self ytv_playerTimeControlStatusLabel:player.timeControlStatus]];
+    if (item) {
+        [line appendFormat:@" item_status=%@", [self ytv_playerItemStatusLabel:item.status]];
+        [line appendFormat:@" buffer_empty=%@", item.playbackBufferEmpty ? @"YES" : @"NO"];
+        [line appendFormat:@" likely_keep_up=%@", item.playbackLikelyToKeepUp ? @"YES" : @"NO"];
+        [line appendFormat:@" buffer_full=%@", item.playbackBufferFull ? @"YES" : @"NO"];
+        [line appendFormat:@" loaded=%@", [self ytv_loadedTimeRangesSummaryForPlayerItem:item]];
+        Float64 current = CMTimeGetSeconds(player.currentTime);
+        if (isfinite(current) && current >= 0) {
+            [line appendFormat:@" current=%.2fs", current];
+        }
+        Float64 duration = CMTimeGetSeconds(item.duration);
+        if ((!isfinite(duration) || duration <= 0) && sessionItem.durationMs > 0) {
+            duration = sessionItem.durationMs / 1000.0;
+        }
+        if (isfinite(duration) && duration > 0) {
+            [line appendFormat:@" duration=%.2fs", duration];
+        }
+        if (item.error.localizedDescription.length > 0) {
+            [line appendFormat:@" item_error=%@", item.error.localizedDescription];
+        }
+    } else {
+        [line appendString:@" item=<nil>"];
+    }
+    [line appendFormat:@" rate=%.2f", player.rate];
+    NSString *waitReason = [self ytv_playerWaitingReasonLabel];
+    if (waitReason.length > 0 && ![waitReason isEqualToString:@"unknown"]) {
+        [line appendFormat:@" wait_reason=%@", waitReason];
+    }
+    [self ytv_appendPlaybackRequestFlagsToLogLine:line];
+    [self ytv_appendPlaybackResolvedLocationToLogLine:line];
+    [self ytv_appendPlaybackMaterialInfoToLogLine:line item:sessionItem];
+    if (extra.length > 0) {
+        [line appendFormat:@" %@", extra];
+    }
+    NSLog(@"%@", line);
+}
+
+- (void)ytv_handlePlaybackDiagnosticTimerTick:(NSTimer *)timer {
+    if (timer != self.ytv_playbackDiagnosticTimer) {
+        return;
+    }
+    if (!self.ytv_perfSessionActive || !self.ytv_currentPlaybackFirstFrameReady || self.ytv_userPausedWithPlayHint) {
+        [self ytv_resetPlaybackDiagnosticWatchdog];
+        return;
+    }
+    AVPlayer *player = self.playerSession.player;
+    AVPlayerItem *item = player.currentItem;
+    if (!item || item.status != AVPlayerItemStatusReadyToPlay) {
+        [self ytv_resetPlaybackDiagnosticWatchdog];
+        return;
+    }
+    if (player.timeControlStatus != AVPlayerTimeControlStatusPlaying || fabs(player.rate) < 0.01) {
+        [self ytv_resetPlaybackDiagnosticWatchdog];
+        return;
+    }
+    Float64 current = CMTimeGetSeconds(player.currentTime);
+    if (!isfinite(current) || current < 0) {
+        [self ytv_resetPlaybackDiagnosticWatchdog];
+        return;
+    }
+    Float64 duration = CMTimeGetSeconds(item.duration);
+    if (isfinite(duration) && duration > 0 && current >= duration - 0.25) {
+        [self ytv_resetPlaybackDiagnosticWatchdog];
+        return;
+    }
+    if (self.ytv_playbackDiagnosticLastTimeSeconds < 0) {
+        self.ytv_playbackDiagnosticLastTimeSeconds = current;
+        return;
+    }
+    Float64 delta = current - self.ytv_playbackDiagnosticLastTimeSeconds;
+    self.ytv_playbackDiagnosticLastTimeSeconds = current;
+    if (delta > 0.08) {
+        if (self.ytv_playbackDiagnosticStuckLogged) {
+            [self ytv_logPlaybackDiagnosticWithTag:@"watchdog_resume"
+                                             extra:[NSString stringWithFormat:@"advance=%.3fs frozen_ticks=%lu",
+                                                    delta,
+                                                    (unsigned long)self.ytv_playbackDiagnosticFrozenTickCount]];
+        }
+        self.ytv_playbackDiagnosticFrozenTickCount = 0;
+        self.ytv_playbackDiagnosticStuckLogged = NO;
+        return;
+    }
+    self.ytv_playbackDiagnosticFrozenTickCount += 1;
+    if (self.ytv_playbackDiagnosticFrozenTickCount >= 3 && !self.ytv_playbackDiagnosticStuckLogged) {
+        self.ytv_playbackDiagnosticStuckLogged = YES;
+        [self ytv_logPlaybackDiagnosticWithTag:@"watchdog_stuck"
+                                         extra:[NSString stringWithFormat:@"advance=%.3fs frozen_ticks=%lu",
+                                                delta,
+                                                (unsigned long)self.ytv_playbackDiagnosticFrozenTickCount]];
+    }
+}
+
 - (void)ytv_handlePlaybackStalledNotification:(NSNotification *)notification {
     AVPlayerItem *item = notification.object;
     if (!item || item != self.playerSession.player.currentItem) {
@@ -484,14 +678,22 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (!self.ytv_perfSessionActive || !self.ytv_currentPlaybackFirstFrameReady || self.ytv_userPausedWithPlayHint) {
         return;
     }
+    [self ytv_logPlaybackDiagnosticWithTag:@"stalled_notification" extra:nil];
     [self ytv_beginPlaybackStallIfNeededWithReason:@"stalled_notification"];
+    [self ytv_suspendNonCriticalWarmForCurrentPlaybackIfNeeded];
+    [self.playerSession recoverCurrentPlaybackAfterStall];
+    [self ytv_logPlaybackDiagnosticWithTag:@"stall_recover_request" extra:nil];
 }
 
 - (void)ytv_handlePlaybackTimeControlStatusChanged {
     if (!self.ytv_perfSessionActive) {
+        [self ytv_resetPlaybackDiagnosticWatchdog];
         return;
     }
     AVPlayer *player = self.playerSession.player;
+    [self ytv_logPlaybackDiagnosticWithTag:@"time_control"
+                                     extra:[NSString stringWithFormat:@"state=%@",
+                                            [self ytv_playerTimeControlStatusLabel:player.timeControlStatus]]];
     switch (player.timeControlStatus) {
         case AVPlayerTimeControlStatusPlaying:
             [self ytv_endPlaybackStallIfNeededWithReason:@"resume_playing"];
@@ -507,6 +709,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             [self ytv_endPlaybackActiveSegmentIfNeeded];
             if (self.ytv_currentPlaybackFirstFrameReady && !self.ytv_userPausedWithPlayHint) {
                 [self ytv_beginPlaybackStallIfNeededWithReason:[self ytv_playerWaitingReasonLabel]];
+                [self ytv_suspendNonCriticalWarmForCurrentPlaybackIfNeeded];
             }
             break;
     }
@@ -521,6 +724,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     self.ytv_perfAccumulatedPlayDuration = 0;
     self.ytv_perfAccumulatedStallDuration = 0;
     self.ytv_perfStallCount = 0;
+    [self ytv_resetPlaybackDiagnosticWatchdog];
 }
 
 - (void)ytv_appendPlaybackRequestFlagsToLogLine:(NSMutableString *)line {
@@ -533,6 +737,39 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 
 - (BOOL)ytv_shouldDeferNonCriticalStartupWork {
     return self.ytv_deferNonCriticalWarmUntilFirstFrame && !self.ytv_currentPlaybackFirstFrameReady;
+}
+
+- (BOOL)ytv_shouldThrottleNonCriticalWarmForCurrentPlayback {
+    if (!self.ytv_categoryFeedActive || !self.ytv_currentPlaybackFirstFrameReady || self.ytv_userPausedWithPlayHint) {
+        return NO;
+    }
+    AVPlayer *player = self.playerSession.player;
+    AVPlayerItem *item = player.currentItem;
+    if (!item || item.status != AVPlayerItemStatusReadyToPlay) {
+        return NO;
+    }
+    if (self.ytv_perfStallStartTime > 0) {
+        return YES;
+    }
+    if (player.timeControlStatus == AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate) {
+        return YES;
+    }
+    if (item.playbackBufferEmpty) {
+        return YES;
+    }
+    if (!item.playbackLikelyToKeepUp) {
+        return YES;
+    }
+    return NO;
+}
+
+- (void)ytv_suspendNonCriticalWarmForCurrentPlaybackIfNeeded {
+    if (![self ytv_shouldThrottleNonCriticalWarmForCurrentPlayback]) {
+        return;
+    }
+    self.ytv_standbyTargetIndex = NSNotFound;
+    [self.preloadManager setDeepPrewarmTargetVideoId:nil];
+    [self.playerSession clearStandbyPlayback];
 }
 
 - (BOOL)ytv_shouldPreserveBootstrapPresentationDuringDeferredReload {
@@ -850,7 +1087,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         return;
     }
     self.ytv_perfStallStartTime = CACurrentMediaTime();
-    (void)reason;
+    [self ytv_logPlaybackDiagnosticWithTag:@"stall_begin"
+                                     extra:[NSString stringWithFormat:@"reason=%@", reason ?: @"unknown"]];
 }
 
 - (void)ytv_endPlaybackStallIfNeededWithReason:(NSString *)reason {
@@ -871,6 +1109,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
           self.ytv_currentPlaybackSourceLabel ?: @"unknown",
           duration * 1000.0,
           reason ?: @"unknown");
+    [self ytv_logPlaybackDiagnosticWithTag:@"stall_end"
+                                     extra:[NSString stringWithFormat:@"reason=%@ duration=%.0fms",
+                                            reason ?: @"unknown",
+                                            duration * 1000.0]];
 }
 
 - (void)ytv_updatePlaybackResolvedURLMetadata:(NSURL *)resolvedURL {
@@ -1075,6 +1317,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     self.ytv_currentPlaybackResolvedFileBytes = 0;
     self.ytv_currentPlaybackUsedPreferredItem = NO;
     self.ytv_currentPlaybackStartedWithStartupGate = NO;
+    [self ytv_resetPlaybackDiagnosticWatchdog];
 }
 
 - (void)ytv_activateCategoryFeed {
@@ -1601,6 +1844,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if ([self ytv_shouldDeferNonCriticalStartupWork]) {
         return;
     }
+    if ([self ytv_shouldThrottleNonCriticalWarmForCurrentPlayback]) {
+        [self ytv_suspendNonCriticalWarmForCurrentPlaybackIfNeeded];
+        return;
+    }
     if (self.feedViewModel.state != YTVShortVideoFeedStateReady) {
         return;
     }
@@ -1993,6 +2240,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (self.ytv_deferNonCriticalWarmUntilFirstFrame && !self.ytv_currentPlaybackFirstFrameReady) {
         return;
     }
+    if ([self ytv_shouldThrottleNonCriticalWarmForCurrentPlayback]) {
+        [self ytv_suspendNonCriticalWarmForCurrentPlaybackIfNeeded];
+        return;
+    }
     if (furthestIndex != NSNotFound) {
         [self.preloadManager warmAroundDisplayIndex:furthestIndex items:self.feedViewModel.items ringHeadTailPinned:[self ytv_shouldPinHeadTailInWarmPool]];
     }
@@ -2056,6 +2307,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         return;
     }
     if (self.currentPlayIndex == NSNotFound) {
+        return;
+    }
+    if ([self ytv_shouldThrottleNonCriticalWarmForCurrentPlayback]) {
+        [self ytv_suspendNonCriticalWarmForCurrentPlaybackIfNeeded];
         return;
     }
     NSInteger nData = (NSInteger)self.feedViewModel.numberOfItems;
@@ -2193,6 +2448,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         return;
     }
     if ([self ytv_shouldDeferNonCriticalStartupWork]) {
+        return;
+    }
+    if ([self ytv_shouldThrottleNonCriticalWarmForCurrentPlayback]) {
+        [self ytv_suspendNonCriticalWarmForCurrentPlaybackIfNeeded];
         return;
     }
     if (targetIdx < 0 || targetIdx >= (NSInteger)self.feedViewModel.numberOfItems) {
@@ -2424,6 +2683,9 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         [self.playerSession pause];
         self.ytv_userPausedWithPlayHint = YES;
     }
+    [self ytv_logPlaybackDiagnosticWithTag:@"manual_toggle"
+                                     extra:[NSString stringWithFormat:@"paused=%@",
+                                            self.ytv_userPausedWithPlayHint ? @"YES" : @"NO"]];
     [self ytv_syncPausedPlayHintForCurrentCell];
 }
 
@@ -2640,6 +2902,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             break;
         case YTVPlayerSessionEventTypeFirstFrameRendered:
             self.ytv_currentPlaybackFirstFrameTime = CACurrentMediaTime();
+            [self.playerSession promoteCurrentPlaybackToSteadyState];
             [self ytv_finishFirstFrameAtIndex:bindIdx];
             break;
         case YTVPlayerSessionEventTypePlayFailed:
