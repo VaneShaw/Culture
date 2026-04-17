@@ -11,7 +11,8 @@
 #import "YTVVideoFeedItem.h"
 #import "YTVVideoPreloadManager.h"
 #import "YTVVideoCacheProxyManager.h"
-#import "VideoTextWebViewController.h"
+#import "ReadStoryViewController.h"
+#import "StoryGodsViewController.h"
 #import "YTVVideoPRDShareHelper.h"
 #import "HeaderConfig.h"
 #import <AVFoundation/AVFoundation.h>
@@ -2853,15 +2854,42 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         return;
     }
     YTVVideoFeedItem *item = [self.feedViewModel itemAtIndex:idx];
-    if (item.fullTextURL.length > 0) {
-        NSURL *u = [NSURL URLWithString:item.fullTextURL];
-        NSString *scheme = u.scheme.lowercaseString;
-        if (!u || (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"])) {
-            [MBProgressHUD showLabel:NSLocalizedString(@"YTV_full_text_invalid", @"")];
-            return;
+    NSString *storyId = item.videoId.length > 0 ? item.videoId : @"";
+    if (storyId.intValue < 1) {
+        [MBProgressHUD showLabel:NSLocalizedString(@"YTV_feed_demo_see_all_toast", @"")];
+        return;
+    }
+    NSString *detailCategory = item.category.lowercaseString;
+    NSSet<NSString *> *supportedCategories = [NSSet setWithArray:@[ @"idiom", @"myth", @"fengshen" ]];
+    if (![supportedCategories containsObject:detailCategory]) {
+        NSString *feedCategory = self.categoryKey.lowercaseString;
+        if (![feedCategory hasPrefix:@"__"] && [supportedCategories containsObject:feedCategory]) {
+            detailCategory = feedCategory;
         }
-        VideoTextWebViewController *web = [[VideoTextWebViewController alloc] initWithPageURL:u];
-        [self.navigationController pushViewController:web animated:YES];
+    }
+    if ([detailCategory isEqualToString:@"myth"]) {
+        ReadStoryViewController *vc = [ReadStoryViewController new];
+        vc.hidesBottomBarWhenPushed = YES;
+        vc.storyId = storyId;
+        vc.isFairy = YES;
+        [self.navigationController pushViewController:vc animated:YES];
+        return;
+    }
+    if ([detailCategory isEqualToString:@"fengshen"]) {
+        StoryGodsViewController *vc = [StoryGodsViewController new];
+        vc.hidesBottomBarWhenPushed = YES;
+        vc.storyId = storyId;
+        vc.isFairy = 2;
+        vc.modeType = 2;
+        [self.navigationController pushViewController:vc animated:YES];
+        return;
+    }
+    if ([detailCategory isEqualToString:@"idiom"]) {
+        ReadStoryViewController *vc = [ReadStoryViewController new];
+        vc.hidesBottomBarWhenPushed = YES;
+        vc.storyId = storyId;
+        vc.isFairy = NO;
+        [self.navigationController pushViewController:vc animated:YES];
         return;
     }
     [MBProgressHUD showLabel:NSLocalizedString(@"YTV_feed_demo_see_all_toast", @"")];
