@@ -46,6 +46,20 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
 
 @implementation YTVShortVideoCell
 
+- (void)ytv_applyFallbackVideoSizeFromCoverImage:(UIImage *)coverImage item:(YTVVideoFeedItem *)item {
+    if (!coverImage || !item || item.ytv_hasNaturalVideoSize) {
+        return;
+    }
+    CGSize coverSize = coverImage.size;
+    if (coverSize.width < 1.0 || coverSize.height < 1.0) {
+        return;
+    }
+    /// 绝大多数封面与视频同宽高比；首屏先复用封面尺寸，避免等异步探测回来再刷新一次视频区域大小。
+    item.ytv_naturalVideoWidth = coverSize.width;
+    item.ytv_naturalVideoHeight = coverSize.height;
+    item.ytv_hasNaturalVideoSize = YES;
+}
+
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
@@ -117,7 +131,6 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGFloat w = CGRectGetWidth(self.contentView.bounds);
-    CGFloat h = CGRectGetHeight(self.contentView.bounds);
     self.playbackFailureOverlayView.frame = self.contentView.bounds;
     self.swipeDimOverlayView.frame = self.contentView.bounds;
     CGRect videoFrame = [self ytv_videoContentFrameInContentBounds:self.contentView.bounds];
@@ -155,24 +168,28 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
         [self ytv_applyVideoLayoutFromFeedItem:nil];
         return;
     }
-    [self ytv_applyVideoLayoutFromFeedItem:item];
     [self ytv_showCoverImmediately];
     [self ytv_clearPlaybackFailureState];
     [self.coverImageView sd_cancelCurrentImageLoad];
     self.coverImageView.image = nil;
+    UIImage *cachedImage = nil;
     if (item.coverURL.length == 0) {
+        [self ytv_applyVideoLayoutFromFeedItem:item];
         return;
     }
     NSURL *coverURL = [NSURL URLWithString:item.coverURL];
     if (!coverURL) {
+        [self ytv_applyVideoLayoutFromFeedItem:item];
         return;
     }
     NSString *cacheKey = [[SDWebImageManager sharedManager] cacheKeyForURL:coverURL];
     SDImageCache *cache = [SDImageCache sharedImageCache];
-    UIImage *cachedImage = [cache imageFromMemoryCacheForKey:cacheKey];
+    cachedImage = [cache imageFromMemoryCacheForKey:cacheKey];
     if (!cachedImage) {
         cachedImage = [cache imageFromDiskCacheForKey:cacheKey];
     }
+    [self ytv_applyFallbackVideoSizeFromCoverImage:cachedImage item:item];
+    [self ytv_applyVideoLayoutFromFeedItem:item];
     if (cachedImage) {
         self.coverImageView.image = cachedImage;
     }
