@@ -23,7 +23,7 @@
     item.coverURL = [self ytv_string:(dict[@"cover_url"] ?: dict[@"head_image"] ?: dict[@"cover"] ?: dict[@"headImage"])];
     item.shareURL = [self ytv_string:dict[@"share_url"]];
     item.isFavorite = [self ytv_boolValue:dict[@"is_favorite"]];
-    item.favoritesCount = [self ytv_integerValueFromObject:(dict[@"favorites_count"] ?: dict[@"favorite_num"]) defaultValue:-1];
+    item.favoritesCount = [self ytv_integerValueFromObject:(dict[@"favorite_count"] ?: dict[@"favorites_count"] ?: dict[@"favorite_num"]) defaultValue:-1];
     item.shareCount = [self ytv_integerValueFromObject:(dict[@"share_count"] ?: dict[@"shares_count"] ?: dict[@"shareCount"] ?: dict[@"share_num"]) defaultValue:-1];
     id dur = dict[@"duration_ms"];
     if ([dur isKindOfClass:[NSNumber class]]) {

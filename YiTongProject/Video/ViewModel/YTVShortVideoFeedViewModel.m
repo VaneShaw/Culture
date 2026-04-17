@@ -600,6 +600,61 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
     }];
 }
 
+- (void)reportShareAtDisplayIndex:(NSInteger)index
+                       completion:(void (^)(BOOL success, NSString * _Nullable message))completion {
+    if (index < 0 || index >= (NSInteger)self.mutableItems.count) {
+        if (completion) {
+            completion(NO, nil);
+        }
+        return;
+    }
+    YTVVideoFeedItem *item = self.mutableItems[(NSUInteger)index];
+    if (item.videoId.length == 0) {
+        if (completion) {
+            completion(NO, nil);
+        }
+        return;
+    }
+    NSString *taleId = [item.videoId copy];
+    NSString *taleType = item.category.length > 0 ? [item.category copy] : @"";
+    if (taleType.length == 0
+        && self.feedSource == YTVShortVideoFeedSourceCategory
+        && self.categoryKey.length > 0
+        && ![self.categoryKey hasPrefix:@"__"]) {
+        taleType = [self.categoryKey copy];
+    }
+    if (taleType.length == 0) {
+        if (completion) {
+            completion(NO, nil);
+        }
+        return;
+    }
+    NSString *videoId = [item.videoId copy];
+    __weak typeof(self) weakSelf = self;
+    [self.repository reportShareWithTaleType:taleType
+                                      taleId:taleId
+                                  completion:^(BOOL success, NSInteger shareCount, NSError * _Nullable error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) {
+                if (completion) {
+                    completion(NO, nil);
+                }
+                return;
+            }
+            YTVVideoFeedItem *live = [self itemAtIndex:index];
+            if (success && live && [live.videoId isEqualToString:videoId] && shareCount >= 0) {
+                live.shareCount = shareCount;
+                [self ytv_persistSnapshot];
+            }
+            if (completion) {
+                NSString *message = error.localizedDescription.length > 0 ? error.localizedDescription : nil;
+                completion(success, message);
+            }
+        });
+    }];
+}
+
 - (NSInteger)ytv_indexOfVideoId:(NSString *)videoId {
     if (videoId.length == 0) {
         return -1;

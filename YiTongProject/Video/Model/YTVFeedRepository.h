@@ -31,6 +31,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)fetchVideoItemById:(NSString *)videoId
                 completion:(void (^)(YTVVideoFeedItem * _Nullable item, NSError * _Nullable error))completion;
 
+/// 上报分享点击；成功时返回服务端最新 `share_count`，未下发时为 `-1`
+- (void)reportShareWithTaleType:(NSString *)taleType
+                         taleId:(NSString *)taleId
+                     completion:(void (^)(BOOL success, NSInteger shareCount, NSError * _Nullable error))completion;
+
 @end
 
 NS_ASSUME_NONNULL_END

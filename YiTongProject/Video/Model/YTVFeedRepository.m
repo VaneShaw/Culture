@@ -12,6 +12,7 @@
 
 static NSString * const kYTVPathList = @"/video/list";
 static NSString * const kYTVPathItemById = @"/video/feed/item";
+static NSString * const kYTVPathReportShare = @"/video/reportShare";
 
 @implementation YTVFeedRepository
 
@@ -128,6 +129,52 @@ static NSString *YTVVideoListTabFromCategoryKey(NSString *categoryKey) {
     } failure:^(NSError *error) {
         if (completion) {
             completion(nil, error);
+        }
+    }];
+}
+
+- (void)reportShareWithTaleType:(NSString *)taleType
+                         taleId:(NSString *)taleId
+                     completion:(void (^)(BOOL success, NSInteger shareCount, NSError * _Nullable error))completion {
+    if (taleType.length == 0 || taleId.length == 0) {
+        if (completion) {
+            completion(NO, -1, [NSError errorWithDomain:@"YTVFeedRepository"
+                                                   code:-1
+                                               userInfo:@{NSLocalizedDescriptionKey: @"empty taleType or taleId"}]);
+        }
+        return;
+    }
+    NSDictionary *params = @{
+        @"tale_type": taleType,
+        @"tale_id": taleId
+    };
+    [HttpTools postRequest:kYTVPathReportShare parames:params success:^(BOOL success, BaseDataModel *response) {
+        if (!success || response == nil) {
+            NSString *msg = response.msg.length ? response.msg : NSLocalizedString(@"Request failed", @"");
+            NSError *err = [NSError errorWithDomain:@"YTVFeedRepository"
+                                               code:(NSInteger)(response ? response.code : -1)
+                                           userInfo:@{NSLocalizedDescriptionKey: msg}];
+            if (completion) {
+                completion(NO, -1, err);
+            }
+            return;
+        }
+        NSInteger shareCount = -1;
+        if ([response.data isKindOfClass:[NSDictionary class]]) {
+            NSDictionary *d = (NSDictionary *)response.data;
+            id c = d[@"share_count"] ?: d[@"shareCount"] ?: d[@"share_num"];
+            if ([c isKindOfClass:[NSNumber class]]) {
+                shareCount = [c integerValue];
+            } else if ([c isKindOfClass:[NSString class]]) {
+                shareCount = [(NSString *)c integerValue];
+            }
+        }
+        if (completion) {
+            completion(YES, shareCount, nil);
+        }
+    } failure:^(NSError *error) {
+        if (completion) {
+            completion(NO, -1, error);
         }
     }];
 }

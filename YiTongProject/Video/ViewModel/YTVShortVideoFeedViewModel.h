@@ -71,6 +71,10 @@ typedef void (^YTVFeedLoadNextCompletion)(BOOL appendedAny, NSUInteger appendedC
 - (void)toggleFavoriteAtDisplayIndex:(NSInteger)index
                           completion:(void (^)(BOOL success, NSString * _Nullable message))completion;
 
+/// 上报分享点击并回写服务端 `share_count`；失败不影响分享动作本身。回调主线程。
+- (void)reportShareAtDisplayIndex:(NSInteger)index
+                       completion:(void (^)(BOOL success, NSString * _Nullable message))completion;
+
 /// 列表中 `videoId` 的下标，不存在返回 `-1`
 - (NSInteger)ytv_indexOfVideoId:(NSString *)videoId;
 

@@ -63,13 +63,14 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
     }];
     [self.view sendSubviewToBack:self.tableView];
     [self.view bringSubviewToFront:self.gridLayoutButton];
+    [self ytv_setupRefreshHeader];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self.navigationController setNavigationBarHidden:YES animated:animated];
     [self setNeedsStatusBarAppearanceUpdate];
-    [self ytv_reloadList];
+    [self ytv_beginRefresh];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -77,12 +78,33 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
     [self.navigationController setNavigationBarHidden:YES animated:animated];
 }
 
-/// 拉取列表：未登录只显示空态；已登录读取缓存并请求收藏接口。
-- (void)ytv_reloadList {
+- (void)ytv_setupRefreshHeader {
+    __weak typeof(self) weakSelf = self;
+    MJRefreshNormalHeader *header = [MJRefreshNormalHeader headerWithRefreshingBlock:^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        [self ytv_handleRefresh];
+    }];
+    header.automaticallyChangeAlpha = YES;
+    self.tableView.mj_header = header;
+}
+
+- (void)ytv_beginRefresh {
+    if (self.tableView.mj_header.isRefreshing || self.listViewModel.isLoading) {
+        return;
+    }
+    [self.tableView.mj_header beginRefreshing];
+}
+
+/// 统一走下拉刷新回调拉取收藏列表；未登录仅刷新空态。
+- (void)ytv_handleRefresh {
     if (![[UserModel sharedInstance] isLogin]) {
         [self.listViewModel clearItemsForLogout];
         [self.tableView reloadData];
         [self ytv_applyEmptyState:YES message:NSLocalizedString(@"YTV_favorites_list_need_login", @"")];
+        [self.tableView.mj_header endRefreshing];
         return;
     }
     [self.listViewModel loadDiskCacheOnly];
@@ -100,6 +122,7 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
             ? NSLocalizedString(@"YTV_favorites_list_empty", @"")
             : @"";
         [self ytv_applyEmptyState:empty message:msg];
+        [self.tableView.mj_header endRefreshing];
         if (error && self.listViewModel.items.count == 0) {
             [MBProgressHUD showLabel:error.localizedDescription.length ? error.localizedDescription : NSLocalizedString(@"YTV_feed_load_failed", @"")];
         }
@@ -108,7 +131,7 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
 
 - (void)ytv_applyEmptyState:(BOOL)empty message:(NSString *)message {
     self.emptyContainer.hidden = !empty;
-    self.tableView.hidden = empty;
+    self.tableView.hidden = NO;
     self.emptyLabel.text = message;
 }
 
@@ -157,8 +180,9 @@ static NSString * const kYTVFavListCellId = @"YTVFavoritesListCell";
 - (UIView *)emptyContainer {
     if (!_emptyContainer) {
         _emptyContainer = [[UIView alloc] init];
-        _emptyContainer.backgroundColor = [UIColor blackColor];
+        _emptyContainer.backgroundColor = [UIColor clearColor];
         _emptyContainer.hidden = YES;
+        _emptyContainer.userInteractionEnabled = NO;
     }
     return _emptyContainer;
 }

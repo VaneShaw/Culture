@@ -3502,6 +3502,14 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     }
     [YTVVideoPRDShareHelper ytv_presentSystemShareFromViewController:self
                                                          sourceView:[cell ytv_shareChromePresentationAnchor]];
+    __weak typeof(self) weakSelf = self;
+    [self.feedViewModel reportShareAtDisplayIndex:idx completion:^(BOOL success, NSString * _Nullable message) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || !success) {
+            return;
+        }
+        [self ytv_refreshInteractionChrome];
+    }];
 }
 
 #pragma mark - UICollectionView

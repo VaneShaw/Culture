@@ -50,7 +50,7 @@ static NSString * const kYTVPathFavoriteList = @"/video/favoriteList";
                 } else if ([f isKindOfClass:[NSString class]]) {
                     fav = [(NSString *)f integerValue] != 0;
                 }
-                id c = d[@"favorites_count"];
+                id c = d[@"favorite_count"] ?: d[@"favorites_count"];
                 if ([c isKindOfClass:[NSNumber class]]) {
                     fc = [c integerValue];
                 } else if ([c isKindOfClass:[NSString class]]) {
