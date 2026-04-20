@@ -14,6 +14,7 @@
 @property (nonatomic, strong) UIButton *searchButton;
 @property (nonatomic, strong) UIView *selectionUnderline;
 @property (nonatomic, assign) NSInteger selectedIndex;
+@property (nonatomic, assign) BOOL searchButtonHidden;
 @end
 
 @implementation YTVVideoCategoryTabsView
@@ -23,15 +24,11 @@
     if (self) {
         self.backgroundColor = [UIColor clearColor];
         _selectedIndex = 0;
+        _searchButtonHidden = NO;
         [self addSubview:self.tabsScrollView];
         [self.tabsScrollView addSubview:self.tabsRowStack];
         [self addSubview:self.searchButton];
         [self addSubview:self.selectionUnderline];
-        [self.tabsScrollView mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.left.equalTo(self).offset(4);
-            make.top.bottom.equalTo(self);
-            make.right.equalTo(self.searchButton.mas_left).offset(-2);
-        }];
         self.tabsRowStack.translatesAutoresizingMaskIntoConstraints = NO;
         UILayoutGuide *contentG = self.tabsScrollView.contentLayoutGuide;
         UILayoutGuide *frameG = self.tabsScrollView.frameLayoutGuide;
@@ -47,6 +44,7 @@
             make.centerY.equalTo(self);
             make.width.height.mas_equalTo(44);
         }];
+        [self ytv_updateTabsLayoutForSearchButtonVisibility];
         self.tabsScrollView.showsHorizontalScrollIndicator = NO;
         self.tabsScrollView.showsVerticalScrollIndicator = NO;
         self.tabsScrollView.alwaysBounceHorizontal = YES;
@@ -227,6 +225,27 @@
 
 - (void)ytv_setSelectionUnderlineHidden:(BOOL)hidden {
     self.selectionUnderline.hidden = hidden;
+}
+
+- (void)ytv_setSearchButtonHidden:(BOOL)hidden {
+    if (self.searchButtonHidden == hidden) {
+        return;
+    }
+    self.searchButtonHidden = hidden;
+    [self ytv_updateTabsLayoutForSearchButtonVisibility];
+}
+
+- (void)ytv_updateTabsLayoutForSearchButtonVisibility {
+    self.searchButton.hidden = self.searchButtonHidden;
+    [self.tabsScrollView mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(self).offset(4);
+        make.top.bottom.equalTo(self);
+        if (self.searchButtonHidden) {
+            make.right.equalTo(self).offset(-4);
+        } else {
+            make.right.equalTo(self.searchButton.mas_left).offset(-2);
+        }
+    }];
 }
 
 @end

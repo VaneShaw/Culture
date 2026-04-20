@@ -72,6 +72,7 @@ const NSInteger kYTVVideoTabBarIndex = 2;
                                       completion:nil];
     [self.tabsView ytv_applyTabTitles:nil];
     [self.tabsView ytv_setSelectionUnderlineHidden:YES];
+    [self.tabsView ytv_setSearchButtonHidden:YES];
     __weak typeof(self) weakSelf = self;
     self.tabsView.onSearchTap = ^{
         [MBProgressHUD showLabel:NSLocalizedString(@"YTV_video_search_coming_soon", @"")];

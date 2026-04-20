@@ -21,6 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)ytv_applyTabTitles:(NSArray<NSString *> * _Nullable)titles;
 /// `video/tab` 未返回前隐藏选中横杠，避免先露出默认选中态。
 - (void)ytv_setSelectionUnderlineHidden:(BOOL)hidden;
+/// 控制右侧搜索按钮显示（默认 NO）
+- (void)ytv_setSearchButtonHidden:(BOOL)hidden;
 
 @end
 
