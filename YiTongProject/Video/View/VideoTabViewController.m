@@ -18,6 +18,10 @@ const NSInteger kYTVVideoTabBarIndex = 1;
 @property (nonatomic, strong) UIPageViewController *pageViewController;
 @property (nonatomic, strong) NSMutableArray *feedSlots;
 @property (nonatomic, assign) NSInteger currentCategoryIndex;
+/// 分类页切换进行中；用于串行化快速点击，避免 PageVC 动画互相打断导致激活状态丢失。
+@property (nonatomic, assign) BOOL ytv_categorySwitchInFlight;
+/// 切换进行中收到的新目标；仅保留最后一次点击，当前切换结束后立即补偿执行。
+@property (nonatomic, assign) NSInteger ytv_pendingCategoryIndex;
 @end
 
 @implementation VideoTabViewController
@@ -50,6 +54,8 @@ const NSInteger kYTVVideoTabBarIndex = 1;
     self.view.backgroundColor = [UIColor blackColor];
     self.navigationController.navigationBarHidden = YES;
     self.currentCategoryIndex = 0;
+    self.ytv_pendingCategoryIndex = NSNotFound;
+    self.ytv_categorySwitchInFlight = NO;
     self.feedSlots = [NSMutableArray array];
     [self.view addSubview:self.tabsView];
     [self addChildViewController:self.pageViewController];
@@ -85,20 +91,50 @@ const NSInteger kYTVVideoTabBarIndex = 1;
         if (idx == self.currentCategoryIndex) {
             return;
         }
-        YTVShortVideoFeedViewController *target = [self ytv_feedViewControllerAtIndex:idx];
-        UIPageViewControllerNavigationDirection dir = idx > self.currentCategoryIndex ? UIPageViewControllerNavigationDirectionForward : UIPageViewControllerNavigationDirectionReverse;
-        [self.pageViewController setViewControllers:@[target] direction:dir animated:YES completion:^(__unused BOOL finished) {
-            __strong typeof(weakSelf) self = weakSelf;
-            if (!self) {
-                return;
-            }
-            UIViewController *cur = self.pageViewController.viewControllers.firstObject;
-            if ([cur isKindOfClass:[YTVShortVideoFeedViewController class]]) {
-                [self ytv_commitActiveFeed:(YTVShortVideoFeedViewController *)cur updateTabSelection:YES];
-            }
-        }];
+        [self ytv_switchToCategoryIndex:idx animated:YES updateTabSelection:YES];
     };
     [self ytv_fetchVideoTabConfigurationIfNeeded];
+}
+
+- (void)ytv_switchToCategoryIndex:(NSInteger)idx
+                         animated:(BOOL)animated
+               updateTabSelection:(BOOL)updateTabs {
+    if (idx < 0 || idx >= (NSInteger)YTVVideoCategoryCount()) {
+        return;
+    }
+    UIViewController *currentVC = self.pageViewController.viewControllers.firstObject;
+    NSInteger visibleIndex = NSNotFound;
+    if ([currentVC isKindOfClass:[YTVShortVideoFeedViewController class]]) {
+        visibleIndex = [self ytv_feedIndexForViewController:(YTVShortVideoFeedViewController *)currentVC];
+    }
+    if (visibleIndex == idx || self.currentCategoryIndex == idx) {
+        return;
+    }
+    if (self.ytv_categorySwitchInFlight) {
+        self.ytv_pendingCategoryIndex = idx;
+        return;
+    }
+    self.ytv_categorySwitchInFlight = YES;
+    self.ytv_pendingCategoryIndex = NSNotFound;
+    YTVShortVideoFeedViewController *target = [self ytv_feedViewControllerAtIndex:idx];
+    UIPageViewControllerNavigationDirection dir = idx > self.currentCategoryIndex ? UIPageViewControllerNavigationDirectionForward : UIPageViewControllerNavigationDirectionReverse;
+    __weak typeof(self) weakSelf = self;
+    [self.pageViewController setViewControllers:@[target] direction:dir animated:animated completion:^(__unused BOOL finished) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        UIViewController *cur = self.pageViewController.viewControllers.firstObject;
+        if ([cur isKindOfClass:[YTVShortVideoFeedViewController class]]) {
+            [self ytv_commitActiveFeed:(YTVShortVideoFeedViewController *)cur updateTabSelection:updateTabs];
+        }
+        self.ytv_categorySwitchInFlight = NO;
+        NSInteger pending = self.ytv_pendingCategoryIndex;
+        self.ytv_pendingCategoryIndex = NSNotFound;
+        if (pending != NSNotFound) {
+            [self ytv_switchToCategoryIndex:pending animated:NO updateTabSelection:YES];
+        }
+    }];
 }
 
 /// GET /video/tab：刷新 segment 文案；若分类 key 集合变化则重建各分类 Feed 槽位与 PageVC。
