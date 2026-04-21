@@ -2960,15 +2960,34 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     [self ytv_syncPausedPlayHintForCurrentCell];
 }
 
+/// 统一把某个 cell 的互动层绑定到指定 dataIdx，避免多入口各自判断导致时序不一致。
+- (void)ytv_bindInteractionChromeForCell:(YTVShortVideoCell *)cell
+                               dataIndex:(NSInteger)dataIdx
+                            chromeEnable:(BOOL)chromeEnabled {
+    if (!cell) {
+        return;
+    }
+    NSInteger maxIdx = (NSInteger)self.feedViewModel.numberOfItems - 1;
+    if (dataIdx < 0 || dataIdx > maxIdx) {
+        return;
+    }
+    BOOL shouldSuppress = (self.ytv_inlineFullscreenActive && cell == self.ytv_inlineFullscreenSourceCell);
+    [cell ytv_setInteractionChromeSuppressed:shouldSuppress];
+    YTVVideoFeedItem *item = [self ytv_displayItemForDataIndex:dataIdx];
+    if (!item) {
+        return;
+    }
+    [cell ytv_configureInteractionChromeWithItem:item chromeEnabled:chromeEnabled];
+}
+
 /// 每条 cell 自带左下文案与右侧收藏/分享，随竖滑与视频同一图层移动。
 - (void)ytv_refreshVisibleCellsInteractionChrome {
     if ([self ytv_shouldPreserveBootstrapPresentationDuringDeferredReload]) {
         return;
     }
-    BOOL chromeOk = self.ytv_categoryFeedActive
-        && self.feedViewModel.state == YTVShortVideoFeedStateReady
+    /// 互动层（标题/简介/收藏/分享）与 feed item 同源；仅由数据 ready 驱动，避免被播放激活时序误隐藏。
+    BOOL chromeOk = self.feedViewModel.state == YTVShortVideoFeedStateReady
         && self.feedViewModel.numberOfItems > 0;
-    NSInteger maxIdx = (NSInteger)self.feedViewModel.numberOfItems - 1;
     for (UICollectionViewCell *raw in self.collectionView.visibleCells) {
         if (![raw isKindOfClass:[YTVShortVideoCell class]]) {
             continue;
@@ -2976,17 +2995,29 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         YTVShortVideoCell *cell = (YTVShortVideoCell *)raw;
         NSIndexPath *ip = [self.collectionView indexPathForCell:cell];
         if (!ip) {
-            [cell ytv_configureInteractionChromeWithItem:nil chromeEnabled:NO];
+            /// 刷新瞬间 indexPath 可能短暂为 nil；此时不清空，避免整层（标题/内容/互动）被误隐藏。
             continue;
         }
         NSInteger dataIdx = [self ytv_dataItemIndexForCollectionItem:(NSInteger)ip.item];
-        if (dataIdx < 0 || dataIdx > maxIdx) {
-            [cell ytv_configureInteractionChromeWithItem:nil chromeEnabled:NO];
-            continue;
-        }
-        YTVVideoFeedItem *item = [self ytv_displayItemForDataIndex:dataIdx];
-        [cell ytv_configureInteractionChromeWithItem:item chromeEnabled:chromeOk];
+        [self ytv_bindInteractionChromeForCell:cell dataIndex:dataIdx chromeEnable:chromeOk];
     }
+    [self ytv_repairCurrentPlaybackCellInteractionChromeIfNeededWithChromeEnabled:chromeOk];
+}
+
+/// 对当前播放条目做一次强制回填，避免首次打开/快速滑动后整层互动文案偶发缺失。
+- (void)ytv_repairCurrentPlaybackCellInteractionChromeIfNeededWithChromeEnabled:(BOOL)chromeEnabled {
+    if (self.currentPlayIndex == NSNotFound) {
+        return;
+    }
+    YTVShortVideoCell *currentCell = [self ytv_visibleCellForPlaybackIndexIfAvailable:self.currentPlayIndex];
+    if (!currentCell) {
+        return;
+    }
+    YTVVideoFeedItem *currentItem = [self ytv_displayItemForDataIndex:self.currentPlayIndex];
+    if (!currentItem) {
+        return;
+    }
+    [self ytv_bindInteractionChromeForCell:currentCell dataIndex:self.currentPlayIndex chromeEnable:chromeEnabled];
 }
 
 /// 跟手滑动：离屏中心越远整页越暗（含互动层），贴近抖音观感。
@@ -3102,7 +3133,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         YTVShortVideoCell *cell = (YTVShortVideoCell *)raw;
         YTVVideoFeedItem *it = [self.feedViewModel itemAtIndex:idx];
         [cell ytv_applyVideoLayoutFromFeedItem:it];
-        BOOL chromeOk = self.ytv_categoryFeedActive && self.feedViewModel.state == YTVShortVideoFeedStateReady && self.feedViewModel.numberOfItems > 0;
+        BOOL chromeOk = self.feedViewModel.state == YTVShortVideoFeedStateReady && self.feedViewModel.numberOfItems > 0;
         [cell ytv_configureInteractionChromeWithItem:[self ytv_displayItemForDataIndex:idx] chromeEnabled:chromeOk];
     }
     if (self.ytv_startupPresentationItem
@@ -3121,7 +3152,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             YTVShortVideoCell *startupCell = (YTVShortVideoCell *)startupRaw;
             YTVVideoFeedItem *displayItem = [self ytv_displayItemForDataIndex:self.ytv_startupPresentationIndex];
             [startupCell ytv_applyVideoLayoutFromFeedItem:displayItem];
-            BOOL chromeOk = self.ytv_categoryFeedActive && self.feedViewModel.state == YTVShortVideoFeedStateReady && self.feedViewModel.numberOfItems > 0;
+            BOOL chromeOk = self.feedViewModel.state == YTVShortVideoFeedStateReady && self.feedViewModel.numberOfItems > 0;
             [startupCell ytv_configureInteractionChromeWithItem:displayItem chromeEnabled:chromeOk];
         }
     }
@@ -3838,8 +3869,8 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     NSInteger dataIdx = [self ytv_dataItemIndexForCollectionItem:(NSInteger)indexPath.item];
     YTVVideoFeedItem *item = [self ytv_displayItemForDataIndex:dataIdx];
     [cell configureWithItem:item];
-    BOOL chromeOk = self.ytv_categoryFeedActive && self.feedViewModel.state == YTVShortVideoFeedStateReady && self.feedViewModel.numberOfItems > 0;
-    [cell ytv_configureInteractionChromeWithItem:item chromeEnabled:chromeOk];
+    BOOL chromeOk = self.feedViewModel.state == YTVShortVideoFeedStateReady && self.feedViewModel.numberOfItems > 0;
+    [self ytv_bindInteractionChromeForCell:cell dataIndex:dataIdx chromeEnable:chromeOk];
     __weak typeof(self) weakSelf = self;
     cell.ytv_onFavoriteChromeTap = ^(YTVShortVideoCell *c) {
         __strong typeof(weakSelf) self = weakSelf;
@@ -3902,6 +3933,8 @@ forItemAtIndexPath:(NSIndexPath *)indexPath {
         return;
     }
     NSInteger dataIdx = [self ytv_dataItemIndexForCollectionItem:(NSInteger)indexPath.item];
+    BOOL chromeOk = self.feedViewModel.state == YTVShortVideoFeedStateReady && self.feedViewModel.numberOfItems > 0;
+    [self ytv_bindInteractionChromeForCell:(YTVShortVideoCell *)cell dataIndex:dataIdx chromeEnable:chromeOk];
     [self ytv_bindPlaybackToCurrentCellIfNeeded:(YTVShortVideoCell *)cell dataIndex:dataIdx reason:@"will_display"];
 }
 
