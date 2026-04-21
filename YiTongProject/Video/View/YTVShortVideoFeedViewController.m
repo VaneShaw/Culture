@@ -2796,6 +2796,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     [cell ytv_clearPlaybackFailureState];
     [cell ytv_hideCoverAfterFirstFrameAnimated:YES];
     [self ytv_commitPlaybackBindingAfterFirstFrame];
+    [self ytv_hideCoverForCurrentPlaybackIfReadyAnimated:NO];
     self.ytv_deferNonCriticalWarmUntilFirstFrame = NO;
     [self ytv_applyDeferredFeedReloadAligningToActivePlaybackIfNeeded];
     [self ytv_updateStartupScrollLockIfNeeded];
@@ -2854,6 +2855,26 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     }
     [self ytv_prepareStandbyPlaybackForTargetIndex:standbyIdx];
     [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
+}
+
+/// 首帧就绪后的兜底：按当前播放下标遍历可见 cell 隐藏封面，避免偶发映射瞬态漏掉单 cell 更新。
+- (void)ytv_hideCoverForCurrentPlaybackIfReadyAnimated:(BOOL)animated {
+    if (!self.ytv_currentPlaybackFirstFrameReady || self.currentPlayIndex == NSNotFound) {
+        return;
+    }
+    for (UICollectionViewCell *raw in self.collectionView.visibleCells) {
+        if (![raw isKindOfClass:[YTVShortVideoCell class]]) {
+            continue;
+        }
+        YTVShortVideoCell *cell = (YTVShortVideoCell *)raw;
+        NSIndexPath *ip = [self.collectionView indexPathForCell:cell];
+        NSInteger dataIdx = ip ? [self ytv_dataItemIndexForCollectionItem:(NSInteger)ip.item] : NSNotFound;
+        if (ip == nil || dataIdx != self.currentPlayIndex) {
+            continue;
+        }
+        [cell ytv_clearPlaybackFailureState];
+        [cell ytv_hideCoverAfterFirstFrameAnimated:animated];
+    }
 }
 
 /// 播放失败时保留封面，避免露出黑底或旧帧。
