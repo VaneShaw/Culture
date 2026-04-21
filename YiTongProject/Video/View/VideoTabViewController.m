@@ -11,7 +11,7 @@
 #import "YTVVideoTabApi.h"
 #import "AppDelegate.h"
 
-const NSInteger kYTVVideoTabBarIndex = 2;
+const NSInteger kYTVVideoTabBarIndex = 1;
 
 @interface VideoTabViewController () <UIPageViewControllerDataSource, UIPageViewControllerDelegate>
 @property (nonatomic, strong) YTVVideoCategoryTabsView *tabsView;

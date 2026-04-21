@@ -25,7 +25,7 @@
 
 /*
  跳转到下标
- self.tabBarController.selectedIndex = 2;//切换tabbar
+ self.tabBarController.selectedIndex = 1;//切换 tabbar（视频 Tab）
  self.navigationItem.title = @"导航固定标题"
  
  //动画

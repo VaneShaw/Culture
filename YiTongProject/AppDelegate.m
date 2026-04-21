@@ -8,7 +8,6 @@
 #import "AppDelegate.h"
 #import "MainViewController.h"
 
-#import "TalkViewController.h"
 #import "LoginViewController.h"
 #import "LaunchViewController.h"
 #import "LoginViewController.h"
@@ -82,7 +81,7 @@ static void YTBReconcileTabBarTitleLabels(UITabBarController *tbc, BOOL isVideo,
 
 /// 选中视频 Tab 时用黑底专用切图；否则恢复默认 Tab 图（与 `setTabBarController` 一致）。
 static void YTBApplyTabBarItemImagesForVideoContext(UITabBarController *tbc, BOOL videoTabSelected) {
-    if (!tbc || tbc.tabBar.items.count < 4) {
+    if (!tbc || tbc.tabBar.items.count < 3) {
         return;
     }
     NSArray<UITabBarItem *> *items = tbc.tabBar.items;
@@ -99,20 +98,15 @@ static void YTBApplyTabBarItemImagesForVideoContext(UITabBarController *tbc, BOO
             items[0].image = h;
             items[0].selectedImage = h;
         }
-        UIImage *t = orig(@"Talk_dark_unSel");
-        if (t) {
-            items[1].image = t;
-            items[1].selectedImage = t;
-        }
         UIImage *v = orig(@"Video_dark_sel");
         if (v) {
-            items[2].image = v;
-            items[2].selectedImage = v;
+            items[1].image = v;
+            items[1].selectedImage = v;
         }
         UIImage *m = orig(@"Me_dark_unSel");
         if (m) {
-            items[3].image = m;
-            items[3].selectedImage = m;
+            items[2].image = m;
+            items[2].selectedImage = m;
         }
     } else {
         UIImage *h0 = orig(@"Home_Not");
@@ -123,29 +117,21 @@ static void YTBApplyTabBarItemImagesForVideoContext(UITabBarController *tbc, BOO
         if (h1) {
             items[0].selectedImage = h1;
         }
-        UIImage *t0 = orig(@"talk_Not");
-        UIImage *t1 = orig(@"talk_Selected");
-        if (t0) {
-            items[1].image = t0;
-        }
-        if (t1) {
-            items[1].selectedImage = t1;
-        }
         UIImage *v0 = orig(@"quiz_Not");
         UIImage *v1 = orig(@"quiz_Selected");
         if (v0) {
-            items[2].image = v0;
+            items[1].image = v0;
         }
         if (v1) {
-            items[2].selectedImage = v1;
+            items[1].selectedImage = v1;
         }
         UIImage *m0 = orig(@"Me_Not");
         UIImage *m1 = orig(@"Me_Selected");
         if (m0) {
-            items[3].image = m0;
+            items[2].image = m0;
         }
         if (m1) {
-            items[3].selectedImage = m1;
+            items[2].selectedImage = m1;
         }
     }
 }
@@ -478,17 +464,14 @@ void uncaughtExceptionHandler(NSException *exception) {
 }
 - (void)setTabBarController {
     MainViewController *mainVC = [MainViewController new];
-    TalkViewController *talkVC = [TalkViewController new];
     VideoTabViewController *videoVC = [VideoTabViewController new];
     ProfileViewController *profileVC = [ProfileViewController new];
     
     UINavigationController *mainNC = [[UINavigationController alloc]initWithRootViewController:mainVC];
-    UINavigationController *talkNC = [[UINavigationController alloc]initWithRootViewController:talkVC];
     UINavigationController *videoNC = [[UINavigationController alloc]initWithRootViewController:videoVC];
     UINavigationController *profileNC = [[UINavigationController alloc]initWithRootViewController:profileVC];
    
     mainNC.title = NSLocalizedString(@"Home",@"");
-    talkNC.title = NSLocalizedString(@"Talk",@"");
     videoNC.title = NSLocalizedString(@"Video",@"");
     profileNC.title = NSLocalizedString(@"Profile",@"");
     
@@ -500,11 +483,7 @@ void uncaughtExceptionHandler(NSException *exception) {
     videoNC.tabBarItem.image = [[UIImage imageNamed:@"quiz_Not"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
     profileNC.tabBarItem.image = [[UIImage imageNamed:@"Me_Not"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
     
-    talkNC.tabBarItem.selectedImage = [[UIImage imageNamed:@"talk_Selected"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-    talkNC.tabBarItem.image = [[UIImage imageNamed:@"talk_Not"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-    
     [self setNavieationBarColor:mainNC];
-    [self setNavieationBarColor:talkNC];
     [self setNavieationBarColor:videoNC];
     [self setNavieationBarColor:profileNC];
   
@@ -518,7 +497,7 @@ void uncaughtExceptionHandler(NSException *exception) {
     [self removeTabBarTopLine:tabBar];
     
     //tabBar.viewControllers = [NSArray arrayWithObjects:mainNC,quizNC,profileNC, nil];
-    tabBar.viewControllers = [NSArray arrayWithObjects:mainNC,talkNC,videoNC,profileNC, nil];
+    tabBar.viewControllers = [NSArray arrayWithObjects:mainNC,videoNC,profileNC, nil];
     NSMutableDictionary *attr3 = [NSMutableDictionary dictionary];
     attr3[NSFontAttributeName] = [UIFont systemFontOfSize:12];
     [[UITabBarItem appearance]setTitleTextAttributes:attr3 forState:UIControlStateNormal];
