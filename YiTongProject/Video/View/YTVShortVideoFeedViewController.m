@@ -2947,6 +2947,11 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         [cell ytv_clearPlaybackFailureState];
         [cell ytv_setPausedPlayHintVisible:NO];
     }
+    /// 滚动收尾阶段 active cell 往往不会再次走 willDisplay/cellForItem。
+    /// 如果首帧早已到达，但中途被 configure/reuse 路径重新把封面显出来，这里补一次收敛。
+    if (activeIndex == self.currentPlayIndex && self.ytv_currentPlaybackFirstFrameReady) {
+        [self ytv_requestCoverRevealForCurrentPlaybackAnimated:NO];
+    }
 }
 
 - (void)ytv_prepareCellForSwitchingPlaybackAtIndex:(NSInteger)index {

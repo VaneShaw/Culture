@@ -168,29 +168,6 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
 - (void)ytv_refreshInitialDisplayIndexFromResumeCache {
     self.ytv_resumeInitialDisplayIndex = 0;
     self.ytv_initialVideoSourceLabel = @"snapshot_first";
-    NSDictionary *resume = [YTVFeedResumeCache loadResumeDictionaryForCategoryKey:self.categoryKey];
-    if (![resume isKindOfClass:[NSDictionary class]] || self.mutableItems.count == 0) {
-        return;
-    }
-    NSString *videoId = [resume[@"lastViewedVideoId"] isKindOfClass:[NSString class]] ? resume[@"lastViewedVideoId"] : @"";
-    NSNumber *indexHint = [resume[@"lastViewedIndexHint"] isKindOfClass:[NSNumber class]] ? resume[@"lastViewedIndexHint"] : nil;
-    if (videoId.length > 0) {
-        NSUInteger i = 0;
-        for (YTVVideoFeedItem *it in self.mutableItems) {
-            if ([it.videoId isEqualToString:videoId]) {
-                self.ytv_resumeInitialDisplayIndex = (NSInteger)i;
-                self.ytv_initialVideoSourceLabel = @"resume_last_viewed";
-                return;
-            }
-            i++;
-        }
-    }
-    if (indexHint != nil) {
-        NSInteger idx = MAX(indexHint.integerValue, 0);
-        idx = MIN(idx, (NSInteger)self.mutableItems.count - 1);
-        self.ytv_resumeInitialDisplayIndex = idx;
-        self.ytv_initialVideoSourceLabel = @"resume_index_hint";
-    }
 }
 
 - (NSArray<YTVVideoFeedItem *> *)items {
@@ -209,13 +186,11 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
     self.ytv_categoryBootstrapNetworkFinished = NO;
     self.ytv_bootstrapLoadedFromSnapshot = NO;
     self.ytv_initialVideoSourceLabel = @"network_first";
-    BOOL hadDisk = [self ytv_applySnapshotIfAvailable];
-    self.ytv_bootstrapLoadedFromSnapshot = hadDisk;
-    if (!hadDisk) {
-        self.state = YTVShortVideoFeedStateLoading;
-    } else if (completion) {
-        completion();
-    }
+    self.ytv_resumeInitialDisplayIndex = 0;
+    [self.mutableItems removeAllObjects];
+    self.nextCursor = @"";
+    self.hasMore = YES;
+    self.state = YTVShortVideoFeedStateLoading;
     self.lastErrorMessage = nil;
     __weak typeof(self) weakSelf = self;
     [self.repository fetchBootstrapWithCategoryKey:self.categoryKey
@@ -235,6 +210,8 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
             };
             if (error) {
                 self.ytv_categoryBootstrapNetworkFinished = YES;
+                BOOL restoredSnapshot = [self ytv_applySnapshotIfAvailable];
+                self.ytv_bootstrapLoadedFromSnapshot = restoredSnapshot;
                 if (self.mutableItems.count > 0) {
                     self.state = YTVShortVideoFeedStateReady;
                     done();
@@ -265,6 +242,7 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
             } else {
                 self.state = YTVShortVideoFeedStateReady;
             }
+            self.ytv_bootstrapLoadedFromSnapshot = NO;
             self.ytv_resumeInitialDisplayIndex = 0;
             self.ytv_initialVideoSourceLabel = @"network_first";
             [self ytv_persistSnapshot];
