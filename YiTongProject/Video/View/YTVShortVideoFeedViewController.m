@@ -23,6 +23,7 @@
 
 static NSString * const kYTVShortVideoCellId = @"YTVShortVideoCell";
 static NSString * const kYTVPlaybackPerfLogPrefix = @"[YTVPlaybackPerf]";
+static NSString * const kYTVFeedPagingLogPrefix = @"[YTVFeedPaging]";
 static const NSTimeInterval kYTVPlaybackInstantStartThresholdSeconds = 0.5;
 static const NSTimeInterval kYTVPlaybackStallLogThresholdSeconds = 0.2;
 static const NSTimeInterval kYTVStartupPrimePollIntervalSeconds = 0.04;
@@ -1038,6 +1039,14 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     NSInteger count = (NSInteger)self.feedViewModel.numberOfItems;
     if (count <= 0) {
         return NSNotFound;
+    }
+    if (fallbackIndex >= 0 && fallbackIndex < count) {
+        YTVVideoFeedItem *fallbackItem = [self.feedViewModel itemAtIndex:fallbackIndex];
+        BOOL fallbackMatchesVideoId = (videoId.length > 0 && [fallbackItem.videoId isEqualToString:videoId]);
+        BOOL fallbackMatchesPlayURL = (playURL.length > 0 && [fallbackItem.playURL isEqualToString:playURL]);
+        if (fallbackMatchesVideoId || fallbackMatchesPlayURL) {
+            return fallbackIndex;
+        }
     }
     if (videoId.length > 0) {
         NSInteger idx = [self.feedViewModel ytv_indexOfVideoId:videoId];
@@ -2178,12 +2187,26 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             (long)idxPage, (long)dataMaxIdx, (long)self.currentPlayIndex, scrollView.contentOffset.y, maxY, scrollView.contentSize.height, maxScrollY, velocity.y,
             (int)onLastByIndex, (int)atEffectiveEnd, (int)wantsNext, (int)allowWrapToHead, (int)shouldWrap, targetContentOffset->y);
         if (shouldWrap) {
+            NSLog(@"%@ loop_wrap_begin mode=manual category=%@ curPlay=%ld loaded_count=%ld hasMore=%@ loadingNext=%@ tailIdle=%@",
+                  kYTVFeedPagingLogPrefix,
+                  self.categoryKey ?: @"<nil>",
+                  (long)self.currentPlayIndex,
+                  (long)self.feedViewModel.numberOfItems,
+                  self.feedViewModel.hasMore ? @"YES" : @"NO",
+                  self.feedViewModel.ytv_isLoadingNext ? @"YES" : @"NO",
+                  self.ytv_allowWrapFromLastAfterTailFetchIdle ? @"YES" : @"NO");
             *targetContentOffset = CGPointMake(0, 0);
             YTVFeedWrapLog(@"willEndDragging: 已把 targetContentOffset 改为 0（无环形兜底）");
         }
     } else {
         YTVFeedWrapLog(@"willEndDragging: ring=1 displayPages=%ld idxPage=%ld dataMax=%ld curPlay=%ld offY=%.2f vy=%.4f ->targetY=%.2f（系统分页，首尾重复页）",
             (long)displayCount, (long)idxPage, (long)dataMaxIdx, (long)self.currentPlayIndex, scrollView.contentOffset.y, velocity.y, targetContentOffset->y);
+        NSLog(@"%@ loop_mode_active mode=ring category=%@ curPlay=%ld loaded_count=%ld hasMore=%@",
+              kYTVFeedPagingLogPrefix,
+              self.categoryKey ?: @"<nil>",
+              (long)self.currentPlayIndex,
+              (long)self.feedViewModel.numberOfItems,
+              self.feedViewModel.hasMore ? @"YES" : @"NO");
     }
     NSInteger targetExt = (NSInteger)llround(targetContentOffset->y / h);
     targetExt = MAX(0, MIN(targetExt, maxPageIdx));
@@ -2211,6 +2234,13 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             BOOL allow = [self ytv_shouldAllowWrapFromLastToHead];
             YTVFeedWrapLog(@"didEndDecelerating: 兜底 visuallyOnLast=%d atEffectiveEnd=%d allowWrap=%d", (int)onLastVisually, (int)atEffectiveEnd, (int)allow);
             if ((onLastVisually || atEffectiveEnd) && allow) {
+                NSLog(@"%@ loop_wrap_commit trigger=didEndDecelerating category=%@ curPlay=%ld loaded_count=%ld hasMore=%@ tailIdle=%@",
+                      kYTVFeedPagingLogPrefix,
+                      self.categoryKey ?: @"<nil>",
+                      (long)self.currentPlayIndex,
+                      (long)self.feedViewModel.numberOfItems,
+                      self.feedViewModel.hasMore ? @"YES" : @"NO",
+                      self.ytv_allowWrapFromLastAfterTailFetchIdle ? @"YES" : @"NO");
                 [scrollView setContentOffset:CGPointMake(0, 0) animated:NO];
                 YTVFeedWrapLog(@"didEndDecelerating: 已 setContentOffset(0) 强制回第一条");
             }
@@ -2237,6 +2267,13 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
                 BOOL allow = [self ytv_shouldAllowWrapFromLastToHead];
                 YTVFeedWrapLog(@"didEndDragging: 兜底 visuallyOnLast=%d atEffectiveEnd=%d allowWrap=%d", (int)onLastVisually, (int)atEffectiveEnd, (int)allow);
                 if ((onLastVisually || atEffectiveEnd) && allow) {
+                    NSLog(@"%@ loop_wrap_commit trigger=didEndDragging category=%@ curPlay=%ld loaded_count=%ld hasMore=%@ tailIdle=%@",
+                          kYTVFeedPagingLogPrefix,
+                          self.categoryKey ?: @"<nil>",
+                          (long)self.currentPlayIndex,
+                          (long)self.feedViewModel.numberOfItems,
+                          self.feedViewModel.hasMore ? @"YES" : @"NO",
+                          self.ytv_allowWrapFromLastAfterTailFetchIdle ? @"YES" : @"NO");
                     [scrollView setContentOffset:CGPointMake(0, 0) animated:NO];
                     YTVFeedWrapLog(@"didEndDragging: 已 setContentOffset(0) 强制回第一条");
                 }
@@ -2278,10 +2315,22 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     NSInteger extPage = (NSInteger)llround(self.collectionView.contentOffset.y / pageH);
     if ([self ytv_loopRingScrollActive] && nData >= 2) {
         if (extPage <= 0) {
+            NSLog(@"%@ loop_play_loaded_list direction=head_to_tail category=%@ curPlay=%ld loaded_count=%ld hasMore=%@",
+                  kYTVFeedPagingLogPrefix,
+                  self.categoryKey ?: @"<nil>",
+                  (long)self.currentPlayIndex,
+                  (long)self.feedViewModel.numberOfItems,
+                  self.feedViewModel.hasMore ? @"YES" : @"NO");
             YTVFeedWrapLog(@"syncPlayIdxFromOffset: 环形顶重复末条 ext=%ld -> 对齐真实末条", (long)extPage);
             [self.collectionView setContentOffset:CGPointMake(0, (CGFloat)nData * pageH) animated:NO];
             extPage = nData;
         } else if (extPage >= nData + 1) {
+            NSLog(@"%@ loop_play_loaded_list direction=tail_to_head category=%@ curPlay=%ld loaded_count=%ld hasMore=%@",
+                  kYTVFeedPagingLogPrefix,
+                  self.categoryKey ?: @"<nil>",
+                  (long)self.currentPlayIndex,
+                  (long)self.feedViewModel.numberOfItems,
+                  self.feedViewModel.hasMore ? @"YES" : @"NO");
             YTVFeedWrapLog(@"syncPlayIdxFromOffset: 环形底重复首条 ext=%ld -> 对齐真实首条", (long)extPage);
             [self.collectionView setContentOffset:CGPointMake(0, pageH) animated:NO];
             extPage = 1;
@@ -2327,12 +2376,33 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             if (requestWhileOnLastLoaded) {
                 if (stillOnLast && !self.feedViewModel.ytv_isLoadingNext) {
                     self.ytv_allowWrapFromLastAfterTailFetchIdle = YES;
+                    NSLog(@"%@ tail_fetch_idle category=%@ displayIdx=%ld curPlay=%ld loaded_count=%ld hasMore=%@ appended=%@ appendedCount=%lu error=%@ allowWrap=%@",
+                          kYTVFeedPagingLogPrefix,
+                          self.categoryKey ?: @"<nil>",
+                          (long)idx,
+                          (long)self.currentPlayIndex,
+                          (long)self.feedViewModel.numberOfItems,
+                          self.feedViewModel.hasMore ? @"YES" : @"NO",
+                          appendedAny ? @"YES" : @"NO",
+                          (unsigned long)appendedCount,
+                          error.localizedDescription ?: @"<nil>",
+                          self.ytv_allowWrapFromLastAfterTailFetchIdle ? @"YES" : @"NO");
                 } else if (!stillOnLast) {
                     self.ytv_allowWrapFromLastAfterTailFetchIdle = NO;
                 }
             } else if (!stillOnLast) {
                 self.ytv_allowWrapFromLastAfterTailFetchIdle = NO;
             }
+        }
+        if (appendedAny) {
+            NSLog(@"%@ next_page_appended category=%@ displayIdx=%ld curPlay=%ld appendedCount=%lu total=%ld hasMore=%@",
+                  kYTVFeedPagingLogPrefix,
+                  self.categoryKey ?: @"<nil>",
+                  (long)idx,
+                  (long)self.currentPlayIndex,
+                  (unsigned long)appendedCount,
+                  (long)self.feedViewModel.numberOfItems,
+                  self.feedViewModel.hasMore ? @"YES" : @"NO");
         }
         YTVFeedWrapLog(@"prefetchDone: idx=%ld appended=%d appendedCount=%lu err=%@ hasMore=%d loadNext=%d tailIdle=%d curPlay=%ld",
             (long)idx, (int)appendedAny, (unsigned long)appendedCount, error.localizedDescription ?: @"(nil)",

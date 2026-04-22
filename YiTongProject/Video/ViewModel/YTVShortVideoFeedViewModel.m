@@ -15,8 +15,8 @@
 
 static const NSInteger kYTVFeedPageSize = 10;
 static const NSInteger kYTVFeedLowWaterMark = 5;
-static const NSInteger kYTVNextDedupeMaxExtraFetches = 3;
 static const NSTimeInterval kYTVFavoriteToggleDebounceSeconds = 0.4;
+static NSString * const kYTVFeedPagingLogPrefix = @"[YTVFeedPaging]";
 
 static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
     if (taleType.length == 0 || taleId.length == 0) {
@@ -224,16 +224,7 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
             }
             [self.mutableItems removeAllObjects];
             if (result.items.count > 0) {
-                NSMutableSet<NSString *> *seen = [NSMutableSet set];
-                for (YTVVideoFeedItem *it in result.items) {
-                    if (it.videoId.length > 0) {
-                        if ([seen containsObject:it.videoId]) {
-                            continue;
-                        }
-                        [seen addObject:it.videoId];
-                    }
-                    [self.mutableItems addObject:it];
-                }
+                [self.mutableItems addObjectsFromArray:result.items];
             }
             self.nextCursor = result.nextCursor ?: @"";
             self.hasMore = [self.class ytv_hasMoreAfterPage:result];
@@ -307,14 +298,7 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
             }
             [self.mutableItems removeAllObjects];
             if (result.items.count > 0) {
-                NSMutableSet<NSString *> *seen = [NSMutableSet set];
                 for (YTVVideoFeedItem *it in result.items) {
-                    if (it.videoId.length > 0) {
-                        if ([seen containsObject:it.videoId]) {
-                            continue;
-                        }
-                        [seen addObject:it.videoId];
-                    }
                     it.isFavorite = YES;
                     [self.mutableItems addObject:it];
                 }
@@ -344,26 +328,14 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
     return result.hasMore;
 }
 
-- (NSUInteger)ytv_appendUniqueItemsFromPageResult:(YTVFeedPageResult *)result {
+- (NSUInteger)ytv_appendItemsFromPageResult:(YTVFeedPageResult *)result {
     if (result.items.count == 0) {
         return 0;
     }
-    NSMutableSet<NSString *> *existing = [NSMutableSet set];
-    for (YTVVideoFeedItem *it in self.mutableItems) {
-        if (it.videoId.length > 0) {
-            [existing addObject:it.videoId];
-        }
-    }
     NSUInteger added = 0;
     for (YTVVideoFeedItem *it in result.items) {
-        if (it.videoId.length > 0 && [existing containsObject:it.videoId]) {
-            continue;
-        }
         if (self.feedSource == YTVShortVideoFeedSourceFavorites) {
             it.isFavorite = YES;
-        }
-        if (it.videoId.length > 0) {
-            [existing addObject:it.videoId];
         }
         [self.mutableItems addObject:it];
         added++;
@@ -376,6 +348,15 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
                            completion:(void (^)(NSError *_Nullable))completion {
     YTVVideoFeedItem *last = self.mutableItems.lastObject;
     NSString *cursor = self.nextCursor ?: @"";
+    NSLog(@"%@ next_request attempt=%ld source=%@ category=%@ cursor=%@ lastVideoId=%@ loaded_count=%lu hasMore=%@",
+          kYTVFeedPagingLogPrefix,
+          (long)attempt,
+          self.feedSource == YTVShortVideoFeedSourceFavorites ? @"favorites" : @"category",
+          self.categoryKey ?: @"<nil>",
+          cursor.length > 0 ? cursor : @"<empty>",
+          last.videoId.length > 0 ? last.videoId : @"<nil>",
+          (unsigned long)self.mutableItems.count,
+          self.hasMore ? @"YES" : @"NO");
     __weak typeof(self) weakSelf = self;
     void (^handleResult)(YTVFeedPageResult * _Nullable, NSError * _Nullable) = ^(YTVFeedPageResult * _Nullable result, NSError * _Nullable error) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -387,12 +368,19 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
                 return;
             }
             if (error) {
+                NSLog(@"%@ next_result attempt=%ld status=error category=%@ cursor=%@ lastVideoId=%@ error=%@",
+                      kYTVFeedPagingLogPrefix,
+                      (long)attempt,
+                      self.categoryKey ?: @"<nil>",
+                      cursor.length > 0 ? cursor : @"<empty>",
+                      last.videoId.length > 0 ? last.videoId : @"<nil>",
+                      error.localizedDescription ?: @"<nil>");
                 if (completion) {
                     completion(error);
                 }
                 return;
             }
-            NSUInteger added = [self ytv_appendUniqueItemsFromPageResult:result];
+            NSUInteger added = [self ytv_appendItemsFromPageResult:result];
             if (added > 0 && anyAppendedPtr != NULL) {
                 *anyAppendedPtr = YES;
             }
@@ -403,17 +391,17 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
                 self.hasMore = [self.class ytv_hasMoreAfterPage:result];
             }
             [self ytv_persistSnapshot];
-            BOOL dupPage = (added == 0 && result.items.count > 0);
-            if (dupPage && self.hasMore && attempt < kYTVNextDedupeMaxExtraFetches) {
-                [self ytv_fetchNextDedupingAttempt:attempt + 1 anyAppended:anyAppendedPtr completion:completion];
-            } else {
-                if (dupPage && added == 0) {
-                    self.hasMore = NO;
-                    [self ytv_persistSnapshot];
-                }
-                if (completion) {
-                    completion(nil);
-                }
+            NSLog(@"%@ next_result attempt=%ld status=success category=%@ page_items=%lu appended=%lu total=%lu hasMore=%@ nextCursor=%@",
+                  kYTVFeedPagingLogPrefix,
+                  (long)attempt,
+                  self.categoryKey ?: @"<nil>",
+                  (unsigned long)result.items.count,
+                  (unsigned long)added,
+                  (unsigned long)self.mutableItems.count,
+                  self.hasMore ? @"YES" : @"NO",
+                  self.nextCursor.length > 0 ? self.nextCursor : @"<empty>");
+            if (completion) {
+                completion(nil);
             }
         });
     };
@@ -435,6 +423,13 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
     if (!self.hasMore || self.isLoadingNext || self.mutableItems.count == 0) {
         YTVFeedWrapLog(@"loadNext skip: displayIdx=%ld hasMore=%d isLoadingNext=%d count=%lu",
             (long)displayIndex, self.hasMore, self.isLoadingNext, (unsigned long)self.mutableItems.count);
+        NSLog(@"%@ next_request_skipped displayIdx=%ld reason=%@ hasMore=%@ isLoadingNext=%@ loaded_count=%lu",
+              kYTVFeedPagingLogPrefix,
+              (long)displayIndex,
+              !self.hasMore ? @"no_more" : (self.isLoadingNext ? @"already_loading" : @"empty_list"),
+              self.hasMore ? @"YES" : @"NO",
+              self.isLoadingNext ? @"YES" : @"NO",
+              (unsigned long)self.mutableItems.count);
         if (completion) {
             completion(NO, 0, nil);
         }
@@ -444,6 +439,12 @@ static NSString *YTVFavoriteToggleKey(NSString *taleType, NSString *taleId) {
     if (remainingAfter > kYTVFeedLowWaterMark) {
         YTVFeedWrapLog(@"loadNext skip: displayIdx=%ld remainingAfter=%ld > lowWater=%ld",
             (long)displayIndex, (long)remainingAfter, (long)kYTVFeedLowWaterMark);
+        NSLog(@"%@ next_request_skipped displayIdx=%ld reason=not_near_tail remaining_after=%ld low_water=%ld loaded_count=%lu",
+              kYTVFeedPagingLogPrefix,
+              (long)displayIndex,
+              (long)remainingAfter,
+              (long)kYTVFeedLowWaterMark,
+              (unsigned long)self.mutableItems.count);
         if (completion) {
             completion(NO, 0, nil);
         }
