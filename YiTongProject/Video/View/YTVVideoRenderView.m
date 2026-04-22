@@ -38,6 +38,10 @@
 
 - (void)attachPlayer:(AVPlayer *)player {
     self.playerLayer.player = player;
+    if (!player) {
+        /// `AVPlayerLayer` 解除 player 后可能仍短暂保留上一帧，这里显式清空，避免切源时旧画面闪回。
+        self.playerLayer.contents = nil;
+    }
 }
 
 @end

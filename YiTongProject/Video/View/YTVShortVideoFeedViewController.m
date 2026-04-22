@@ -30,6 +30,8 @@ static const NSTimeInterval kYTVStartupPrimeMaxWaitSeconds = 0.90;
 static const CGFloat kYTVStartupScrollLockCorrectionThreshold = 1.0;
 static const NSTimeInterval kYTVFirstFrameProbeDelayShortSeconds = 0.25;
 static const NSTimeInterval kYTVFirstFrameProbeDelayLongSeconds = 0.90;
+static const NSTimeInterval kYTVCoverRevealRetryDelaySeconds = 0.05;
+static const NSInteger kYTVCoverRevealRetryMaxAttempts = 120;
 static void *kYTVPlaybackPlayerTimeControlStatusContext = &kYTVPlaybackPlayerTimeControlStatusContext;
 /// 内联全屏：在窗口 safeArea 基础上再保证的最小留白（返回与进度条左对齐）
 static const CGFloat kYTVInlineFullscreenHostChromeInset = 16.0;
@@ -188,9 +190,12 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 @property (nonatomic, assign) YTVFeedPlaybackState ytv_playbackState;
 /// 当前索引已拿到首帧，用于同 URL 复绑时立即揭封面。
 @property (nonatomic, assign) BOOL ytv_currentPlaybackFirstFrameReady;
+@property (nonatomic, assign) BOOL ytv_currentPlaybackCoverRevealed;
 /// 当前绑定对应的播放器 requestId；只响应同一次切源回调。
 @property (nonatomic, assign) NSUInteger ytv_pendingPlaybackRequestId;
 @property (nonatomic, copy, nullable) NSString *ytv_pendingPlaybackURLString;
+/// 当前 `AVPlayer.currentItem` 绑定的业务视频 ID；用于判断是否可直接复用当前会话。
+@property (nonatomic, copy, nullable) NSString *ytv_currentPlaybackIdentityVideoId;
 @property (nonatomic, assign) BOOL ytv_currentPlaybackFromBootstrapRestore;
 @property (nonatomic, assign) BOOL ytv_perfObserversInstalled;
 @property (nonatomic, assign) BOOL ytv_perfSessionActive;
@@ -210,6 +215,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 @property (nonatomic, assign) BOOL ytv_startupScrollLockEnabled;
 @property (nonatomic, strong, nullable) YTVVideoFeedItem *ytv_startupPresentationItem;
 @property (nonatomic, assign) NSInteger ytv_startupPresentationIndex;
+@property (nonatomic, assign) NSUInteger ytv_coverRevealRetryToken;
 /// 抖音式内联全屏：同一 `renderView` 旋转放大，不模态、不 replace item。
 @property (nonatomic, assign) BOOL ytv_inlineFullscreenActive;
 @property (nonatomic, strong, nullable) UIView *ytv_inlineFullscreenHostView;
@@ -296,6 +302,16 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 - (void)ytv_setStartupPresentationItem:(nullable YTVVideoFeedItem *)item index:(NSInteger)index;
 - (void)ytv_clearStartupPresentationItem;
 - (nullable YTVVideoFeedItem *)ytv_displayItemForDataIndex:(NSInteger)dataIdx;
+- (BOOL)ytv_currentPlaybackMatchesItem:(nullable YTVVideoFeedItem *)item expectedPlaybackURL:(nullable NSURL *)expectedPlaybackURL;
+- (BOOL)ytv_shouldAttachPlayerToCurrentCellForItem:(nullable YTVVideoFeedItem *)item
+                                         dataIndex:(NSInteger)dataIdx
+                               expectedPlaybackURL:(nullable NSURL *)expectedPlaybackURL;
+- (BOOL)ytv_shouldDelayInitialCoverRevealForCurrentPlayback;
+- (void)ytv_requestCoverRevealForCurrentPlaybackAnimated:(BOOL)animated;
+- (void)ytv_continueCoverRevealRetryForPlaybackIndex:(NSInteger)index
+                                              token:(NSUInteger)token
+                                  remainingAttempts:(NSInteger)remainingAttempts
+                                           animated:(BOOL)animated;
 - (NSInteger)ytv_resolvedFeedIndexForVideoId:(NSString *)videoId
                                       playURL:(NSString *)playURL
                                 fallbackIndex:(NSInteger)fallbackIndex;
@@ -699,6 +715,9 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             [self ytv_endPlaybackStallIfNeededWithReason:@"resume_playing"];
             if (self.ytv_currentPlaybackFirstFrameReady && !self.ytv_userPausedWithPlayHint) {
                 [self ytv_beginPlaybackActiveSegmentIfNeeded];
+                if (!self.ytv_currentPlaybackCoverRevealed) {
+                    [self ytv_hideCoverForCurrentPlaybackIfReadyAnimated:NO];
+                }
             }
             break;
         case AVPlayerTimeControlStatusPaused:
@@ -860,6 +879,157 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         return self.ytv_startupPresentationItem;
     }
     return [self.feedViewModel itemAtIndex:dataIdx];
+}
+
+- (BOOL)ytv_currentPlaybackMatchesItem:(YTVVideoFeedItem *)item expectedPlaybackURL:(NSURL *)expectedPlaybackURL {
+    if (!item) {
+        return NO;
+    }
+    if (item.videoId.length > 0 || self.ytv_currentPlaybackIdentityVideoId.length > 0) {
+        return item.videoId.length > 0
+            && self.ytv_currentPlaybackIdentityVideoId.length > 0
+            && [item.videoId isEqualToString:self.ytv_currentPlaybackIdentityVideoId];
+    }
+    AVPlayerItem *currentItem = self.playerSession.player.currentItem;
+    if (!currentItem || ![currentItem.asset isKindOfClass:[AVURLAsset class]]) {
+        return NO;
+    }
+    NSURL *currentURL = [(AVURLAsset *)currentItem.asset URL];
+    return currentURL
+        && expectedPlaybackURL
+        && [currentURL.absoluteString isEqualToString:expectedPlaybackURL.absoluteString];
+}
+
+- (BOOL)ytv_shouldAttachPlayerToCurrentCellForItem:(YTVVideoFeedItem *)item
+                                         dataIndex:(NSInteger)dataIdx
+                               expectedPlaybackURL:(NSURL *)expectedPlaybackURL {
+    if (!item || dataIdx == NSNotFound || dataIdx != self.currentPlayIndex) {
+        return NO;
+    }
+    if (self.ytv_currentPlaybackFirstFrameReady) {
+        return YES;
+    }
+    if (self.ytv_pendingBindIndex == dataIdx && self.ytv_pendingPlaybackRequestId != 0) {
+        return YES;
+    }
+    if (![self ytv_currentPlaybackMatchesItem:item expectedPlaybackURL:expectedPlaybackURL]) {
+        return NO;
+    }
+    return (self.playerSession.player.currentItem != nil);
+}
+
+- (BOOL)ytv_shouldDelayInitialCoverRevealForCurrentPlayback {
+    if (self.ytv_currentPlaybackCoverRevealed || !self.ytv_currentPlaybackStartedWithStartupGate) {
+        return NO;
+    }
+    AVPlayer *player = self.playerSession.player;
+    if (!player || player.currentItem == nil) {
+        return YES;
+    }
+    return player.timeControlStatus != AVPlayerTimeControlStatusPlaying || fabs(player.rate) < 0.01;
+}
+
+- (void)ytv_requestCoverRevealForCurrentPlaybackAnimated:(BOOL)animated {
+    if (!self.ytv_currentPlaybackFirstFrameReady || self.currentPlayIndex == NSNotFound) {
+        return;
+    }
+    YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:self.currentPlayIndex];
+    if (!cell) {
+        cell = [self ytv_currentCellForPlaybackIndex:self.currentPlayIndex];
+    }
+    if (!cell) {
+        return;
+    }
+    [cell ytv_clearPlaybackFailureState];
+    if (self.ytv_currentPlaybackCoverRevealed) {
+        [cell ytv_hideCoverAfterFirstFrameAnimated:NO];
+    }
+    if ([self ytv_shouldDelayInitialCoverRevealForCurrentPlayback]) {
+        if (!self.ytv_currentPlaybackCoverRevealed) {
+            [cell ytv_showCoverImmediately];
+        }
+        self.ytv_coverRevealRetryToken += 1;
+        [self ytv_continueCoverRevealRetryForPlaybackIndex:self.currentPlayIndex
+                                                     token:self.ytv_coverRevealRetryToken
+                                         remainingAttempts:kYTVCoverRevealRetryMaxAttempts
+                                                  animated:animated];
+        return;
+    }
+    if (cell.renderView.playerLayer.readyForDisplay) {
+        self.ytv_coverRevealRetryToken += 1;
+        self.ytv_currentPlaybackCoverRevealed = YES;
+        [cell ytv_hideCoverAfterFirstFrameAnimated:animated];
+        return;
+    }
+    if (!self.ytv_currentPlaybackCoverRevealed) {
+        [cell ytv_showCoverImmediately];
+    }
+    self.ytv_coverRevealRetryToken += 1;
+    [self ytv_continueCoverRevealRetryForPlaybackIndex:self.currentPlayIndex
+                                                 token:self.ytv_coverRevealRetryToken
+                                     remainingAttempts:kYTVCoverRevealRetryMaxAttempts
+                                              animated:animated];
+}
+
+- (void)ytv_continueCoverRevealRetryForPlaybackIndex:(NSInteger)index
+                                              token:(NSUInteger)token
+                                  remainingAttempts:(NSInteger)remainingAttempts
+                                           animated:(BOOL)animated {
+    if (token != self.ytv_coverRevealRetryToken
+        || !self.ytv_currentPlaybackFirstFrameReady
+        || self.currentPlayIndex != index) {
+        return;
+    }
+    YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:index];
+    if (!cell) {
+        cell = [self ytv_currentCellForPlaybackIndex:index];
+    }
+    if (!cell) {
+        return;
+    }
+    [cell ytv_clearPlaybackFailureState];
+    if (self.ytv_currentPlaybackCoverRevealed) {
+        [cell ytv_hideCoverAfterFirstFrameAnimated:NO];
+    }
+    if ([self ytv_shouldDelayInitialCoverRevealForCurrentPlayback]) {
+        if (!self.ytv_currentPlaybackCoverRevealed) {
+            [cell ytv_showCoverImmediately];
+        }
+        if (remainingAttempts <= 0) {
+            return;
+        }
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kYTVCoverRevealRetryDelaySeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) {
+                return;
+            }
+            [self ytv_continueCoverRevealRetryForPlaybackIndex:index
+                                                         token:token
+                                             remainingAttempts:(remainingAttempts - 1)
+                                                      animated:animated];
+        });
+        return;
+    }
+    if (cell.renderView.playerLayer.readyForDisplay) {
+        self.ytv_currentPlaybackCoverRevealed = YES;
+        [cell ytv_hideCoverAfterFirstFrameAnimated:animated];
+        return;
+    }
+    if (remainingAttempts <= 0) {
+        return;
+    }
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kYTVCoverRevealRetryDelaySeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
+        [self ytv_continueCoverRevealRetryForPlaybackIndex:index
+                                                     token:token
+                                         remainingAttempts:(remainingAttempts - 1)
+                                                  animated:animated];
+    });
 }
 
 - (NSInteger)ytv_resolvedFeedIndexForVideoId:(NSString *)videoId
@@ -1033,8 +1203,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     [self ytv_syncVisibleCellsForActivePlaybackIndex:targetIdx];
     YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:targetIdx];
     if (self.ytv_currentPlaybackFirstFrameReady && cell) {
-        [cell ytv_clearPlaybackFailureState];
-        [cell ytv_hideCoverAfterFirstFrameAnimated:NO];
+        [self ytv_requestCoverRevealForCurrentPlaybackAnimated:NO];
     }
     [self ytv_refreshInteractionChrome];
 }
@@ -1326,9 +1495,17 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
             /// 切回分类时若 `AVPlayer` 上仍是当前条 URL，`ytv_applyPlaybackForCurrentIndexIfPossible` 会走复用分支，仅 re-attach layer。
             [self ytv_applyPlaybackForCurrentIndexIfPossible];
             [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
-            [self.playerSession play];
-            self.ytv_userPausedWithPlayHint = NO;
-            [self ytv_syncPausedPlayHintForCurrentCell];
+            YTVVideoFeedItem *item = [self ytv_displayItemForDataIndex:self.currentPlayIndex];
+            NSURL *assetURL = [self ytv_assetURLFromPlayURLString:item.playURL];
+            YTVVideoCachePlaybackDecision *cacheDecision = item ? [self.preloadManager playbackDecisionForVideoId:item.videoId playURL:item.playURL] : nil;
+            NSURL *expectedPlaybackURL = cacheDecision.playbackURL ?: assetURL;
+            if ([self ytv_shouldAttachPlayerToCurrentCellForItem:item
+                                                       dataIndex:self.currentPlayIndex
+                                             expectedPlaybackURL:expectedPlaybackURL]) {
+                [self.playerSession play];
+                self.ytv_userPausedWithPlayHint = NO;
+                [self ytv_syncPausedPlayHintForCurrentCell];
+            }
         }
         return;
     }
@@ -1346,9 +1523,17 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     } else if (self.feedViewModel.state == YTVShortVideoFeedStateReady) {
         [self ytv_applyPlaybackForCurrentIndexIfPossible];
         [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
-        [self.playerSession play];
-        self.ytv_userPausedWithPlayHint = NO;
-        [self ytv_syncPausedPlayHintForCurrentCell];
+        YTVVideoFeedItem *item = [self ytv_displayItemForDataIndex:self.currentPlayIndex];
+        NSURL *assetURL = [self ytv_assetURLFromPlayURLString:item.playURL];
+        YTVVideoCachePlaybackDecision *cacheDecision = item ? [self.preloadManager playbackDecisionForVideoId:item.videoId playURL:item.playURL] : nil;
+        NSURL *expectedPlaybackURL = cacheDecision.playbackURL ?: assetURL;
+        if ([self ytv_shouldAttachPlayerToCurrentCellForItem:item
+                                                   dataIndex:self.currentPlayIndex
+                                         expectedPlaybackURL:expectedPlaybackURL]) {
+            [self.playerSession play];
+            self.ytv_userPausedWithPlayHint = NO;
+            [self ytv_syncPausedPlayHintForCurrentCell];
+        }
     }
 }
 
@@ -1439,9 +1624,17 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (self.currentPlayIndex != NSNotFound && self.feedViewModel.state == YTVShortVideoFeedStateReady) {
         [self ytv_applyPlaybackForCurrentIndexIfPossible];
         [self ytv_primeUpcomingWarmItemsForCurrentPlayback];
-        [self.playerSession play];
-        self.ytv_userPausedWithPlayHint = NO;
-        [self ytv_syncPausedPlayHintForCurrentCell];
+        YTVVideoFeedItem *item = [self ytv_displayItemForDataIndex:self.currentPlayIndex];
+        NSURL *assetURL = [self ytv_assetURLFromPlayURLString:item.playURL];
+        YTVVideoCachePlaybackDecision *cacheDecision = item ? [self.preloadManager playbackDecisionForVideoId:item.videoId playURL:item.playURL] : nil;
+        NSURL *expectedPlaybackURL = cacheDecision.playbackURL ?: assetURL;
+        if ([self ytv_shouldAttachPlayerToCurrentCellForItem:item
+                                                   dataIndex:self.currentPlayIndex
+                                         expectedPlaybackURL:expectedPlaybackURL]) {
+            [self.playerSession play];
+            self.ytv_userPausedWithPlayHint = NO;
+            [self ytv_syncPausedPlayHintForCurrentCell];
+        }
     }
 }
 
@@ -2292,6 +2485,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     }
     self.ytv_pendingBindIndex = newIndex;
     self.ytv_currentPlaybackFirstFrameReady = NO;
+    self.ytv_currentPlaybackCoverRevealed = NO;
     self.ytv_pendingPlaybackURLString = nil;
     self.ytv_standbyTargetIndex = NSNotFound;
     [self ytv_applyPlaybackForCurrentIndexIfPossible];
@@ -2344,6 +2538,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     self.ytv_pendingBindIndex = NSNotFound;
     self.ytv_pendingPlaybackURLString = nil;
     self.ytv_currentPlaybackFirstFrameReady = NO;
+    self.ytv_currentPlaybackCoverRevealed = NO;
 }
 
 /// 首帧已上屏：结束切换态，并把 `pendingPlaybackRequestId` 与当前会话对齐，避免后续杂散事件误匹配。
@@ -2369,6 +2564,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     self.ytv_currentPlaybackResolvedURL = nil;
     self.ytv_currentPlaybackResolvedURLIsLocal = NO;
     self.ytv_currentPlaybackResolvedFileBytes = 0;
+    self.ytv_currentPlaybackIdentityVideoId = nil;
     self.ytv_userPausedWithPlayHint = NO;
     [self ytv_syncPausedPlayHintForCurrentCell];
 }
@@ -2435,7 +2631,9 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     self.ytv_playbackState = YTVFeedPlaybackStatePlaying;
     self.ytv_pendingPlaybackRequestId = self.playerSession.currentRequestId;
     if (self.ytv_currentPlaybackFirstFrameReady && cell) {
-        [cell ytv_hideCoverAfterFirstFrameAnimated:NO];
+        self.ytv_pendingBindIndex = NSNotFound;
+        self.ytv_pendingPlaybackURLString = nil;
+        [self ytv_requestCoverRevealForCurrentPlaybackAnimated:NO];
     }
     [self.playerSession play];
     self.ytv_userPausedWithPlayHint = NO;
@@ -2508,6 +2706,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     self.ytv_isSwitchingPlayback = YES;
     self.ytv_playbackState = YTVFeedPlaybackStateSwitching;
     self.ytv_currentPlaybackFirstFrameReady = NO;
+    self.ytv_currentPlaybackCoverRevealed = NO;
     self.ytv_pendingPlaybackURLString = targetURLString;
     self.ytv_currentPlaybackStartTime = CACurrentMediaTime();
     self.ytv_currentPlaybackReplaceStartTime = self.ytv_currentPlaybackStartTime;
@@ -2592,6 +2791,10 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     [self ytv_appendPlaybackResolvedLocationToLogLine:beginLine];
     [self ytv_appendPlaybackMaterialInfoToLogLine:beginLine item:item];
     NSLog(@"%@", beginLine);
+    if (cell) {
+        [cell.renderView attachPlayer:self.playerSession.player];
+    }
+    self.ytv_currentPlaybackIdentityVideoId = item.videoId.length > 0 ? [item.videoId copy] : nil;
     if (requestId != expectedRequestId && requestId != 0) {
         self.ytv_pendingPlaybackRequestId = requestId;
     }
@@ -2618,18 +2821,22 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     [self ytv_probeNaturalVideoSizeIfNeededForItem:item];
     self.ytv_pendingBindIndex = bindIdx;
     YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:bindIdx];
+    BOOL currentPlaybackMatches = [self ytv_currentPlaybackMatchesItem:item expectedPlaybackURL:expectedPlaybackURL];
+    if (currentPlaybackMatches) {
+        if (cell) {
+            [self ytv_syncVisibleCellsForActivePlaybackIndex:bindIdx];
+            [self.playerSession bindPlayerLayerForFirstFrameObservation:cell.renderView.playerLayer];
+        } else {
+            [self.playerSession bindPlayerLayerForFirstFrameObservation:nil];
+        }
+        self.ytv_currentPlaybackIdentityVideoId = item.videoId.length > 0 ? [item.videoId copy] : nil;
+        [self ytv_resumePlaybackForCurrentItemAtIndex:bindIdx cell:cell];
+        return;
+    }
     if (cell) {
         [self ytv_prepareCellForSwitchingPlaybackAtIndex:bindIdx];
     } else {
         [self.playerSession bindPlayerLayerForFirstFrameObservation:nil];
-    }
-    AVPlayerItem *currentItem = self.playerSession.player.currentItem;
-    if (currentItem && [currentItem.asset isKindOfClass:[AVURLAsset class]]) {
-        NSURL *currentURL = [(AVURLAsset *)currentItem.asset URL];
-        if (currentURL && expectedPlaybackURL && [currentURL.absoluteString isEqualToString:expectedPlaybackURL.absoluteString]) {
-            [self ytv_resumePlaybackForCurrentItemAtIndex:bindIdx cell:cell];
-            return;
-        }
     }
     [self ytv_replacePlaybackForItem:item url:assetURL bindIdx:bindIdx cell:cell];
 }
@@ -2732,7 +2939,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
         NSInteger dataIdx = indexPath ? [self ytv_dataItemIndexForCollectionItem:(NSInteger)indexPath.item] : NSNotFound;
         BOOL isActive = (indexPath != nil && dataIdx == activeIndex);
         if (isActive) {
-            [cell renderView].playerLayer.player = self.playerSession.player;
+            [cell.renderView attachPlayer:self.playerSession.player];
             continue;
         }
         [cell.renderView attachPlayer:nil];
@@ -2745,14 +2952,13 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 - (void)ytv_prepareCellForSwitchingPlaybackAtIndex:(NSInteger)index {
     [self ytv_syncVisibleCellsForActivePlaybackIndex:index];
     YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:index];
+    [self.playerSession bindPlayerLayerForFirstFrameObservation:nil];
     if (!cell) {
-        [self.playerSession bindPlayerLayerForFirstFrameObservation:nil];
         return;
     }
     [cell ytv_showCoverImmediately];
     [cell ytv_clearPlaybackFailureState];
-    [cell.renderView attachPlayer:self.playerSession.player];
-    [self.playerSession bindPlayerLayerForFirstFrameObservation:cell.renderView.playerLayer];
+    [cell.renderView attachPlayer:nil];
 }
 
 - (void)ytv_bindPlaybackToCurrentCellIfNeeded:(YTVShortVideoCell *)cell
@@ -2763,12 +2969,24 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     }
     BOOL current = (dataIdx == self.currentPlayIndex);
     if (current) {
-        [cell.renderView attachPlayer:self.playerSession.player];
-        [self.playerSession bindPlayerLayerForFirstFrameObservation:cell.renderView.playerLayer];
-        if (self.ytv_currentPlaybackFirstFrameReady) {
-            [cell ytv_hideCoverAfterFirstFrameAnimated:NO];
+        YTVVideoFeedItem *item = [self ytv_displayItemForDataIndex:dataIdx];
+        NSURL *assetURL = [self ytv_assetURLFromPlayURLString:item.playURL];
+        YTVVideoCachePlaybackDecision *cacheDecision = item ? [self.preloadManager playbackDecisionForVideoId:item.videoId playURL:item.playURL] : nil;
+        NSURL *expectedPlaybackURL = cacheDecision.playbackURL ?: assetURL;
+        if ([self ytv_shouldAttachPlayerToCurrentCellForItem:item
+                                                   dataIndex:dataIdx
+                                         expectedPlaybackURL:expectedPlaybackURL]) {
+            [cell.renderView attachPlayer:self.playerSession.player];
+            [self.playerSession bindPlayerLayerForFirstFrameObservation:cell.renderView.playerLayer];
+            if (self.ytv_currentPlaybackFirstFrameReady) {
+                [self ytv_requestCoverRevealForCurrentPlaybackAnimated:NO];
+            } else {
+                [cell ytv_showCoverImmediately];
+            }
         } else {
+            [cell.renderView attachPlayer:nil];
             [cell ytv_showCoverImmediately];
+            [cell ytv_clearPlaybackFailureState];
         }
         if (self.ytv_isSwitchingPlayback
             || [self ytv_shouldDeferNonCriticalStartupWork]
@@ -2792,13 +3010,30 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
 /// 首帧真正到达后再揭封面，并结束本次切换态。
 - (void)ytv_finishFirstFrameAtIndex:(NSInteger)index {
     BOOL releasingStartupGate = self.ytv_deferNonCriticalWarmUntilFirstFrame;
+    BOOL deferringRevealUntilAfterReload = self.ytv_pendingFeedReloadAligningToActivePlayback;
+    BOOL delayingInitialRevealForStartup = releasingStartupGate;
     YTVShortVideoCell *cell = [self ytv_visibleCellForPlaybackIndexIfAvailable:index];
     [cell ytv_clearPlaybackFailureState];
-    [cell ytv_hideCoverAfterFirstFrameAnimated:YES];
     [self ytv_commitPlaybackBindingAfterFirstFrame];
-    [self ytv_hideCoverForCurrentPlaybackIfReadyAnimated:NO];
+    if (!deferringRevealUntilAfterReload && !delayingInitialRevealForStartup) {
+        [self ytv_hideCoverForCurrentPlaybackIfReadyAnimated:YES];
+    }
     self.ytv_deferNonCriticalWarmUntilFirstFrame = NO;
     [self ytv_applyDeferredFeedReloadAligningToActivePlaybackIfNeeded];
+    if (!deferringRevealUntilAfterReload) {
+        if (delayingInitialRevealForStartup) {
+            __weak typeof(self) weakSelf = self;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kYTVCoverRevealRetryDelaySeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) self = weakSelf;
+                if (!self) {
+                    return;
+                }
+                [self ytv_hideCoverForCurrentPlaybackIfReadyAnimated:NO];
+            });
+        } else {
+            [self ytv_hideCoverForCurrentPlaybackIfReadyAnimated:NO];
+        }
+    }
     [self ytv_updateStartupScrollLockIfNeeded];
     self.ytv_pendingPlaybackURLString = nil;
     self.ytv_currentPlaybackFromBootstrapRestore = NO;
@@ -2862,19 +3097,7 @@ typedef NS_ENUM(NSInteger, YTVFeedPlaybackState) {
     if (!self.ytv_currentPlaybackFirstFrameReady || self.currentPlayIndex == NSNotFound) {
         return;
     }
-    for (UICollectionViewCell *raw in self.collectionView.visibleCells) {
-        if (![raw isKindOfClass:[YTVShortVideoCell class]]) {
-            continue;
-        }
-        YTVShortVideoCell *cell = (YTVShortVideoCell *)raw;
-        NSIndexPath *ip = [self.collectionView indexPathForCell:cell];
-        NSInteger dataIdx = ip ? [self ytv_dataItemIndexForCollectionItem:(NSInteger)ip.item] : NSNotFound;
-        if (ip == nil || dataIdx != self.currentPlayIndex) {
-            continue;
-        }
-        [cell ytv_clearPlaybackFailureState];
-        [cell ytv_hideCoverAfterFirstFrameAnimated:animated];
-    }
+    [self ytv_requestCoverRevealForCurrentPlaybackAnimated:animated];
 }
 
 /// 播放失败时保留封面，避免露出黑底或旧帧。
