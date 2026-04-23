@@ -46,26 +46,11 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
 
 @implementation YTVShortVideoCell
 
-- (void)ytv_applyFallbackVideoSizeFromCoverImage:(UIImage *)coverImage item:(YTVVideoFeedItem *)item {
-    if (!coverImage || !item || item.ytv_hasNaturalVideoSize) {
-        return;
-    }
-    CGSize coverSize = coverImage.size;
-    if (coverSize.width < 1.0 || coverSize.height < 1.0) {
-        return;
-    }
-    /// 绝大多数封面与视频同宽高比；首屏先复用封面尺寸，避免等异步探测回来再刷新一次视频区域大小。
-    item.ytv_naturalVideoWidth = coverSize.width;
-    item.ytv_naturalVideoHeight = coverSize.height;
-    item.ytv_hasNaturalVideoSize = YES;
-}
-
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
         self.contentView.backgroundColor = [UIColor blackColor];
         [self.contentView addSubview:self.renderView];
-        [self.contentView addSubview:self.coverImageView];
         [self.contentView addSubview:self.fullScreenTapView];
         [self.fullScreenTapView addSubview:self.pausedPlayHintView];
         [self.contentView addSubview:self.chromeLeftStack];
@@ -90,7 +75,7 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
     }
     [self.coverImageView sd_cancelCurrentImageLoad];
     self.coverImageView.image = nil;
-    [self ytv_showCoverImmediately];
+    [self ytv_hideCoverAfterFirstFrameAnimated:NO];
     [self ytv_clearPlaybackFailureState];
     self.pausedPlayHintView.hidden = YES;
     self.ytv_onVideoAreaTap = nil;
@@ -135,14 +120,10 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
     self.swipeDimOverlayView.frame = self.contentView.bounds;
     CGRect videoFrame = [self ytv_videoContentFrameInContentBounds:self.contentView.bounds];
     self.fullScreenTapView.frame = CGRectIsEmpty(videoFrame) ? self.contentView.bounds : videoFrame;
-    self.coverImageView.contentMode = UIViewContentModeScaleAspectFit;
     /// 抖音式全屏会把 `renderView` 临时挂到遮罩上，仍在 cell 上时不要改其 frame。
     if (self.renderView.superview == self.contentView) {
         self.renderView.frame = videoFrame;
-        self.coverImageView.frame = videoFrame;
         self.renderView.playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
-    } else {
-        self.coverImageView.frame = videoFrame;
     }
     CGFloat hintSide = MIN(88, MIN(CGRectGetWidth(self.fullScreenTapView.bounds), CGRectGetHeight(self.fullScreenTapView.bounds)) * 0.28);
     hintSide = MAX(hintSide, 56);
@@ -159,40 +140,13 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
     [self ytv_layoutFullScreenChromeButtonForVideoFrame:videoFrame];
 }
 
-/// 短视频首显只读取已预取到缓存里的封面，不在 cell 露出瞬间再发起网络请求，避免拖慢滑动手势。
+/// 短视频 cell 只负责视频画面与互动层，不再显示封面图。
 - (void)configureWithItem:(YTVVideoFeedItem *)item {
-    if (!item) {
-        [self.coverImageView sd_cancelCurrentImageLoad];
-        self.coverImageView.image = nil;
-        [self ytv_showCoverImmediately];
-        [self ytv_applyVideoLayoutFromFeedItem:nil];
-        return;
-    }
-    [self ytv_showCoverImmediately];
-    [self ytv_clearPlaybackFailureState];
     [self.coverImageView sd_cancelCurrentImageLoad];
     self.coverImageView.image = nil;
-    UIImage *cachedImage = nil;
-    if (item.coverURL.length == 0) {
-        [self ytv_applyVideoLayoutFromFeedItem:item];
-        return;
-    }
-    NSURL *coverURL = [NSURL URLWithString:item.coverURL];
-    if (!coverURL) {
-        [self ytv_applyVideoLayoutFromFeedItem:item];
-        return;
-    }
-    NSString *cacheKey = [[SDWebImageManager sharedManager] cacheKeyForURL:coverURL];
-    SDImageCache *cache = [SDImageCache sharedImageCache];
-    cachedImage = [cache imageFromMemoryCacheForKey:cacheKey];
-    if (!cachedImage) {
-        cachedImage = [cache imageFromDiskCacheForKey:cacheKey];
-    }
-    [self ytv_applyFallbackVideoSizeFromCoverImage:cachedImage item:item];
     [self ytv_applyVideoLayoutFromFeedItem:item];
-    if (cachedImage) {
-        self.coverImageView.image = cachedImage;
-    }
+    [self ytv_hideCoverAfterFirstFrameAnimated:NO];
+    [self ytv_clearPlaybackFailureState];
 }
 
 - (void)ytv_applyVideoLayoutFromFeedItem:(YTVVideoFeedItem *)item {
@@ -376,8 +330,14 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
         return;
     }
     static const CGFloat side = 40;
+    CGFloat minY = CGRectGetMaxY(videoFrame) + 12.0;
+    CGFloat maxY = CGRectGetHeight(self.contentView.bounds) - self.contentView.safeAreaInsets.bottom - side - 12.0;
+    if (minY > maxY) {
+        self.fullScreenChromeButton.hidden = YES;
+        return;
+    }
     CGFloat x = CGRectGetMidX(videoFrame) - side * 0.5;
-    CGFloat y = CGRectGetMaxY(videoFrame) + 10.0;
+    CGFloat y = MIN(minY, maxY);
     self.fullScreenChromeButton.frame = CGRectMake(x, y, side, side);
     [self.contentView bringSubviewToFront:self.fullScreenChromeButton];
     self.fullScreenChromeButton.hidden = NO;
@@ -414,25 +374,14 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
 }
 
 - (void)ytv_setCoverHidden:(BOOL)hidden animated:(BOOL)animated {
-    if (animated) {
-        [UIView animateWithDuration:0.18 animations:^{
-            self.coverImageView.alpha = hidden ? 0 : 1;
-        } completion:^(BOOL finished) {
-            if (finished) {
-                self.coverImageView.hidden = hidden;
-                if (!hidden) {
-                    self.coverImageView.alpha = 1;
-                }
-            }
-        }];
-    } else {
-        self.coverImageView.hidden = hidden;
-        self.coverImageView.alpha = hidden ? 0 : 1;
-    }
+    (void)hidden;
+    (void)animated;
+    self.coverImageView.hidden = YES;
+    self.coverImageView.alpha = 0;
 }
 
 - (void)ytv_showCoverImmediately {
-    [self ytv_setCoverHidden:NO animated:NO];
+    [self ytv_setCoverHidden:YES animated:NO];
 }
 
 - (void)ytv_hideCoverAfterFirstFrameAnimated:(BOOL)animated {
@@ -440,7 +389,6 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
 }
 
 - (void)ytv_showPlaybackFailureState {
-    [self ytv_showCoverImmediately];
     [self ytv_setPausedPlayHintVisible:NO];
     self.ytv_playbackFailureVisible = YES;
     self.playbackFailureOverlayView.hidden = NO;
@@ -593,6 +541,8 @@ static NSString * const kYTVChromeSeeAllURLHost = @"see-all";
         _coverImageView.contentMode = UIViewContentModeScaleAspectFill;
         _coverImageView.clipsToBounds = YES;
         _coverImageView.backgroundColor = [UIColor blackColor];
+        _coverImageView.hidden = YES;
+        _coverImageView.alpha = 0;
     }
     return _coverImageView;
 }
